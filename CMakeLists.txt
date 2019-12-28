@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
   geometry_msgs
+  goal_strategy
 )
 
 ## System dependencies are found with CMake's conventions
@@ -76,6 +77,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
+  goal_strategy
   #UpdateStrat
 )
 
@@ -110,8 +112,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES goal_strategy
-  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs
+  #LIBRARIES goal_strategy
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs goal_strategy
   #DEPENDS system_lib
 )
 
@@ -134,7 +136,8 @@ include_directories(
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_dependencies(goal_strategy goal_strategy_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context

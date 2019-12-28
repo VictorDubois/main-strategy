@@ -1,4 +1,5 @@
 #include "core.h"
+#include "ros/ros.h"
 #include <stdexcept>
 #define MAX_ALLOWED_ANGULAR_SPEED 0.2
 
@@ -6,6 +7,10 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #endif
+
+#include "geometry_msgs/Pose.h"
+#include "geometry_msgs/Twist.h"
+#include <goal_strategy/motors_cmd.h>
 
 void Core::setupGPIO() {
 #ifdef RASPI
@@ -77,10 +82,13 @@ void Core::cart_to_polar(int posX, int posY, float& theta, float& distance) {
 
 
 int main (int argc, char *argv[]) {
+	ros::init(argc, argv, "mainStrat");
 	Core* my_core = new Core();
 	my_core->Setup(argc, argv);
 
-	while(my_core->Loop()){}
+	while(my_core->Loop() && ros::ok()) {
+		ros::spinOnce();	
+	}
 
 	delete my_core;
 }
@@ -100,8 +108,18 @@ void Core::select_color() {
 		printf("Starting match as YELLOW\n");
 	fflush(stdout);
 }
+void Core::updateCurrentPose(goal_strategy::motors motors_state) {
+	encoder1 = motors_state.encoders.encoder_right;
+	encoder2 = motors_state.encoders.encoder_right;
 
+	// low pass filter
+	update_encoders(encoder1, encoder2);
+
+}
 Core::Core() {
+	ros::NodeHandle n;
+	motors_cmd_pub = n.advertise<geometry_msgs::Pose>("motors_cmd", 1000);
+	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
 	integration_field[NB_NEURONS] = {0.};
 	goal_output[NB_NEURONS] = {0.};
 	obstacles_output[NB_NEURONS] = {0.};
@@ -178,6 +196,24 @@ Core::Core() {
 	last_encoder1 = last_encoder2 = 0;
 }
 
+void Core::stop_motors() {
+	set_motors_speed(0, 0, false, false);
+}
+
+void Core::set_motors_speed(float linearSpeed, float angularSpeed) {
+	set_motors_speed(linearSpeed, angularSpeed, true, false);
+}
+
+void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders) {
+	goal_strategy::motors_cmd new_motor_cmd;
+	new_motor_cmd.speed_command.linear.x = linearSpeed;
+	new_motor_cmd.speed_command.angular.z = angularSpeed;
+	new_motor_cmd.enable = enable;
+	new_motor_cmd.reset_encoders = resetEncoders;
+
+	motors_cmd_pub.publish(new_motor_cmd);
+}
+
 int Core::Setup(int argc, char* argv[]) {
 	/**************************************
 	 *               Setup                *
@@ -200,7 +236,7 @@ int Core::Setup(int argc, char* argv[]) {
 	// Take time before entering the loop
 	clock_gettime(CLOCK_MONOTONIC, &last);
 
-	set_motors_speed(cmd_motor, mode, 0, 0);
+	set_motors_speed(0, 0, false, false);
 	printf("before while\n");
 	fflush(stdout);
 
@@ -208,9 +244,16 @@ int Core::Setup(int argc, char* argv[]) {
 	return 0;
 }
 
+void Core::landscapeFromAngleAndStrength(float[]& landscape, float angle, float strenght) {
+	for (int i = 0; i < NB_NEURONS; i++) {
+		landscape[i] = cos(angle) * strength;
+	}
+
+}
+
 Core::~Core() {
 	// We broke out of the loop, stop everything
-	stop_motors (cmd_motor, mode);
+	stop_motors();
 
 	printf ("Got out of the main loop, stopped everything.\n");
 
@@ -231,10 +274,6 @@ Core::~Core() {
 }
 
 void Core::update_encoders(long& encoder1, long& encoder2) {
-	// Get encoders values
-	encoder1 = get_encoder_1(speed_motor);
-	encoder2 = get_encoder_2(speed_motor);
-
 	/*
 	 * We currently have a bug where sometimes the value of an encoder jumps to a
 	 * very high value. We mitigate this by "filtering" these big jumps
@@ -285,8 +324,6 @@ int Core::Loop() {
 			return state;
 		}
 
-		update_encoders(encoder1, encoder2);
-
 		// Compute the robot's linear speed & orientation
 		float speed = compute_linear_speed(encoder1, encoder2, elapsed);
 		// the robot's orientation, in degrees (the robots is born at its 0 deg)
@@ -302,7 +339,7 @@ int Core::Loop() {
 		//printf("Rho = %.3f - Theta = %d deg\n", integration_field[i], i);
 
 		if (state == WAIT_TIRETTE) {
-			set_motors_speed(cmd_motor, mode, 0, 0);
+			set_motors_speed(0, 0, false, false);
 			wait_for_tirette();
 		} else if (state == NORMAL) {
 			chrono = compute_match_chrono();
@@ -375,7 +412,7 @@ int Core::Loop() {
 				angular_speed = 0;
 
 			// Set motors speed according to values computed before
-			set_motors_speed(cmd_motor, mode, linear_speed, angular_speed);
+			set_motors_speed(linear_speed, angular_speed, true, false);
 		} // End of state == NORMAL
 
 		maintain_loop_timing();

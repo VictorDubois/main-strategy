@@ -29,6 +29,7 @@ extern "C" {
 #endif
 #include "constants.h"
 #include "helpers_broker.h"
+#include <goal_strategy/motors.h>
 
 /*#include "ct_scan.h"
 //#include "getters_setters.h"
@@ -153,7 +154,13 @@ private:
 	struct timespec now, last, begin_match;
 	bool is_tirette_msg_displayed = false;
 	int is_blue;
+	ros::Publisher motors_cmd_pub;
+	ros::Subscriber encoders_sub;
 
+	void stop_motors();
+	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
+	void set_motors_speed(float linearSpeed, float angularSpeed);
+	void updateCurrentPose(goal_strategy::motors motors_state);
 public:
 	Core();
 	~Core();
