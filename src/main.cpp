@@ -8,8 +8,6 @@
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #endif
 
-#include "geometry_msgs/Pose.h"
-#include "geometry_msgs/Twist.h"
 #include <goal_strategy/motors_cmd.h>
 
 void Core::setupGPIO() {
@@ -108,6 +106,7 @@ void Core::select_color() {
 		printf("Starting match as YELLOW\n");
 	fflush(stdout);
 }
+
 void Core::updateCurrentPose(goal_strategy::motors motors_state) {
 	encoder1 = motors_state.encoders.encoder_right;
 	encoder2 = motors_state.encoders.encoder_right;
@@ -115,11 +114,61 @@ void Core::updateCurrentPose(goal_strategy::motors motors_state) {
 	// low pass filter
 	update_encoders(encoder1, encoder2);
 
+	update_current_pose(encoder1, encoder2);
 }
+
+float Core::vector_to_angle(geometry_msgs::Vector3 vector) {
+	return atan(vector.y/vector.x);
+}
+
+float Core::vector_to_angle(geometry_msgs::Point vector) {
+	return atan(vector.y/vector.x);
+}
+
+float Core::vector_to_amplitude(geometry_msgs::Vector3 vector) {
+	return sqrt((vector.x * vector.x) + (vector.y * vector.y));
+}
+
+float Core::vector_to_amplitude(geometry_msgs::Point vector) {
+	return sqrt((vector.x * vector.x) + (vector.y * vector.y));
+}
+
+void Core::updateGoal(geometry_msgs::Point goal_point) {
+	//target_orientation = vector_to_angle(goal_out.vector);
+	target_orientation = vector_to_angle(goal_point);
+
+	//last_goal_max_speed = goal_out.max_speed;
+}
+
+void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
+	// Compute repulsive vector from obstacles
+	uint16_t closest_obstacle_id = vector_to_angle(closest_obstacle);
+
+	// Compute intensity of obstacle
+	float obstacle_dangerouseness = 175. * vector_to_amplitude(closest_obstacle);
+
+	//printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
+	// Then apply gaussian function centered on the sensor's angle
+	for (int j = 0; j < NB_NEURONS; j += 1) {
+		//obstacles_output[j] += - gaussian(50., a, (360 + 180 - idx) % 360, j);
+		lidar_output[j] += - gaussian(50., obstacle_dangerouseness, (360 + 180 + closest_obstacle_id) % 360, j);
+	}
+}
+
 Core::Core() {
+	last_distance = 0;
+	geometry_msgs::Twist last_lidar_max_speed;
+	last_lidar_max_speed.linear.x = 0;
+	last_lidar_max_speed.linear.y = 0;
+	last_lidar_max_speed.angular.z = 0;
+	geometry_msgs::Twist last_goal_max_speed;
+	last_goal_max_speed.linear.x = 0;
+	last_goal_max_speed.linear.y = 0;
+	last_goal_max_speed.angular.z = 0;
 	ros::NodeHandle n;
 	motors_cmd_pub = n.advertise<geometry_msgs::Pose>("motors_cmd", 1000);
 	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
+	goal_sub = n.subscribe("goal", 1000, &Core::updateGoal, this);
 	integration_field[NB_NEURONS] = {0.};
 	goal_output[NB_NEURONS] = {0.};
 	obstacles_output[NB_NEURONS] = {0.};
@@ -244,11 +293,15 @@ int Core::Setup(int argc, char* argv[]) {
 	return 0;
 }
 
-void Core::landscapeFromAngleAndStrength(float[]& landscape, float angle, float strenght) {
+void Core::landscapeFromAngleAndStrength(std::vector<float> landscape, float angle, float strength) {
 	for (int i = 0; i < NB_NEURONS; i++) {
-		landscape[i] = cos(angle) * strength;
+		landscape[i] = cos(angle-i) * strength;
 	}
 
+}
+
+bool Core::digitalRead(int) {
+	return true;
 }
 
 Core::~Core() {
@@ -256,21 +309,6 @@ Core::~Core() {
 	stop_motors();
 
 	printf ("Got out of the main loop, stopped everything.\n");
-
-	// Print robot's final position
-	if (PRINT_FINAL_POS) {
-		float rho = integration_field[0];
-		theta = 0;
-
-		for (int i = 1; i < 360; i += 1) {
-			if (integration_field[i] > rho) {
-				rho = integration_field[i];
-				theta = i;
-			}
-		}
-
-		printf("Final position: dist = %.2f, angle = %d deg (%.2f, %.2f)\n", rho, theta, rho * cos((float) theta / 180. * M_PI), rho * sin((float) theta / 180. * M_PI));
-	}
 }
 
 void Core::update_encoders(long& encoder1, long& encoder2) {
@@ -318,6 +356,17 @@ void Core::wait_for_tirette() {
 	}
 }
 
+void Core::update_current_pose(uint32_t encoder1, uint32_t encoder2) {
+	uint32_t distance = (encoder1 + encoder2)/2;
+	uint32_t theta = theta_zero + (encoder1 - encoder2);
+	uint32_t speed = distance - last_distance;                                    // dérivation
+	last_distance = distance;
+	float deltaX = -speed * sin(theta);
+	float deltaY = speed * cos(theta);
+	X += deltaX;                                                  //intégration
+	Y += deltaY;
+}
+
 int Core::Loop() {
 
 		if (is_time_to_stop()) {
@@ -349,31 +398,9 @@ int Core::Loop() {
 
 			compute_target_speed_orientation(orientation);
 
-			// Compute repulsive vector from obstacles
-			uint8_t closest_obstacle_id = get_idx_of_max(s_lidar.output->neural_field, NB_NEURONS);
-
-			// Compute intensity of obstacle
-			float peakValue = 175. * s_lidar.output->neural_field[(closest_obstacle_id) % 360];
-
-			//printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
-			//fflush(stdout);
-			// Then apply gaussian function centered on the sensor's angle
-			for (int j = 0; j < NB_NEURONS; j += 1) {
-				//obstacles_output[j] += - gaussian(50., a, (360 + 180 - idx) % 360, j);
-				lidar_output[j] += - gaussian(50., peakValue, (360 + 180 + closest_obstacle_id) % 360, j);
-			}
-
 
 			// Inhibit linear speed if there are obstacles
-			//TODO: handle negative values to be able to go reverse
-			if (s_obstacles.output->strength != 0 && s_obstacles.output->speed_inhibition < linear_speed_cmd) {
-				//linear_speed_cmd = s_obstacles.output->speed_inhibition;
-			}
-			//TODO: handle negative values to be able to go reverse
-			if (s_lidar.output->strength != 0 && s_lidar.output->speed_inhibition < linear_speed_cmd) {
-				linear_speed_cmd = s_lidar.output->speed_inhibition;
-			}
-
+			
 			// Compute attractive vectors from positive valence strategies
 			// TODO: choose the POSITIVE VALENCE STRATEGY!
 			for (int i = 0; i < NB_NEURONS; i += 1) {
@@ -383,14 +410,14 @@ int Core::Loop() {
 			// Sum positive and negative valence strategies
 			for (int i = 0; i < NB_NEURONS; i += 1) {
 				// Temporarily check if joystick is active (later: use weighted sum)
-				if (s_joystick.output->strength == 0) {
+				//if (s_joystick.output->strength == 0) {
 					angular_landscape[i] = goal_output[i] + lidar_output[i];
-				}
+				/*}
 				else {
 					printf("joystick is active\n");
 					fflush(stdout);
 					angular_landscape[i] = goal_output[i];
-				}
+				}*/
 			}
 
 			// And finally: differentiate the angular_landscape vector to get drive
@@ -481,7 +508,7 @@ long Core::compute_match_chrono() {
 }
 
 void Core::compute_target_speed_orientation(const unsigned int orientation) {
-	if (s_joystick.output->strength == 1) {
+	/*if (s_joystick.output->strength == 1) {
 		target_orientation = get_idx_of_max(s_joystick.output->neural_field, NB_NEURONS);
 		linear_speed_cmd = s_joystick.output->speed_inhibition;
 		//printf("Target orientation from joystick: %d\n", target_orientation);
@@ -498,16 +525,17 @@ void Core::compute_target_speed_orientation(const unsigned int orientation) {
 		 */
 		target_orientation = orientation;
 		linear_speed_cmd = default_linear_speed;
-	}
+	//}
 }
 
 void Core::limit_angular_speed_cmd(int& angular_speed) {
 	// TODO: use the winning strategy with weights
-	if (s_goal.output->strength == 1) {
+	// TODO: restore speed limitations
+	/*if (s_goal.output->strength == 1) {
 		int speed_limited_by_obstacle = s_goal.output->angular_speed_inhibition * MAX_ALLOWED_ANGULAR_SPEED / 100;
 		MIN(angular_speed, speed_limited_by_obstacle); 
 		MAX(angular_speed, -speed_limited_by_obstacle); 
-	}
+	}*/
 
 	// Cap angular speed, so that the robot doesn't turn TOO FAST on itself
 	MAX(angular_speed, -MAX_ALLOWED_ANGULAR_SPEED);

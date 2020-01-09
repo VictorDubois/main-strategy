@@ -30,6 +30,10 @@ extern "C" {
 #include "constants.h"
 #include "helpers_broker.h"
 #include <goal_strategy/motors.h>
+#include "geometry_msgs/Pose.h"
+#include "geometry_msgs/Point.h"
+#include "geometry_msgs/Vector3.h"
+#include "geometry_msgs/Twist.h"
 
 /*#include "ct_scan.h"
 //#include "getters_setters.h"
@@ -141,7 +145,7 @@ private:
 	
 	const int default_linear_speed = 20; // Line speed to set when no positive valence strategy fires
 	unsigned int target_orientation, nb_attractors;
-	int mode, linear_speed, angular_speed, theta, linear_speed_cmd;
+	int mode, linear_speed, angular_speed, linear_speed_cmd;
 	int status;
 	char cwd[1024];
 	long encoder1, encoder2, last_encoder1, last_encoder2, elapsed, chrono;
@@ -156,11 +160,26 @@ private:
 	int is_blue;
 	ros::Publisher motors_cmd_pub;
 	ros::Subscriber encoders_sub;
+	ros::Subscriber goal_sub;
+	ros::Subscriber lidar_sub;
+	uint32_t last_distance;
+	float X;
+	float Y;
+	float theta_zero;
 
 	void stop_motors();
 	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
 	void set_motors_speed(float linearSpeed, float angularSpeed);
 	void updateCurrentPose(goal_strategy::motors motors_state);
+	void landscapeFromAngleAndStrength(std::vector<float> landscape, float angle, float strength);
+	float vector_to_angle(geometry_msgs::Vector3 vector);
+	float vector_to_angle(geometry_msgs::Point vector);
+	float vector_to_amplitude(geometry_msgs::Vector3 vector);
+	float vector_to_amplitude(geometry_msgs::Point vector);
+	void updateGoal(geometry_msgs::Point goal_point);
+	void updateLidar(geometry_msgs::Vector3 closest_obstacle);
+	bool digitalRead(int);
+	void update_current_pose(uint32_t encoder1, uint32_t encoder2);
 public:
 	Core();
 	~Core();
