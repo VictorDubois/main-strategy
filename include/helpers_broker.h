@@ -1,6 +1,8 @@
 #ifndef _HELPERS_BROKER_H
 #define _HELPERS_BROKER_H
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #define SPEED_SMOOTH_FACTOR 0.10 //0.05
 
 #define TRUE 1
@@ -19,4 +21,7 @@ unsigned int get_idx_of_max (const float vector[], const size_t len);
 void differentiate (const float *vector, float *result, const size_t len, const float scale_factor);
 float target (const float spread, const float offset, const float x0, const float x);
 void debug_vector (const char * title, const float * vector, const size_t len, const int display_index, const int display_max);
+#ifdef __cplusplus
+}
+#endif
 #endif
