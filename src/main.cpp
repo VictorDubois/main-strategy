@@ -118,11 +118,11 @@ void Core::updateCurrentPose(goal_strategy::motors motors_state) {
 }
 
 float Core::vector_to_angle(geometry_msgs::Vector3 vector) {
-	return atan(vector.y/vector.x);
+	return atan2(vector.y, vector.x)*180/M_PI;
 }
 
 float Core::vector_to_angle(geometry_msgs::Point vector) {
-	return atan(vector.y/vector.x);
+	return atan2(vector.y, vector.x)*180/M_PI;
 }
 
 float Core::vector_to_amplitude(geometry_msgs::Vector3 vector) {
@@ -136,6 +136,7 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 void Core::updateGoal(geometry_msgs::Point goal_point) {
 	//target_orientation = vector_to_angle(goal_out.vector);
 	target_orientation = vector_to_angle(goal_point);
+	std::cout << "target_orientation = " << target_orientation << std::endl;
 
 	//last_goal_max_speed = goal_out.max_speed;
 }
@@ -166,7 +167,7 @@ Core::Core() {
 	last_goal_max_speed.linear.y = 0;
 	last_goal_max_speed.angular.z = 0;
 	ros::NodeHandle n;
-	motors_cmd_pub = n.advertise<geometry_msgs::Pose>("motors_cmd", 1000);
+	motors_cmd_pub = n.advertise<goal_strategy::motors_cmd>("motors_cmd", 1000);
 	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
 	goal_sub = n.subscribe("goal", 1000, &Core::updateGoal, this);
 	integration_field[NB_NEURONS] = {0.};
@@ -177,7 +178,6 @@ Core::Core() {
 	angular_landscape[NB_NEURONS] = {0.};
 	is_tirette_msg_displayed = false;
 
-	//@TODO Dont't start if arduino is running
 	printf("done! Proceeding.\nStarting IA.\n");
 	//@TODO Reset encoders (for now, the robot starts at its origin point)
 
@@ -406,6 +406,8 @@ int Core::Loop() {
 			for (int i = 0; i < NB_NEURONS; i += 1) {
 				goal_output[i] = target(107., 1.1, (360 + 180 - (target_orientation - orientation)) % 360, i);
 			}
+			std::cout << target_orientation << std::endl;
+			//std::cout << get_idx_of_max(goal_output, NB_NEURONS) << std::endl;
 
 			// Sum positive and negative valence strategies
 			for (int i = 0; i < NB_NEURONS; i += 1) {
@@ -426,6 +428,7 @@ int Core::Loop() {
 			// Set linear speed according to the obstacles strategy & angular speed based on goal + obstacles
 			// Robot's vision is now centered on 180 deg
 			int angular_speed_cmd = (int) round(angular_speed_vector[180]);
+			//std::cout << angular_speed_cmd << std::endl;
 
 			limit_angular_speed_cmd(angular_speed_cmd);
 			
@@ -523,7 +526,7 @@ void Core::compute_target_speed_orientation(const unsigned int orientation) {
 		 * If no positive valence strategy fires, set the target orientation to the robot's orientation
 		 * which means the robot will go straight on
 		 */
-		target_orientation = orientation;
+		//target_orientation = orientation;
 		linear_speed_cmd = default_linear_speed;
 	//}
 }
