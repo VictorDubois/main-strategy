@@ -108,7 +108,7 @@ void Core::select_color() {
 }
 
 void Core::updateCurrentPose(goal_strategy::motors motors_state) {
-	encoder1 = motors_state.encoders.encoder_right;
+	encoder1 = motors_state.encoders.encoder_left;
 	encoder2 = motors_state.encoders.encoder_right;
 
 	// low pass filter
