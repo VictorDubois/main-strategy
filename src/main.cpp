@@ -9,6 +9,7 @@
 #endif
 
 #include <goal_strategy/motors_cmd.h>
+#include <std_msgs/Bool.h>
 
 void Core::setupGPIO() {
 #ifdef RASPI
@@ -107,9 +108,9 @@ void Core::select_color() {
 	fflush(stdout);
 }
 
-void Core::updateCurrentPose(goal_strategy::motors motors_state) {
-	encoder1 = motors_state.encoders.encoder_left;
-	encoder2 = motors_state.encoders.encoder_right;
+void Core::updateCurrentPose(goal_strategy::encoders encoders) {
+	encoder1 = encoders.encoder_left;
+	encoder2 = encoders.encoder_right;
 
 	// low pass filter
 	update_encoders(encoder1, encoder2);
@@ -167,7 +168,8 @@ Core::Core() {
 	last_goal_max_speed.linear.y = 0;
 	last_goal_max_speed.angular.z = 0;
 	ros::NodeHandle n;
-	motors_cmd_pub = n.advertise<goal_strategy::motors_cmd>("motors_cmd", 1000);
+	motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel_motor", 1000);
+	motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 1000);
 	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
 	goal_sub = n.subscribe("goal", 1000, &Core::updateGoal, this);
 	lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
@@ -255,13 +257,14 @@ void Core::set_motors_speed(float linearSpeed, float angularSpeed) {
 }
 
 void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders) {
-	goal_strategy::motors_cmd new_motor_cmd;
-	new_motor_cmd.speed_command.linear.x = linearSpeed;
-	new_motor_cmd.speed_command.angular.z = angularSpeed;
-	new_motor_cmd.enable = enable;
-	new_motor_cmd.reset_encoders = resetEncoders;
+	geometry_msgs::Twist new_motor_cmd;
+	new_motor_cmd.linear.x = linearSpeed;
+	new_motor_cmd.angular.z = angularSpeed;
 
 	motors_cmd_pub.publish(new_motor_cmd);
+	std_msgs::Bool new_enable_cmd;
+       	new_enable_cmd.data = enable;
+	motors_enable_pub.publish(new_enable_cmd);
 }
 
 int Core::Setup(int argc, char* argv[]) {
@@ -441,7 +444,7 @@ int Core::Loop() {
 				angular_speed = 0;
 
 			// Set motors speed according to values computed before
-			set_motors_speed(linear_speed, angular_speed, true, false);
+			set_motors_speed((float) linear_speed/255, (float) angular_speed/255, true, false);
 		} // End of state == NORMAL
 
 		maintain_loop_timing();

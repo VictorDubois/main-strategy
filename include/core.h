@@ -160,6 +160,7 @@ private:
 	bool is_tirette_msg_displayed = false;
 	int is_blue;
 	ros::Publisher motors_cmd_pub;
+	ros::Publisher motors_enable_pub;
 	ros::Subscriber encoders_sub;
 	ros::Subscriber goal_sub;
 	ros::Subscriber lidar_sub;
@@ -171,7 +172,7 @@ private:
 	void stop_motors();
 	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
 	void set_motors_speed(float linearSpeed, float angularSpeed);
-	void updateCurrentPose(goal_strategy::motors motors_state);
+	void updateCurrentPose(goal_strategy::encoders motors_state);
 	void landscapeFromAngleAndStrength(std::vector<float> landscape, float angle, float strength);
 	float vector_to_angle(geometry_msgs::Vector3 vector);
 	float vector_to_angle(geometry_msgs::Point vector);
