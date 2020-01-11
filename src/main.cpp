@@ -170,6 +170,7 @@ Core::Core() {
 	motors_cmd_pub = n.advertise<goal_strategy::motors_cmd>("motors_cmd", 1000);
 	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
 	goal_sub = n.subscribe("goal", 1000, &Core::updateGoal, this);
+	lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
 	integration_field[NB_NEURONS] = {0.};
 	goal_output[NB_NEURONS] = {0.};
 	obstacles_output[NB_NEURONS] = {0.};
@@ -370,6 +371,7 @@ void Core::update_current_pose(uint32_t encoder1, uint32_t encoder2) {
 int Core::Loop() {
 
 		if (is_time_to_stop()) {
+			std::cout << "Time's up !" << std::endl;
 			return state;
 		}
 
@@ -406,8 +408,6 @@ int Core::Loop() {
 			for (int i = 0; i < NB_NEURONS; i += 1) {
 				goal_output[i] = target(107., 1.1, (360 + 180 - (target_orientation - orientation)) % 360, i);
 			}
-			std::cout << target_orientation << std::endl;
-			//std::cout << get_idx_of_max(goal_output, NB_NEURONS) << std::endl;
 
 			// Sum positive and negative valence strategies
 			for (int i = 0; i < NB_NEURONS; i += 1) {
@@ -428,7 +428,6 @@ int Core::Loop() {
 			// Set linear speed according to the obstacles strategy & angular speed based on goal + obstacles
 			// Robot's vision is now centered on 180 deg
 			int angular_speed_cmd = (int) round(angular_speed_vector[180]);
-			//std::cout << angular_speed_cmd << std::endl;
 
 			limit_angular_speed_cmd(angular_speed_cmd);
 			
