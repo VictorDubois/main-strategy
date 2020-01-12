@@ -34,6 +34,7 @@ extern "C" {
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/Vector3.h"
 #include "geometry_msgs/Twist.h"
+#include <std_msgs/Bool.h>
 
 /*#include "ct_scan.h"
 //#include "getters_setters.h"
@@ -121,9 +122,6 @@ private:
 	// Update encoders + sanitize their inputs
 	void update_encoders(long& encoder1, long& encoder2);
 
-	// Updates "state" when the tirette is pulled
-	void wait_for_tirette();
-	
 	// Has the tirette been pulled?
 	bool are_we_go_for_launch();
 	
@@ -164,6 +162,8 @@ private:
 	ros::Subscriber encoders_sub;
 	ros::Subscriber goal_sub;
 	ros::Subscriber lidar_sub;
+	ros::Subscriber tirette_sub;
+	ros::Subscriber color_sub;
 	uint32_t last_distance;
 	float X;
 	float Y;
@@ -180,6 +180,8 @@ private:
 	float vector_to_amplitude(geometry_msgs::Point vector);
 	void updateGoal(geometry_msgs::Point goal_point);
 	void updateLidar(geometry_msgs::Vector3 closest_obstacle);
+	void updateTeamColor(std_msgs::Bool new_color);
+	void updateTirette(std_msgs::Bool starting);
 	bool digitalRead(int);
 	void update_current_pose(uint32_t encoder1, uint32_t encoder2);
 public:

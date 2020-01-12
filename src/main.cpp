@@ -9,7 +9,6 @@
 #endif
 
 #include <goal_strategy/motors_cmd.h>
-#include <std_msgs/Bool.h>
 
 void Core::setupGPIO() {
 #ifdef RASPI
@@ -92,28 +91,14 @@ int main (int argc, char *argv[]) {
 	delete my_core;
 }
 
-void Core::select_color() {
-// Color selection
-	if (digitalRead(PIN_COLOR) == 1) {
-		is_blue = 1; // BLUE
-	}
-	else {
-		is_blue = 0;
-	}
-
-	if (is_blue == 1)
-		printf("Starting match as BLUE\n");
-	else
-		printf("Starting match as YELLOW\n");
-	fflush(stdout);
-}
-
 void Core::updateCurrentPose(goal_strategy::encoders encoders) {
 	encoder1 = encoders.encoder_left;
 	encoder2 = encoders.encoder_right;
 
 	// low pass filter
 	update_encoders(encoder1, encoder2);
+	//std::cout << "enc1: " << encoder1 << ",enc2: " << encoder2 << std::endl;
+	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
 
 	update_current_pose(encoder1, encoder2);
 }
@@ -140,6 +125,27 @@ void Core::updateGoal(geometry_msgs::Point goal_point) {
 	std::cout << "target_orientation = " << target_orientation << std::endl;
 
 	//last_goal_max_speed = goal_out.max_speed;
+}
+
+void Core::updateTeamColor(std_msgs::Bool new_color) {
+	is_blue = new_color.data;
+
+	if (is_blue) {
+		std::cout << "We are on the blue Team" << std::endl;
+	}
+	else {
+		std::cout << "We are on the yellow Team" << std::endl;
+	}
+	
+}
+
+void Core::updateTirette(std_msgs::Bool starting) {
+	if (starting.data && state == WAIT_TIRETTE) {
+		std::cout << "Go for launch!" << std::endl;
+		state = NORMAL;
+		// Start counting the time
+		clock_gettime(CLOCK_MONOTONIC, &begin_match);
+	}
 }
 
 void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
@@ -173,6 +179,8 @@ Core::Core() {
 	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
 	goal_sub = n.subscribe("goal", 1000, &Core::updateGoal, this);
 	lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
+	color_sub = n.subscribe("team_color", 1000, &Core::updateTeamColor, this);
+	tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
 	integration_field[NB_NEURONS] = {0.};
 	goal_output[NB_NEURONS] = {0.};
 	obstacles_output[NB_NEURONS] = {0.};
@@ -190,8 +198,6 @@ Core::Core() {
 	linear_speed = 0; // motor command for linear speed, in percentage (from -100 to 100)
 	angular_speed = 0; // motor command for angular speed, in percentage (from -100 to 100)
 	linear_speed_cmd = 0;
-
-	select_color();
 
 	std::vector<std::pair<int, int> > positionsCart;
 	std::vector<std::pair<float, float> > positionsPolar;
@@ -289,7 +295,7 @@ int Core::Setup(int argc, char* argv[]) {
 	// Take time before entering the loop
 	clock_gettime(CLOCK_MONOTONIC, &last);
 
-	set_motors_speed(0, 0, false, false);
+	stop_motors();
 	printf("before while\n");
 	fflush(stdout);
 
@@ -335,31 +341,6 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 	}
 }
 
-bool Core::are_we_go_for_launch() {
-	return digitalRead(PIN_TIRETTE) == 1;
-}
-
-void Core::wait_for_tirette() {
-	// Is the tirette is enabled, wait for it to be released
-	if (TIRETTE_ENABLED == TRUE) {
-		if (!is_tirette_msg_displayed) {
-			printf("Waiting for tirette...\n");
-			fflush(stdout);
-			is_tirette_msg_displayed = true;
-		}
-		if (are_we_go_for_launch()) {
-			printf("got it!\n Proceeding.\n");
-			fflush(stdout);
-			state = NORMAL;
-			// Start counting the time
-			clock_gettime(CLOCK_MONOTONIC, &begin_match);
-		}
-	} // otherwise, start immediately
-	else {
-		state = NORMAL;
-	}
-}
-
 void Core::update_current_pose(uint32_t encoder1, uint32_t encoder2) {
 	uint32_t distance = (encoder1 + encoder2)/2;
 	uint32_t theta = theta_zero + (encoder1 - encoder2);
@@ -394,7 +375,6 @@ int Core::Loop() {
 
 		if (state == WAIT_TIRETTE) {
 			set_motors_speed(0, 0, false, false);
-			wait_for_tirette();
 		} else if (state == NORMAL) {
 			chrono = compute_match_chrono();
 
