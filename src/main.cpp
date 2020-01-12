@@ -60,10 +60,7 @@ void Core::setupColorRPI() {
  **/
 //#define DEBUG_cart_to_polar
 void Core::cart_to_polar(int posX, int posY, float& theta, float& distance) {
-	if(posY == 0) {
-		posY = 1;
-	}
-	theta = ((180./M_PI) * atan(((float)posX)/(float)posY));
+	theta = ((180./M_PI) * atan2((float) posX, (float) posY));
 	distance = sqrt((float)(posX * posX + posY * posY))/1000.f;
 
 	// fix angular ambiguity
@@ -358,82 +355,84 @@ void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
 
 int Core::Loop() {
 
-		if (is_time_to_stop()) {
-			std::cout << "Time's up !" << std::endl;
-			return state;
-		}
-
-		// Compute the robot's linear speed & orientation
-		float speed = compute_linear_speed(encoder1, encoder2, elapsed);
-		// the robot's orientation, in degrees (the robots is born at its 0 deg)
-		unsigned int orientation = get_orientation(encoder1, encoder2);
-		float coeff = speed / 1000. * (float) (elapsed / 1e9);
-
-		// Compute activation for path integration for this current loop
-		for (int i = 0; i < NB_NEURONS; i += 1) {
-			integration_field[i] += coeff * cos((int)(i - orientation) * M_PI / 180.);
-		}
-
-		//i = get_idx_of_max(integration_field, NB_NEURONS);
-		//printf("Rho = %.3f - Theta = %d deg\n", integration_field[i], i);
-
-		if (state == WAIT_TIRETTE) {
-			set_motors_speed(0, 0, false, false);
-		} else if (state == NORMAL) {
-			chrono = compute_match_chrono();
-
-			// Get the orientation we need to follow to reach the goal
-			// TODO: assign priority integers to strategies, take the strategy that has the max of priority * strength
-
-			compute_target_speed_orientation(orientation);
-
-
-			// Inhibit linear speed if there are obstacles
-			
-			// Compute attractive vectors from positive valence strategies
-			// TODO: choose the POSITIVE VALENCE STRATEGY!
-			for (int i = 0; i < NB_NEURONS; i += 1) {
-				goal_output[i] = target(107., 1.1, (360 + 180 - (target_orientation - orientation)) % 360, i);
-			}
-
-			// Sum positive and negative valence strategies
-			for (int i = 0; i < NB_NEURONS; i += 1) {
-				// Temporarily check if joystick is active (later: use weighted sum)
-				//if (s_joystick.output->strength == 0) {
-					angular_landscape[i] = goal_output[i] + lidar_output[i];
-				/*}
-				else {
-					printf("joystick is active\n");
-					fflush(stdout);
-					angular_landscape[i] = goal_output[i];
-				}*/
-			}
-
-			// And finally: differentiate the angular_landscape vector to get drive
-			differentiate(angular_landscape, angular_speed_vector, NB_NEURONS, 3000.);
-
-			// Set linear speed according to the obstacles strategy & angular speed based on goal + obstacles
-			// Robot's vision is now centered on 180 deg
-			int angular_speed_cmd = (int) round(angular_speed_vector[180]);
-
-			limit_angular_speed_cmd(angular_speed_cmd);
-			
-			update_speed(FALSE, &angular_speed, angular_speed_cmd);
-			update_speed(FALSE, &linear_speed, linear_speed_cmd);
-
-			if (DISABLE_LINEAR_SPEED)
-				linear_speed = 0;
-
-			if (DISABLE_ANGULAR_SPEED)
-				angular_speed = 0;
-
-			// Set motors speed according to values computed before
-			set_motors_speed((float) linear_speed/255, (float) angular_speed/255, true, false);
-		} // End of state == NORMAL
-
-		maintain_loop_timing();
-
+	if (is_time_to_stop()) {
+		std::cout << "Time's up !" << std::endl;
 		return state;
+	}
+
+	// Compute the robot's linear speed & orientation
+	float speed = compute_linear_speed(encoder1, encoder2, elapsed);
+	// the robot's orientation, in degrees (the robots is born at its 0 deg)
+	unsigned int orientation = get_orientation(encoder1, encoder2);
+	float coeff = speed / 1000. * (float) (elapsed / 1e9);
+
+	// Compute activation for path integration for this current loop
+	for (int i = 0; i < NB_NEURONS; i += 1) {
+		integration_field[i] += coeff * cos((int)(i - orientation) * M_PI / 180.);
+	}
+
+	//i = get_idx_of_max(integration_field, NB_NEURONS);
+	//printf("Rho = %.3f - Theta = %d deg\n", integration_field[i], i);
+
+	if (state == WAIT_TIRETTE) {
+		set_motors_speed(0, 0, false, false);
+	} else if (state == NORMAL) {
+		chrono = compute_match_chrono();
+
+		// Get the orientation we need to follow to reach the goal
+		// TODO: assign priority integers to strategies, take the strategy that has the max of priority * strength
+
+		compute_target_speed_orientation(orientation);
+
+
+		// Inhibit linear speed if there are obstacles
+		
+		// Compute attractive vectors from positive valence strategies
+		// TODO: choose the POSITIVE VALENCE STRATEGY!
+		for (int i = 0; i < NB_NEURONS; i += 1) {
+			goal_output[i] = target(107., 1.1, (360 + 180 - (target_orientation - orientation)) % 360, i);
+		}
+
+		// Sum positive and negative valence strategies
+		for (int i = 0; i < NB_NEURONS; i += 1) {
+			// Temporarily check if joystick is active (later: use weighted sum)
+			//if (s_joystick.output->strength == 0) {
+				angular_landscape[i] = goal_output[i] + lidar_output[i];
+			/*}
+			else {
+				printf("joystick is active\n");
+				fflush(stdout);
+				angular_landscape[i] = goal_output[i];
+			}*/
+		}
+
+		// And finally: differentiate the angular_landscape vector to get drive
+		differentiate(angular_landscape, angular_speed_vector, NB_NEURONS, 3000.);
+
+		// Set linear speed according to the obstacles strategy & angular speed based on goal + obstacles
+		// Robot's vision is now centered on 180 deg
+		int angular_speed_cmd = (int) round(angular_speed_vector[180]);
+
+		limit_angular_speed_cmd(angular_speed_cmd);
+		
+		update_speed(FALSE, &angular_speed, angular_speed_cmd);
+		update_speed(FALSE, &linear_speed, linear_speed_cmd);
+
+		if (DISABLE_LINEAR_SPEED) {
+			linear_speed = 0;
+		}
+
+		if (DISABLE_ANGULAR_SPEED) {
+			angular_speed = 0;
+		}
+
+		// Set motors speed according to values computed before
+		set_motors_speed((float) linear_speed/255, (float) angular_speed/255, true, false);
+	} // End of state == NORMAL
+
+	maintain_loop_timing();
+
+	return state;
 }
 
 bool Core::is_time_to_stop() {
