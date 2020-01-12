@@ -342,14 +342,13 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 }
 
 void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
-	int32_t distance = (encoder1 + encoder2)/2;
-	int32_t theta = theta_zero + (encoder1 - encoder2);
-	int32_t speed = distance - last_distance;                                    // dérivation
-	last_distance = distance;
-	float deltaX = -speed * sin(theta);
-	float deltaY = speed * cos(theta);
-	X += deltaX;                                                  //intégration
-	Y += deltaY;
+	int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
+	int32_t orientation = get_orientation(encoder1, encoder2);
+
+	// Compute activation for path integration for this current loop
+	for (int i = 0; i < NB_NEURONS; i += 1) {
+		integration_field[i] += linear_dist * cos((int)(i - orientation) * M_PI / 180.);
+	}
 	std::cout << "X = " << X << ", Y = " << Y << ", theta = " << theta << std::endl;
 }
 

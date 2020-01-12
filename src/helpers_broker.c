@@ -25,12 +25,45 @@ unsigned int get_orientation (long encoder1, long encoder2) {
 }
 
 /*
-	Given current value of both encoders and the elapsed time (in ns) between last measurement,
-	return the linear speed by approximating it as the average of both wheels' linear speeds.
+	Given current value of both encoders 
+	return the linear dist by approximating it as the average of both wheels' linear distances.
 	Static variables are used to keep last value of encoders.
 */
   	static long last_encoder1 = 0;
   	static long last_encoder2 = 0;
+float compute_linear_dist (const long encoder1, const long encoder2) {
+  	last_encoder1 = encoder1;
+  	last_encoder2 = encoder2;
+	float dist1, dist2, dist;
+	int diff_encoder1, diff_encoder2;
+
+	// Compute difference in nb of ticks between last measurements and now
+	diff_encoder1 = encoder1 - last_encoder1;
+	diff_encoder2 = encoder2 - last_encoder2;
+
+	// Compute each wheel's dist and approximate linear dist as their average
+	dist1 = (DIST_PER_REVOLUTION * (float) diff_encoder1 / TICKS_PER_REVOLUTION);
+	dist2 = (DIST_PER_REVOLUTION * (float) diff_encoder2 / TICKS_PER_REVOLUTION);
+	dist = (dist1 + dist2) / 2.0;
+
+	if (fabsf(dist) > 500.) {
+		printf("\n/!\\ HIGH SPEED DETECTED: %.2f /!\\\n\n", dist);
+		//exit(4);
+	}
+
+	// Update static variables' values (current encoder values become old ones)
+	last_encoder1 = encoder1;
+	last_encoder2 = encoder2;
+
+	// Return the computed linear dist
+	return dist;
+}
+
+/*
+	Given current value of both encoders and the elapsed time (in ns) between last measurement,
+	return the linear speed by approximating it as the average of both wheels' linear speeds.
+	Static variables are used to keep last value of encoders.
+*/
 float compute_linear_speed (const long encoder1, const long encoder2, const long elapsed) {
   	last_encoder1 = encoder1;
   	last_encoder2 = encoder2;
