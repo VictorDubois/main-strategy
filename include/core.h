@@ -164,7 +164,7 @@ private:
 	ros::Subscriber lidar_sub;
 	ros::Subscriber tirette_sub;
 	ros::Subscriber color_sub;
-	uint32_t last_distance;
+	int32_t last_distance;
 	float X;
 	float Y;
 	float theta_zero;
@@ -183,7 +183,7 @@ private:
 	void updateTeamColor(std_msgs::Bool new_color);
 	void updateTirette(std_msgs::Bool starting);
 	bool digitalRead(int);
-	void update_current_pose(uint32_t encoder1, uint32_t encoder2);
+	void update_current_pose(int32_t encoder1, int32_t encoder2);
 public:
 	Core();
 	~Core();

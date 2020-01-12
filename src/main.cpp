@@ -153,7 +153,7 @@ void Core::updateTirette(std_msgs::Bool starting) {
 
 void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
 	// Compute repulsive vector from obstacles
-	uint16_t closest_obstacle_id = vector_to_angle(closest_obstacle);
+	int16_t closest_obstacle_id = vector_to_angle(closest_obstacle);
 
 	// Compute intensity of obstacle
 	float obstacle_dangerouseness = 175. * vector_to_amplitude(closest_obstacle);
@@ -344,19 +344,19 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 	}
 }
 
-void Core::update_current_pose(uint32_t encoder1, uint32_t encoder2) {
-	uint32_t distance = (encoder1 + encoder2)/2;
-	uint32_t theta = theta_zero + (encoder1 - encoder2);
-	uint32_t speed = distance - last_distance;                                    // dérivation
+void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
+	int32_t distance = (encoder1 + encoder2)/2;
+	int32_t theta = theta_zero + (encoder1 - encoder2);
+	int32_t speed = distance - last_distance;                                    // dérivation
 	last_distance = distance;
 	float deltaX = -speed * sin(theta);
 	float deltaY = speed * cos(theta);
 	X += deltaX;                                                  //intégration
 	Y += deltaY;
+	std::cout << "X = " << X << ", Y = " << Y << ", theta = " << theta << std::endl;
 }
 
 int Core::Loop() {
-		std::cout << "X = " << X << ", Y = " << Y << std::endl;
 
 		if (is_time_to_stop()) {
 			std::cout << "Time's up !" << std::endl;
