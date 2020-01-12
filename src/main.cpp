@@ -9,6 +9,7 @@
 #endif
 
 #include <goal_strategy/motors_cmd.h>
+#include "Krabi/positionPlusAngle.h"
 
 void Core::setupGPIO() {
 #ifdef RASPI
@@ -120,6 +121,8 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 }
 
 void Core::updateGoal(geometry_msgs::Point goal_point) {
+	Position goal_position = Position(goal_point);
+
 	//target_orientation = vector_to_angle(goal_out.vector);
 	target_orientation = vector_to_angle(goal_point);
 	std::cout << "target_orientation = " << target_orientation << std::endl;
@@ -353,6 +356,7 @@ void Core::update_current_pose(uint32_t encoder1, uint32_t encoder2) {
 }
 
 int Core::Loop() {
+		std::cout << "X = " << X << ", Y = " << Y << std::endl;
 
 		if (is_time_to_stop()) {
 			std::cout << "Time's up !" << std::endl;

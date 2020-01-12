@@ -6,6 +6,7 @@ add_compile_options(-std=c++11)
 
 add_definitions(-D USE_ROS)
 add_definitions(-D USE_IOSTREAM)
+add_definitions(-D STANDALONE_STRATEGIE)
 set(ROS_BUILD_TYPE Debug)
 
 ## Find catkin macros and libraries
@@ -146,6 +147,12 @@ include_directories(
 add_executable(main_strategy_node 
 src/main.cpp
 src/helpers_broker.c
+src/Krabi/position.cpp
+src/Krabi/positionPlusAngle.cpp
+src/Krabi/distance.cpp
+src/Krabi/vec2d.cpp
+src/Krabi/vec3d.cpp
+src/Krabi/angle.cpp
 )
 
 ## Rename C++ executable without prefix
