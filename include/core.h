@@ -57,7 +57,7 @@ extern "C" {
 #define PRINT_FINAL_POS 1
 
 // Define the frequency of the broker's main loop
-#define BROKER_FREQ 50 //(in Hz)
+#define BROKER_FREQ 10 //(in Hz)
 
 #define FALSE 0
 #define TRUE 1
@@ -148,7 +148,6 @@ private:
 	int status;
 	char cwd[1024];
 	long encoder1, encoder2, last_encoder1, last_encoder2, elapsed, chrono;
-	float integration_field[NB_NEURONS] = {0.};
 	float goal_output[NB_NEURONS] = {0.};
 	float obstacles_output[NB_NEURONS] = {0.};
 	float lidar_output[NB_NEURONS] = {0.};
