@@ -32,8 +32,6 @@ unsigned int get_orientation (long encoder1, long encoder2) {
   	static long last_encoder1 = 0;
   	static long last_encoder2 = 0;
 float compute_linear_dist (const long encoder1, const long encoder2) {
-  	last_encoder1 = encoder1;
-  	last_encoder2 = encoder2;
 	float dist1, dist2, dist;
 	int diff_encoder1, diff_encoder2;
 
@@ -65,8 +63,6 @@ float compute_linear_dist (const long encoder1, const long encoder2) {
 	Static variables are used to keep last value of encoders.
 */
 float compute_linear_speed (const long encoder1, const long encoder2, const long elapsed) {
-  	last_encoder1 = encoder1;
-  	last_encoder2 = encoder2;
 	float speed1, speed2, speed;
 	int diff_encoder1, diff_encoder2;
 

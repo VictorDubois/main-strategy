@@ -10,6 +10,7 @@ extern "C" {
 
 int degs_to_ticks (int deg);
 unsigned int get_orientation (long encoder1, long encoder2);
+float compute_linear_dist (const long encoder1, const long encoder2);
 float compute_linear_speed (long encoder1, long encoder2, long elapsed);
 int get_sensor_values (int fd, void * buf, ssize_t msg_size);
 void update_speed (const int immediate, int *current_speed, const int new_speed);

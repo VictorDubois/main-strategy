@@ -168,6 +168,7 @@ private:
 	float X;
 	float Y;
 	float theta_zero;
+	float current_theta;
 
 	void stop_motors();
 	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);

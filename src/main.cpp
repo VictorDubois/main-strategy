@@ -159,7 +159,7 @@ void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
 	// Then apply gaussian function centered on the sensor's angle
 	for (int j = 0; j < NB_NEURONS; j += 1) {
 		//obstacles_output[j] += - gaussian(50., a, (360 + 180 - idx) % 360, j);
-		lidar_output[j] += - gaussian(50., obstacle_dangerouseness, (360 + 180 + closest_obstacle_id) % 360, j);
+		lidar_output[j] += - gaussian(50., obstacle_dangerouseness, (fmod(360 + 180 + closest_obstacle_id, 360)), j);
 	}
 }
 
@@ -174,14 +174,13 @@ Core::Core() {
 	last_goal_max_speed.linear.y = 0;
 	last_goal_max_speed.angular.z = 0;
 	ros::NodeHandle n;
-	motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel_motor", 1000);
-	motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 1000);
+    motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel_motor", 5);
+    motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
 	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
 	goal_sub = n.subscribe("goal", 1000, &Core::updateGoal, this);
 	lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
 	color_sub = n.subscribe("team_color", 1000, &Core::updateTeamColor, this);
 	tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
-	integration_field[NB_NEURONS] = {0.};
 	goal_output[NB_NEURONS] = {0.};
 	obstacles_output[NB_NEURONS] = {0.};
 	lidar_output[NB_NEURONS] = {0.};
@@ -262,14 +261,14 @@ void Core::set_motors_speed(float linearSpeed, float angularSpeed) {
 	set_motors_speed(linearSpeed, angularSpeed, true, false);
 }
 
-void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders) {
+void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool /*resetEncoders*/) {
 	geometry_msgs::Twist new_motor_cmd;
 	new_motor_cmd.linear.x = linearSpeed;
 	new_motor_cmd.angular.z = angularSpeed;
 
 	motors_cmd_pub.publish(new_motor_cmd);
 	std_msgs::Bool new_enable_cmd;
-       	new_enable_cmd.data = enable;
+    new_enable_cmd.data = enable;
 	motors_enable_pub.publish(new_enable_cmd);
 }
 
@@ -345,11 +344,11 @@ void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
 	int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
 	int32_t orientation = get_orientation(encoder1, encoder2);
 
-	// Compute activation for path integration for this current loop
-	for (int i = 0; i < NB_NEURONS; i += 1) {
-		integration_field[i] += linear_dist * cos((int)(i - orientation) * M_PI / 180.);
-	}
-	std::cout << "X = " << X << ", Y = " << Y << ", theta = " << theta << std::endl;
+	X += linear_dist * cos(orientation);
+	Y += linear_dist * sin(orientation);
+	current_theta = orientation;
+	
+    std::cout << "X = " << X << ", Y = " << Y << ", theta = " << current_theta << ",linear_dist = " << linear_dist << std::endl;
 }
 
 int Core::Loop() {
@@ -359,20 +358,6 @@ int Core::Loop() {
 		return state;
 	}
 
-	// Compute the robot's linear speed & orientation
-	float speed = compute_linear_speed(encoder1, encoder2, elapsed);
-	// the robot's orientation, in degrees (the robots is born at its 0 deg)
-	unsigned int orientation = get_orientation(encoder1, encoder2);
-	float coeff = speed / 1000. * (float) (elapsed / 1e9);
-
-	// Compute activation for path integration for this current loop
-	for (int i = 0; i < NB_NEURONS; i += 1) {
-		integration_field[i] += coeff * cos((int)(i - orientation) * M_PI / 180.);
-	}
-
-	//i = get_idx_of_max(integration_field, NB_NEURONS);
-	//printf("Rho = %.3f - Theta = %d deg\n", integration_field[i], i);
-
 	if (state == WAIT_TIRETTE) {
 		set_motors_speed(0, 0, false, false);
 	} else if (state == NORMAL) {
@@ -381,7 +366,7 @@ int Core::Loop() {
 		// Get the orientation we need to follow to reach the goal
 		// TODO: assign priority integers to strategies, take the strategy that has the max of priority * strength
 
-		compute_target_speed_orientation(orientation);
+		//compute_target_speed_orientation(orientation);
 
 
 		// Inhibit linear speed if there are obstacles
@@ -389,7 +374,7 @@ int Core::Loop() {
 		// Compute attractive vectors from positive valence strategies
 		// TODO: choose the POSITIVE VALENCE STRATEGY!
 		for (int i = 0; i < NB_NEURONS; i += 1) {
-			goal_output[i] = target(107., 1.1, (360 + 180 - (target_orientation - orientation)) % 360, i);
+			goal_output[i] = target(107., 1.1,fmod (360 + 180 - (target_orientation - current_theta), 360), i);
 		}
 
 		// Sum positive and negative valence strategies
@@ -426,7 +411,7 @@ int Core::Loop() {
 		}
 
 		// Set motors speed according to values computed before
-		set_motors_speed((float) linear_speed/255, (float) angular_speed/255, true, false);
+        set_motors_speed((float) linear_speed/255.f, (float) angular_speed/255.f, true, false);
 	} // End of state == NORMAL
 
 	maintain_loop_timing();
