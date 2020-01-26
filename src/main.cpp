@@ -11,46 +11,6 @@
 #include <goal_strategy/motors_cmd.h>
 #include "Krabi/positionPlusAngle.h"
 
-void Core::setupGPIO() {
-#ifdef RASPI
-	if (wiringPiSetupGpio() == -1) {
-		fprintf (stderr, "WiringPI setup failed :'(\n");
-		printf ("WiringPI setup failed :'(\n");
-		fflush(stdout);
-		exit(2);
-		//return;// 1;
-	}
-#endif
-}
-
-/*
-	Hardware setup of the tirette
-*/
-void Core::setupTiretteRPI() {
-#ifdef RASPI
-	printf("Setting up the tirette for the Raspi\n");
-	fflush(stdout);
-
-	pinMode(PIN_TIRETTE, INPUT);
-
-	pullUpDnControl(PIN_TIRETTE, PUD_UP);
-#endif // RASPI
-}
-
-/*
-	Hardware setup of the color selection
-*/
-void Core::setupColorRPI() {
-#ifdef RASPI
-	printf("Setting up the color switch for the Raspi\n");
-	fflush(stdout);
-
-	pinMode(PIN_COLOR, INPUT);
-
-	pullUpDnControl(PIN_COLOR, PUD_UP);
-#endif // RASPI
-}
-
 /**
  * Convert a cartesian position to a polar one
  * @param posX the X position, in mm
@@ -93,8 +53,18 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
 	encoder1 = encoders.encoder_left;
 	encoder2 = encoders.encoder_right;
 
+    if (!encoders_initialized) {
+        std::cout << "initializing encoders" << std::endl;
+        starting_encoder1 = encoder1;
+        starting_encoder2 = encoder2;
+        encoders_initialized = true;
+    }
+
+    encoder1 -= starting_encoder1;
+    encoder2 -= starting_encoder2;
+
 	// low pass filter
-	update_encoders(encoder1, encoder2);
+    update_encoders(encoder1, encoder2);
 	//std::cout << "enc1: " << encoder1 << ",enc2: " << encoder2 << std::endl;
 	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
 
@@ -164,6 +134,7 @@ void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
 }
 
 Core::Core() {
+    encoders_initialized = false;
 	last_distance = 0;
 	geometry_msgs::Twist last_lidar_max_speed;
 	last_lidar_max_speed.linear.x = 0;
@@ -341,7 +312,7 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 }
 
 void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
-	int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
+    int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
 	int32_t orientation = get_orientation(encoder1, encoder2);
 
 	X += linear_dist * cos(orientation);

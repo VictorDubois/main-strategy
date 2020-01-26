@@ -69,8 +69,6 @@ extern "C" {
 #define TIMEOUT_END_MATCH 99000 // in ms
 
 #define TIRETTE_ENABLED TRUE
-//#define PIN_TIRETTE 16
-//#define PIN_COLOR 26
 #define PIN_TIRETTE 20
 #define PIN_COLOR 21
 
@@ -94,20 +92,8 @@ private:
 	
 	// State of the broker loop
 	enum State state = WAIT_TIRETTE;
-	
-	void setupGPIO();
-	
+		
 	void select_color();
-	
-	/*
-		Hardware setup of the tirette
-	*/
-	void setupTiretteRPI();
-	
-	/*
-		Hardware setup of the color selection
-	*/
-	void setupColorRPI();
 	
 	/**
 	 * Convert a cartesian position to a polar one
@@ -168,6 +154,9 @@ private:
 	float Y;
 	float theta_zero;
 	float current_theta;
+    int32_t starting_encoder1;
+    int32_t starting_encoder2;
+    bool encoders_initialized;
 
 	void stop_motors();
 	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
