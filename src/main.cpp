@@ -88,10 +88,15 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 }
 
 void Core::updateGoal(geometry_msgs::Point goal_point) {
-	Position goal_position = Position(goal_point);
+    Position goal_position = Position(goal_point);
 
-	//target_orientation = vector_to_angle(goal_out.vector);
-	target_orientation = vector_to_angle(goal_point);
+    // Convert absolute position to relative position
+    Position current_position = Position(X, Y, false);
+    goal_position -= current_position;
+    //@TODO move this to goal strat?
+
+    // Orient to goal
+    target_orientation = goal_position.getAngle() * 180./M_PI;
 	std::cout << "target_orientation = " << target_orientation << std::endl;
 
 	//last_goal_max_speed = goal_out.max_speed;
