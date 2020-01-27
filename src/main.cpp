@@ -9,7 +9,6 @@
 #endif
 
 #include <goal_strategy/motors_cmd.h>
-#include "Krabi/positionPlusAngle.h"
 
 /**
  * Convert a cartesian position to a polar one
@@ -87,17 +86,18 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 	return sqrt((vector.x * vector.x) + (vector.y * vector.y));
 }
 
-void Core::updateGoal(geometry_msgs::Point goal_point) {
-    Position goal_position = Position(goal_point);
-
+void Core::updateRelativeGoal() {
     // Convert absolute position to relative position
-    Position current_position = Position(X, Y, false);
-    goal_position -= current_position;
-    //@TODO move this to goal strat?
+    Position relative_goal_position = Position(X, Y, false);// Initialise to current position
+    relative_goal_position -= goal_position;
 
     // Orient to goal
-    target_orientation = goal_position.getAngle() * 180./M_PI;
-	std::cout << "target_orientation = " << target_orientation << std::endl;
+    target_orientation = relative_goal_position.getAngle() * 180./M_PI;
+    std::cout << "target_orientation = " << target_orientation << std::endl;
+}
+
+void Core::updateGoal(geometry_msgs::Point goal_point) {
+    goal_position = Position(goal_point);
 
 	//last_goal_max_speed = goal_out.max_speed;
 }
@@ -140,6 +140,7 @@ void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
 
 Core::Core() {
     encoders_initialized = false;
+    goal_position = Position();
 	last_distance = 0;
 	geometry_msgs::Twist last_lidar_max_speed;
 	last_lidar_max_speed.linear.x = 0;
@@ -343,7 +344,7 @@ int Core::Loop() {
 		// TODO: assign priority integers to strategies, take the strategy that has the max of priority * strength
 
 		//compute_target_speed_orientation(orientation);
-
+        updateRelativeGoal();
 
 		// Inhibit linear speed if there are obstacles
 		

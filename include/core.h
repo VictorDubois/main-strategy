@@ -21,6 +21,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>        /* For mode constants */
 #include <fcntl.h>
+
 //#define RASPI
 #ifdef RASPI
 extern "C" {
@@ -35,6 +36,7 @@ extern "C" {
 #include "geometry_msgs/Vector3.h"
 #include "geometry_msgs/Twist.h"
 #include <std_msgs/Bool.h>
+#include "Krabi/positionPlusAngle.h"
 
 /*#include "ct_scan.h"
 //#include "getters_setters.h"
@@ -157,6 +159,7 @@ private:
     int32_t starting_encoder1;
     int32_t starting_encoder2;
     bool encoders_initialized;
+    Position goal_position;
 
 	void stop_motors();
 	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
@@ -173,6 +176,8 @@ private:
 	void updateTirette(std_msgs::Bool starting);
 	bool digitalRead(int);
 	void update_current_pose(int32_t encoder1, int32_t encoder2);
+    void updateRelativeGoal();
+
 public:
 	Core();
 	~Core();
