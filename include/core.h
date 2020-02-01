@@ -129,7 +129,7 @@ private:
 	// Enforce limits on angular speed: absolute max and obstacle inhibition
 	void limit_angular_speed_cmd(int& angular_speed);
 	
-	const int default_linear_speed = 20; // Line speed to set when no positive valence strategy fires
+    const int default_linear_speed = 20; // Line speed to set when no positive valence strategy fires
 	unsigned int nb_attractors;
 	int target_orientation;
 	int mode, linear_speed, angular_speed, linear_speed_cmd;
@@ -146,6 +146,7 @@ private:
 	int is_blue;
 	ros::Publisher motors_cmd_pub;
 	ros::Publisher motors_enable_pub;
+    ros::Publisher current_pose_pub;
 	ros::Subscriber encoders_sub;
 	ros::Subscriber goal_sub;
 	ros::Subscriber lidar_sub;
@@ -170,7 +171,7 @@ private:
 	float vector_to_angle(geometry_msgs::Point vector);
 	float vector_to_amplitude(geometry_msgs::Vector3 vector);
 	float vector_to_amplitude(geometry_msgs::Point vector);
-	void updateGoal(geometry_msgs::Point goal_point);
+    void updateGoal(geometry_msgs::Pose goal_pose);
 	void updateLidar(geometry_msgs::Vector3 closest_obstacle);
 	void updateTeamColor(std_msgs::Bool new_color);
 	void updateTirette(std_msgs::Bool starting);

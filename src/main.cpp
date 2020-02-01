@@ -63,7 +63,7 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
     encoder2 -= starting_encoder2;
 
 	// low pass filter
-    update_encoders(encoder1, encoder2);
+    //update_encoders(encoder1, encoder2);
 	//std::cout << "enc1: " << encoder1 << ",enc2: " << encoder2 << std::endl;
 	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
 
@@ -93,11 +93,11 @@ void Core::updateRelativeGoal() {
 
     // Orient to goal
     target_orientation = relative_goal_position.getAngle() * 180./M_PI;
-    std::cout << "target_orientation = " << target_orientation << std::endl;
+    //std::cout << "target_orientation = " << target_orientation << std::endl;
 }
 
-void Core::updateGoal(geometry_msgs::Point goal_point) {
-    goal_position = Position(goal_point);
+void Core::updateGoal(geometry_msgs::Pose goal_pose) {
+    goal_position = Position(goal_pose.position);
 
 	//last_goal_max_speed = goal_out.max_speed;
 }
@@ -153,8 +153,9 @@ Core::Core() {
 	ros::NodeHandle n;
     motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel_motor", 5);
     motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
-	encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
-	goal_sub = n.subscribe("goal", 1000, &Core::updateGoal, this);
+    current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
+    encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
+    goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 	lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
 	color_sub = n.subscribe("team_color", 1000, &Core::updateTeamColor, this);
 	tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
@@ -240,7 +241,7 @@ void Core::set_motors_speed(float linearSpeed, float angularSpeed) {
 
 void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool /*resetEncoders*/) {
 	geometry_msgs::Twist new_motor_cmd;
-	new_motor_cmd.linear.x = linearSpeed;
+    new_motor_cmd.linear.x = 0.01;//linearSpeed;
 	new_motor_cmd.angular.z = angularSpeed;
 
 	motors_cmd_pub.publish(new_motor_cmd);
@@ -326,6 +327,12 @@ void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
 	current_theta = orientation;
 	
     std::cout << "X = " << X << ", Y = " << Y << ", theta = " << current_theta << ",linear_dist = " << linear_dist << std::endl;
+
+    geometry_msgs::Pose currentPose;
+    currentPose.position.x = X;
+    currentPose.position.y = Y;
+    currentPose.orientation.z = current_theta * M_PI/180.f;
+    current_pose_pub.publish(currentPose);
 }
 
 int Core::Loop() {
