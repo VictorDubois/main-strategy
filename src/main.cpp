@@ -1,6 +1,8 @@
 #include "core.h"
 #include "ros/ros.h"
 #include <stdexcept>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #define MAX_ALLOWED_ANGULAR_SPEED 0.2
 
 #ifndef MAX
@@ -63,7 +65,7 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
     encoder2 -= starting_encoder2;
 
 	// low pass filter
-    //update_encoders(encoder1, encoder2);
+    update_encoders(encoder1, encoder2);
 	//std::cout << "enc1: " << encoder1 << ",enc2: " << encoder2 << std::endl;
 	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
 
@@ -88,12 +90,12 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 
 void Core::updateRelativeGoal() {
     // Convert absolute position to relative position
-    Position relative_goal_position = Position(X, Y, false);// Initialise to current position
-    relative_goal_position -= goal_position;
+    Position current_position = Position(X, Y, false);// Initialise to current position
+    Position relative_goal_position = goal_position - current_position;
 
     // Orient to goal
     target_orientation = relative_goal_position.getAngle() * 180./M_PI;
-    //std::cout << "target_orientation = " << target_orientation << std::endl;
+    std::cout << "target_orientation = " << target_orientation << std::endl;
 }
 
 void Core::updateGoal(geometry_msgs::Pose goal_pose) {
@@ -331,7 +333,11 @@ void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
     geometry_msgs::Pose currentPose;
     currentPose.position.x = X;
     currentPose.position.y = Y;
-    currentPose.orientation.z = current_theta * M_PI/180.f;
+    //currentPose.orientation.z = current_theta * M_PI/180.f;
+
+    tf2::Quaternion orientation_quat;
+    orientation_quat.setRPY(0, 0, current_theta * M_PI/180.f);
+    currentPose.orientation = tf2::toMsg(orientation_quat);
     current_pose_pub.publish(currentPose);
 }
 
@@ -361,6 +367,8 @@ int Core::Loop() {
 			goal_output[i] = target(107., 1.1,fmod (360 + 180 - (target_orientation - current_theta), 360), i);
 		}
 
+        std::cout << "relative_target_orientation: " << (target_orientation - current_theta) << ", peak value: " << get_idx_of_max(goal_output, NB_NEURONS) << ", central value = " << goal_output[180];
+
 		// Sum positive and negative valence strategies
 		for (int i = 0; i < NB_NEURONS; i += 1) {
 			// Temporarily check if joystick is active (later: use weighted sum)
@@ -379,7 +387,8 @@ int Core::Loop() {
 
 		// Set linear speed according to the obstacles strategy & angular speed based on goal + obstacles
 		// Robot's vision is now centered on 180 deg
-		int angular_speed_cmd = (int) round(angular_speed_vector[180]);
+        int angular_speed_cmd = (int) -round(angular_speed_vector[180]);// - as positive is towards the left in ros, while the derivation is left to right
+        std::cout << ",angular_speed_cmd = " << angular_speed_cmd << std::endl;
 
 		limit_angular_speed_cmd(angular_speed_cmd);
 		
@@ -393,6 +402,10 @@ int Core::Loop() {
 		if (DISABLE_ANGULAR_SPEED) {
 			angular_speed = 0;
 		}
+        linear_speed = 0;
+        if (angular_speed == 0) {
+            linear_speed = default_linear_speed;
+        }
 
 		// Set motors speed according to values computed before
         set_motors_speed((float) linear_speed/255.f, (float) angular_speed/255.f, true, false);
@@ -406,7 +419,7 @@ int Core::Loop() {
 bool Core::is_time_to_stop() {
 	clock_gettime(CLOCK_MONOTONIC, &now);
 
-	// Exit and stop robot if we reached the end of the match
+    // Exit and stop robot if we reached the end of the match
 	if (ENABLE_TIMEOUT_END_MATCH == TRUE && chrono > TIMEOUT_END_MATCH) {
 		state = EXIT;
 		return true;
