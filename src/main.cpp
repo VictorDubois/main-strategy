@@ -148,6 +148,7 @@ void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
 }
 
 Core::Core() {
+	ros::start();
     last_speed_update_time = ros::Time::now();
     current_linear_speed = 0;
     encoders_initialized = false;
@@ -253,7 +254,7 @@ void Core::set_motors_speed(float linearSpeed, float angularSpeed) {
 
 void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool /*resetEncoders*/) {
 	geometry_msgs::Twist new_motor_cmd;
-    new_motor_cmd.linear.x = 0.01;//linearSpeed;
+    new_motor_cmd.linear.x = linearSpeed;
 	new_motor_cmd.angular.z = angularSpeed;
 
 	motors_cmd_pub.publish(new_motor_cmd);
@@ -363,9 +364,9 @@ void Core::update_current_speed() {
 
     int distance_moved = (current_position - last_position).getNorme();
 
-    current_linear_speed = distance_moved / time_since_last_speed_update;
+    current_linear_speed = abs(distance_moved / time_since_last_speed_update);
+    std::cout << "current_linear_speed = " << current_linear_speed << std::endl;
     last_speed_update_time = now;
-
 }
 
 void Core::limit_linear_speed_cmd_by_goal() {
@@ -374,9 +375,10 @@ void Core::limit_linear_speed_cmd_by_goal() {
     float desired_final_speed = 0;// mm/s^2
 
     float distance_to_stop = (current_linear_speed-desired_final_speed)/max_deceleration;
+    std::cout << "distance to stop = " << distance_to_stop << std::endl;
 
     if(distance_to_goal < distance_to_stop) {
-        std::cout << "Approching target, slowing down!" << std::end;
+        std::cout << "Approching target, slowing down!" << std::endl;
         linear_speed_cmd = default_linear_speed/10;
     }
 }
@@ -435,7 +437,7 @@ int Core::Loop() {
 		limit_angular_speed_cmd(angular_speed_cmd);
 		
 		update_speed(FALSE, &angular_speed, angular_speed_cmd);
-		update_speed(FALSE, &linear_speed, linear_speed_cmd);
+		//update_speed(FALSE, &linear_speed, linear_speed_cmd);
 
 		if (DISABLE_LINEAR_SPEED) {
 			linear_speed = 0;
@@ -445,7 +447,7 @@ int Core::Loop() {
 			angular_speed = 0;
 		}
         linear_speed = 0;
-        if (angular_speed == 0) {
+        if (angular_speed > -3 && angular_speed < 3) {
             linear_speed = default_linear_speed;
         }
 
