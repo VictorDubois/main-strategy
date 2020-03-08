@@ -160,7 +160,12 @@ private:
     int32_t starting_encoder1;
     int32_t starting_encoder2;
     bool encoders_initialized;
+    Position current_position;
     Position goal_position;
+    Position last_position;
+    float distance_to_goal;
+    float current_linear_speed;
+    ros::Time last_speed_update_time;
 
 	void stop_motors();
 	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
@@ -178,6 +183,8 @@ private:
 	bool digitalRead(int);
 	void update_current_pose(int32_t encoder1, int32_t encoder2);
     void updateRelativeGoal();
+    void update_current_speed();
+    void limit_linear_speed_cmd_by_goal();
 
 public:
 	Core();

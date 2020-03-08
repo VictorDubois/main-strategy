@@ -51,6 +51,9 @@ int main (int argc, char *argv[]) {
 }
 
 void Core::updateCurrentPose(goal_strategy::encoders encoders) {
+    last_position.setX(X);
+    last_position.setY(Y);
+
 	encoder1 = encoders.encoder_left;
 	encoder2 = encoders.encoder_right;
 
@@ -70,6 +73,11 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
 	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
 
 	update_current_pose(encoder1, encoder2);
+
+    update_current_speed();
+
+    distance_to_goal = sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY()));
+    std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
 float Core::vector_to_angle(geometry_msgs::Vector3 vector) {
@@ -90,7 +98,6 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 
 void Core::updateRelativeGoal() {
     // Convert absolute position to relative position
-    Position current_position = Position(X, Y, false);// Initialise to current position
     Position relative_goal_position = goal_position - current_position;
 
     // Orient to goal
@@ -141,9 +148,12 @@ void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
 }
 
 Core::Core() {
+    last_speed_update_time = ros::Time::now();
+    current_linear_speed = 0;
     encoders_initialized = false;
     goal_position = Position();
 	last_distance = 0;
+    distance_to_goal = 0;
 	geometry_msgs::Twist last_lidar_max_speed;
 	last_lidar_max_speed.linear.x = 0;
 	last_lidar_max_speed.linear.y = 0;
@@ -330,6 +340,8 @@ void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
 	
     std::cout << "X = " << X << ", Y = " << Y << ", theta = " << current_theta << ",linear_dist = " << linear_dist << std::endl;
 
+    current_position = Position(X, Y, false);
+
     geometry_msgs::Pose currentPose;
     currentPose.position.x = X;
     currentPose.position.y = Y;
@@ -339,6 +351,34 @@ void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
     orientation_quat.setRPY(0, 0, current_theta * M_PI/180.f);
     currentPose.orientation = tf2::toMsg(orientation_quat);
     current_pose_pub.publish(currentPose);
+}
+
+void Core::update_current_speed() {
+    ros::Time now = ros::Time::now();
+    double time_since_last_speed_update = (last_speed_update_time - now).toSec();
+
+    if (time_since_last_speed_update == 0) {
+        std::cout << "Error: null time!" << std::endl;
+    }
+
+    int distance_moved = (current_position - last_position).getNorme();
+
+    current_linear_speed = distance_moved / time_since_last_speed_update;
+    last_speed_update_time = now;
+
+}
+
+void Core::limit_linear_speed_cmd_by_goal() {
+    float max_deceleration = 10;// mm/s^2
+
+    float desired_final_speed = 0;// mm/s^2
+
+    float distance_to_stop = (current_linear_speed-desired_final_speed)/max_deceleration;
+
+    if(distance_to_goal < distance_to_stop) {
+        std::cout << "Approching target, slowing down!" << std::end;
+        linear_speed_cmd = default_linear_speed/10;
+    }
 }
 
 int Core::Loop() {
@@ -389,6 +429,8 @@ int Core::Loop() {
 		// Robot's vision is now centered on 180 deg
         int angular_speed_cmd = (int) -round(angular_speed_vector[180]);// - as positive is towards the left in ros, while the derivation is left to right
         std::cout << ",angular_speed_cmd = " << angular_speed_cmd << std::endl;
+
+        limit_linear_speed_cmd_by_goal();
 
 		limit_angular_speed_cmd(angular_speed_cmd);
 		
