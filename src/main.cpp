@@ -333,7 +333,7 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 
 void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
     int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
-	int32_t orientation = get_orientation(encoder1, encoder2);
+    int32_t orientation = get_orientation(encoder1, encoder2);
 
     X += linear_dist * cos(orientation * M_PI/180.f);
     Y += linear_dist * sin(orientation * M_PI/180.f);
@@ -402,7 +402,7 @@ int Core::Loop() {
         updateRelativeGoal();
 
 		// Inhibit linear speed if there are obstacles
-		
+
 		// Compute attractive vectors from positive valence strategies
 		// TODO: choose the POSITIVE VALENCE STRATEGY!
 		for (int i = 0; i < NB_NEURONS; i += 1) {
@@ -410,6 +410,7 @@ int Core::Loop() {
 		}
 
         std::cout << "relative_target_orientation: " << (target_orientation - current_theta) << ", peak value: " << get_idx_of_max(goal_output, NB_NEURONS) << ", central value = " << goal_output[180];
+
 
 		// Sum positive and negative valence strategies
 		for (int i = 0; i < NB_NEURONS; i += 1) {
@@ -432,6 +433,8 @@ int Core::Loop() {
         int angular_speed_cmd = (int) -round(angular_speed_vector[180]);// - as positive is towards the left in ros, while the derivation is left to right
         std::cout << ",angular_speed_cmd = " << angular_speed_cmd << std::endl;
 
+        linear_speed = default_linear_speed;
+
         limit_linear_speed_cmd_by_goal();
 
 		limit_angular_speed_cmd(angular_speed_cmd);
@@ -446,9 +449,10 @@ int Core::Loop() {
 		if (DISABLE_ANGULAR_SPEED) {
 			angular_speed = 0;
 		}
+
         linear_speed = 0;
-        if (angular_speed > -3 && angular_speed < 3) {
-            linear_speed = default_linear_speed;
+        if (angular_speed < -3 || angular_speed > 3) {
+            linear_speed = 0;
         }
 
 		// Set motors speed according to values computed before
