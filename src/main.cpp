@@ -333,7 +333,7 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 
 void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
     int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
-    int32_t orientation = get_orientation(encoder1, encoder2);
+    float orientation = get_orientation_float(encoder1, encoder2);
 
     X += linear_dist * cos(orientation * M_PI/180.f);
     Y += linear_dist * sin(orientation * M_PI/180.f);

@@ -25,6 +25,18 @@ unsigned int get_orientation (long encoder1, long encoder2) {
 }
 
 /*
+    Return the Robot's orientation, in degrees, with respect to the last encoder reset.
+*/
+float get_orientation_float (long encoder1, long encoder2) {
+    int absolute_orientation = fmod((encoder2 - encoder1) / TICKS_PER_DEG, 360);
+
+    if (absolute_orientation >= 0)
+        return(absolute_orientation);
+    else
+        return(360.f + absolute_orientation); // reminder: abs_ori is < 0 here
+}
+
+/*
 	Given current value of both encoders 
 	return the linear dist by approximating it as the average of both wheels' linear distances.
 	Static variables are used to keep last value of encoders.

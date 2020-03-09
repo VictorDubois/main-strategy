@@ -131,7 +131,7 @@ private:
 	
     const int default_linear_speed = 20; // Line speed to set when no positive valence strategy fires
 	unsigned int nb_attractors;
-	int target_orientation;
+    float target_orientation;
 	int mode, linear_speed, angular_speed, linear_speed_cmd;
 	int status;
 	char cwd[1024];
