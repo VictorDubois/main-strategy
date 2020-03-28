@@ -370,16 +370,18 @@ void Core::update_current_speed() {
 }
 
 void Core::limit_linear_speed_cmd_by_goal() {
-    float max_deceleration = 10;// mm/s^2
+    float max_deceleration = 5;// mm/iter^2
 
-    float desired_final_speed = 0;// mm/s^2
+    float desired_final_speed = 0;// mm/iter^2
 
     float distance_to_stop = (current_linear_speed-desired_final_speed)/max_deceleration;
     std::cout << "distance to stop = " << distance_to_stop << std::endl;
 
-    if(distance_to_goal < distance_to_stop) {
+    float stopping_ratio = distance_to_stop/distance_to_goal;
+
+    if(stopping_ratio > 0.5) {
         std::cout << "Approching target, slowing down!" << std::endl;
-        linear_speed_cmd = default_linear_speed/10;
+        linear_speed_cmd = default_linear_speed * MAX((1-stopping_ratio), 0.01);
     }
 }
 
@@ -433,7 +435,7 @@ int Core::Loop() {
         int angular_speed_cmd = (int) -round(angular_speed_vector[180]);// - as positive is towards the left in ros, while the derivation is left to right
         std::cout << ",angular_speed_cmd = " << angular_speed_cmd << std::endl;
 
-        linear_speed = default_linear_speed;
+        linear_speed_cmd = default_linear_speed;
 
         limit_linear_speed_cmd_by_goal();
 
@@ -441,6 +443,7 @@ int Core::Loop() {
 		
 		update_speed(FALSE, &angular_speed, angular_speed_cmd);
 		//update_speed(FALSE, &linear_speed, linear_speed_cmd);
+		linear_speed = linear_speed_cmd;
 
 		if (DISABLE_LINEAR_SPEED) {
 			linear_speed = 0;
@@ -450,8 +453,8 @@ int Core::Loop() {
 			angular_speed = 0;
 		}
 
-        linear_speed = 0;
-        if (angular_speed < -3 || angular_speed > 3) {
+        //linear_speed = 0;
+        if (angular_speed < -1 || angular_speed > 1) {
             linear_speed = 0;
         }
 
@@ -558,4 +561,5 @@ void Core::limit_angular_speed_cmd(int& angular_speed) {
 	MAX(angular_speed, -MAX_ALLOWED_ANGULAR_SPEED);
 	MIN(angular_speed, MAX_ALLOWED_ANGULAR_SPEED);
 }
+
 
