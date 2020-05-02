@@ -35,6 +35,7 @@ extern "C" {
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/Vector3.h"
 #include "geometry_msgs/Twist.h"
+#include "nav_msgs/Odometry.h"
 #include <std_msgs/Bool.h>
 #include "Krabi/positionPlusAngle.h"
 
@@ -109,6 +110,7 @@ private:
 	
 	// Update encoders + sanitize their inputs
 	void update_encoders(long& encoder1, long& encoder2);
+	void updateOdometry(nav_msgs::Odometry odometry);
 
 	// Has the tirette been pulled?
 	bool are_we_go_for_launch();
@@ -127,7 +129,7 @@ private:
 	void compute_target_speed_orientation(const unsigned int orientation);
 
 	// Enforce limits on angular speed: absolute max and obstacle inhibition
-	void limit_angular_speed_cmd(int& angular_speed);
+	void limit_angular_speed_cmd(float& angular_speed);
 	
     const int default_linear_speed = 20; // Line speed to set when no positive valence strategy fires
 	unsigned int nb_attractors;
@@ -148,6 +150,7 @@ private:
 	ros::Publisher motors_enable_pub;
     ros::Publisher current_pose_pub;
 	ros::Subscriber encoders_sub;
+	ros::Subscriber odometry_sub;
 	ros::Subscriber goal_sub;
 	ros::Subscriber lidar_sub;
 	ros::Subscriber tirette_sub;

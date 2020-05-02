@@ -22,7 +22,7 @@
 //#define DEBUG_cart_to_polar
 void Core::cart_to_polar(int posX, int posY, float& theta, float& distance) {
 	theta = ((180./M_PI) * atan2((float) posX, (float) posY));
-	distance = sqrt((float)(posX * posX + posY * posY))/1000.f;
+	distance = sqrt((float)(posX * posX + posY * posY));
 
 	// fix angular ambiguity
 	if (posY < 0) {
@@ -31,8 +31,8 @@ void Core::cart_to_polar(int posX, int posY, float& theta, float& distance) {
 
 	#ifdef DEBUG_cart_to_polar
 		std::cout << "posX = " << posX << "posY = " <<  posY<< "theta = " << theta << ", distance = " << distance << std::endl;
-		int posXafter =(int)1000* distance*cos(theta * M_PI/180.f);
-        	int posYafter =(int)1000* distance*sin(theta * M_PI/180.f);
+		float posXafter = distance*cos(theta * M_PI/180.f);
+        	float posYafter = distance*sin(theta * M_PI/180.f);
 	        std::cout << "posXafter = " << posXafter << ", posYafter = " << posYafter << std::endl;
 	#endif
 }
@@ -48,6 +48,24 @@ int main (int argc, char *argv[]) {
 	}
 
 	delete my_core;
+}
+
+void Core::updateOdometry(nav_msgs::Odometry odometry) {
+    last_position.setX(X);
+    last_position.setY(Y);
+
+    X = odometry.pose.pose.position.x;
+    Y = odometry.pose.pose.position.y;
+    current_position = Position(X, Y, false);
+
+    double siny_cosp = 2 * (odometry.pose.pose.orientation.w * odometry.pose.pose.orientation.z + odometry.pose.pose.orientation.x * odometry.pose.pose.orientation.y);
+    double cosy_cosp = 1 - 2 * (odometry.pose.pose.orientation.y * odometry.pose.pose.orientation.y + odometry.pose.pose.orientation.z * odometry.pose.pose.orientation.z);
+    current_theta = std::atan2(siny_cosp, cosy_cosp) * 180.f/M_PI;
+
+    current_pose_pub.publish(odometry.pose.pose);
+
+    distance_to_goal = sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY()));
+    std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
 void Core::updateCurrentPose(goal_strategy::encoders encoders) {
@@ -102,6 +120,7 @@ void Core::updateRelativeGoal() {
 
     // Orient to goal
     target_orientation = relative_goal_position.getAngle() * 180./M_PI;
+    std::cout << "relative goal position = " << relative_goal_position.getX() << ", " << relative_goal_position.getY() << std::endl;
     std::cout << "target_orientation = " << target_orientation << std::endl;
 }
 
@@ -169,6 +188,7 @@ Core::Core() {
     current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
+    odometry_sub = n.subscribe("odom", 1000, &Core::updateOdometry, this);
 	lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
 	color_sub = n.subscribe("team_color", 1000, &Core::updateTeamColor, this);
 	tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
@@ -432,7 +452,7 @@ int Core::Loop() {
 
 		// Set linear speed according to the obstacles strategy & angular speed based on goal + obstacles
 		// Robot's vision is now centered on 180 deg
-        int angular_speed_cmd = (int) -round(angular_speed_vector[180]);// - as positive is towards the left in ros, while the derivation is left to right
+        float angular_speed_cmd = -angular_speed_vector[180];// - as positive is towards the left in ros, while the derivation is left to right
         std::cout << ",angular_speed_cmd = " << angular_speed_cmd << std::endl;
 
         linear_speed_cmd = default_linear_speed;
@@ -459,7 +479,7 @@ int Core::Loop() {
         }
 
 		// Set motors speed according to values computed before
-        set_motors_speed((float) linear_speed/255.f, (float) angular_speed/255.f, true, false);
+        set_motors_speed((float) linear_speed/255.f, (float) angular_speed/20.f, true, false);
 	} // End of state == NORMAL
 
 	maintain_loop_timing();
@@ -548,7 +568,7 @@ void Core::compute_target_speed_orientation(const unsigned int orientation) {
 	//}
 }
 
-void Core::limit_angular_speed_cmd(int& angular_speed) {
+void Core::limit_angular_speed_cmd(float& angular_speed) {
 	// TODO: use the winning strategy with weights
 	// TODO: restore speed limitations
 	/*if (s_goal.output->strength == 1) {
