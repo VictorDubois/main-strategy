@@ -130,6 +130,8 @@ private:
 
 	// Enforce limits on angular speed: absolute max and obstacle inhibition
 	void limit_angular_speed_cmd(float& angular_speed);
+
+	void send_odometry(const geometry_msgs::Pose& current_pose);
 	
     const int default_linear_speed = 20; // Line speed to set when no positive valence strategy fires
 	unsigned int nb_attractors;
@@ -149,6 +151,7 @@ private:
 	ros::Publisher motors_cmd_pub;
 	ros::Publisher motors_enable_pub;
     ros::Publisher current_pose_pub;
+	ros::Publisher odom_pub;
 	ros::Subscriber encoders_sub;
 	ros::Subscriber odometry_sub;
 	ros::Subscriber goal_sub;
@@ -160,6 +163,7 @@ private:
 	float Y;
 	float theta_zero;
 	float current_theta;
+	float last_theta;
     int32_t starting_encoder1;
     int32_t starting_encoder2;
     bool encoders_initialized;
@@ -168,6 +172,7 @@ private:
     Position last_position;
     float distance_to_goal;
     float current_linear_speed;
+    float current_angular_speed;
     ros::Time last_speed_update_time;
 
 	void stop_motors();
@@ -184,7 +189,7 @@ private:
 	void updateTeamColor(std_msgs::Bool new_color);
 	void updateTirette(std_msgs::Bool starting);
 	bool digitalRead(int);
-	void update_current_pose(int32_t encoder1, int32_t encoder2);
+	geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);
     void updateRelativeGoal();
     void update_current_speed();
     void limit_linear_speed_cmd_by_goal();

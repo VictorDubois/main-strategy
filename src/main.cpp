@@ -90,9 +90,11 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
 	//std::cout << "enc1: " << encoder1 << ",enc2: " << encoder2 << std::endl;
 	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
 
-	update_current_pose(encoder1, encoder2);
+	geometry_msgs::Pose currentPose = update_current_pose(encoder1, encoder2);
 
+	current_pose_pub.publish(currentPose);
     update_current_speed();
+    send_odometry(currentPose);
 
     distance_to_goal = sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY()));
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
@@ -186,6 +188,7 @@ Core::Core() {
     motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel_motor", 5);
     motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
     current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
+    odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom", 1000, &Core::updateOdometry, this);
@@ -351,13 +354,12 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 	}
 }
 
-void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
+geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
     int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
-    float orientation = get_orientation_float(encoder1, encoder2);
+    current_theta = get_orientation_float(encoder1, encoder2);
 
-    X += linear_dist * cos(orientation * M_PI/180.f);
-    Y += linear_dist * sin(orientation * M_PI/180.f);
-	current_theta = orientation;
+    X += linear_dist * cos(current_theta * M_PI/180.f);
+    Y += linear_dist * sin(current_theta * M_PI/180.f);
 	
     std::cout << "X = " << X << ", Y = " << Y << ", theta = " << current_theta << ",linear_dist = " << linear_dist << std::endl;
 
@@ -371,7 +373,52 @@ void Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
     tf2::Quaternion orientation_quat;
     orientation_quat.setRPY(0, 0, current_theta * M_PI/180.f);
     currentPose.orientation = tf2::toMsg(orientation_quat);
-    current_pose_pub.publish(currentPose);
+    return currentPose;
+}
+
+void Core::send_odometry(const geometry_msgs::Pose& currentPose) {
+	nav_msgs::Odometry odom_msg;
+	
+	odom_msg.header.frame_id = "odom";
+	odom_msg.header.stamp = ros::Time::now();
+	/*odom_msg.header.stamp.nsec = 0;
+	odom_msg.header.stamp.sec = 0;
+	odom_msg.header.seq = 0;*/
+	odom_msg.child_frame_id = "base_frame";
+
+	for (unsigned int i = 0; i < (sizeof(odom_msg.pose.covariance)/sizeof(odom_msg.pose.covariance[0])); i++){
+		odom_msg.pose.covariance[i] = 0;
+	}
+
+	odom_msg.pose.pose = currentPose;
+	/*odom_msg.pose.pose.position.x = 0;
+	odom_msg.pose.pose.position.y = 0;
+	odom_msg.pose.pose.position.z = 0;
+
+	odom_msg.pose.pose.orientation.x = 0;
+	odom_msg.pose.pose.orientation.y = 0;
+	odom_msg.pose.pose.orientation.z = 0;*/
+	odom_msg.pose.covariance[0] = 0.1;
+	odom_msg.pose.covariance[7] = 0.1;
+	odom_msg.pose.covariance[35] = 0.2;
+
+	odom_msg.pose.covariance[14] = 10000; // set a non-zero covariance on unused
+	odom_msg.pose.covariance[21] = 10000; // dimensions (z, pitch and roll); this
+	odom_msg.pose.covariance[28] = 10000; // is a requirement of robot_pose_ekf
+	//source: https://github.com/yujinrobot/kobuki/blob/0.6.6/kobuki_node/src/library/odometry.cpp#L145-L154
+
+	for (unsigned int i = 0; i < (sizeof(odom_msg.twist.covariance)/sizeof(odom_msg.twist.covariance[0])); i++){
+		odom_msg.twist.covariance[i] = 0;
+	}
+
+	odom_msg.twist.twist.linear.x = current_linear_speed;//(left_speed+right_speed)/2;
+	odom_msg.twist.twist.linear.y = 0;
+	odom_msg.twist.twist.linear.z = 0;
+
+	odom_msg.twist.twist.angular.x = 0;
+	odom_msg.twist.twist.angular.y = 0;
+	odom_msg.twist.twist.angular.z = current_angular_speed;//(left_speed-right_speed)/2;
+	odom_pub.publish(odom_msg);
 }
 
 void Core::update_current_speed() {
@@ -386,6 +433,10 @@ void Core::update_current_speed() {
 
     current_linear_speed = abs(distance_moved / time_since_last_speed_update);
     std::cout << "current_linear_speed = " << current_linear_speed << std::endl;
+
+    current_angular_speed = (current_theta - last_theta)/time_since_last_speed_update;
+    last_theta = current_theta;
+
     last_speed_update_time = now;
 }
 
