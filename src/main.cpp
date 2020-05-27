@@ -191,7 +191,7 @@ Core::Core() {
     odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
-    odometry_sub = n.subscribe("odom", 1000, &Core::updateOdometry, this);
+    odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
 	lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
 	color_sub = n.subscribe("team_color", 1000, &Core::updateTeamColor, this);
 	tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
@@ -280,10 +280,10 @@ void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, 
     new_motor_cmd.linear.x = linearSpeed;
 	new_motor_cmd.angular.z = angularSpeed;
 
-	motors_cmd_pub.publish(new_motor_cmd);
+	//motors_cmd_pub.publish(new_motor_cmd);
 	std_msgs::Bool new_enable_cmd;
     new_enable_cmd.data = enable;
-	motors_enable_pub.publish(new_enable_cmd);
+	//motors_enable_pub.publish(new_enable_cmd);
 }
 
 int Core::Setup(int argc, char* argv[]) {
@@ -366,8 +366,8 @@ geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2
     current_position = Position(X, Y, false);
 
     geometry_msgs::Pose currentPose;
-    currentPose.position.x = X;
-    currentPose.position.y = Y;
+    currentPose.position.x = X/1000;
+    currentPose.position.y = Y/1000;
     //currentPose.orientation.z = current_theta * M_PI/180.f;
 
     tf2::Quaternion orientation_quat;
@@ -379,12 +379,12 @@ geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2
 void Core::send_odometry(const geometry_msgs::Pose& currentPose) {
 	nav_msgs::Odometry odom_msg;
 	
-	odom_msg.header.frame_id = "odom";
+	odom_msg.header.frame_id = "base_link";
 	odom_msg.header.stamp = ros::Time::now();
 	/*odom_msg.header.stamp.nsec = 0;
 	odom_msg.header.stamp.sec = 0;
 	odom_msg.header.seq = 0;*/
-	odom_msg.child_frame_id = "base_frame";
+	odom_msg.child_frame_id = "odom";
 
 	for (unsigned int i = 0; i < (sizeof(odom_msg.pose.covariance)/sizeof(odom_msg.pose.covariance[0])); i++){
 		odom_msg.pose.covariance[i] = 0;
@@ -402,9 +402,9 @@ void Core::send_odometry(const geometry_msgs::Pose& currentPose) {
 	odom_msg.pose.covariance[7] = 0.1;
 	odom_msg.pose.covariance[35] = 0.2;
 
-	odom_msg.pose.covariance[14] = 10000; // set a non-zero covariance on unused
-	odom_msg.pose.covariance[21] = 10000; // dimensions (z, pitch and roll); this
-	odom_msg.pose.covariance[28] = 10000; // is a requirement of robot_pose_ekf
+	odom_msg.pose.covariance[14] = 0000; // set a non-zero covariance on unused
+	odom_msg.pose.covariance[21] = 0000; // dimensions (z, pitch and roll); this
+	odom_msg.pose.covariance[28] = 0000; // is a requirement of robot_pose_ekf
 	//source: https://github.com/yujinrobot/kobuki/blob/0.6.6/kobuki_node/src/library/odometry.cpp#L145-L154
 
 	for (unsigned int i = 0; i < (sizeof(odom_msg.twist.covariance)/sizeof(odom_msg.twist.covariance[0])); i++){
