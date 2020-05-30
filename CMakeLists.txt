@@ -19,6 +19,8 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   geometry_msgs
   goal_strategy
+  tf
+  nav_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -79,6 +81,7 @@ generate_messages(
   std_msgs
   geometry_msgs
   goal_strategy
+  nav_msgs
   #UpdateStrat
 )
 
@@ -114,7 +117,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   #LIBRARIES goal_strategy
-  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs goal_strategy
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs goal_strategy nav_msgs tf
   #DEPENDS system_lib
 )
 

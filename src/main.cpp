@@ -86,7 +86,7 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
     encoder2 -= starting_encoder2;
 
 	// low pass filter
-    update_encoders(encoder1, encoder2);
+    //update_encoders(encoder1, encoder2);
 	//std::cout << "enc1: " << encoder1 << ",enc2: " << encoder2 << std::endl;
 	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
 
@@ -355,7 +355,7 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 }
 
 geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
-    int32_t linear_dist = compute_linear_dist(encoder1, encoder2);
+    float linear_dist = compute_linear_dist(encoder1, encoder2);
     current_theta = get_orientation_float(encoder1, encoder2);
 
     X += linear_dist * cos(current_theta * M_PI/180.f);
@@ -377,14 +377,30 @@ geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2
 }
 
 void Core::send_odometry(const geometry_msgs::Pose& currentPose) {
+//first, we'll publish the transform over tf
+	geometry_msgs::TransformStamped odom_trans;
+	odom_trans.header.stamp = ros::Time::now();
+      odom_trans.header.frame_id = "odom";
+       odom_trans.child_frame_id = "base_link";
+   
+       odom_trans.transform.translation.x = currentPose.position.x;
+       odom_trans.transform.translation.y = currentPose.position.y;
+         odom_trans.transform.translation.z = 0.0;
+         odom_trans.transform.rotation = currentPose.orientation;
+    
+        //send the transform
+        odom_broadcaster.sendTransform(odom_trans);
+
 	nav_msgs::Odometry odom_msg;
 	
-	odom_msg.header.frame_id = "base_link";
+	//odom_msg.header.frame_id = "base_link";
+	odom_msg.header.frame_id = "odom";
 	odom_msg.header.stamp = ros::Time::now();
 	/*odom_msg.header.stamp.nsec = 0;
 	odom_msg.header.stamp.sec = 0;
 	odom_msg.header.seq = 0;*/
-	odom_msg.child_frame_id = "odom";
+	//odom_msg.child_frame_id = "odom";
+	odom_msg.child_frame_id = "base_link";
 
 	for (unsigned int i = 0; i < (sizeof(odom_msg.pose.covariance)/sizeof(odom_msg.pose.covariance[0])); i++){
 		odom_msg.pose.covariance[i] = 0;

@@ -4,6 +4,7 @@
 
 #define STANDALONE_STRATEGIE 1
 #include "ros/ros.h"
+#include <tf/transform_broadcaster.h>
 #include <vector>
 #include <utility>
 #include <math.h>
@@ -158,6 +159,7 @@ private:
 	ros::Subscriber lidar_sub;
 	ros::Subscriber tirette_sub;
 	ros::Subscriber color_sub;
+	tf::TransformBroadcaster odom_broadcaster;
 	int32_t last_distance;
 	float X;
 	float Y;
