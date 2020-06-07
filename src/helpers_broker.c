@@ -36,6 +36,16 @@ float get_orientation_float (long encoder1, long encoder2) {
         return(360.f + absolute_orientation); // reminder: abs_ori is < 0 here
 }
 
+int fixOverflow(long before, long after) {
+    if (after - before > TICKS_half_OVERFLOW) {
+        return after - before - TICKS_OVERFLOW;
+    }
+    if (after - before < -TICKS_half_OVERFLOW) {
+        return after - before + TICKS_OVERFLOW;
+    }
+    return after - before;
+}
+
 /*
 	Given current value of both encoders 
 	return the linear dist by approximating it as the average of both wheels' linear distances.
@@ -48,8 +58,8 @@ float compute_linear_dist (const long encoder1, const long encoder2) {
 	int diff_encoder1, diff_encoder2;
 
 	// Compute difference in nb of ticks between last measurements and now
-	diff_encoder1 = encoder1 - last_encoder1;
-	diff_encoder2 = encoder2 - last_encoder2;
+    diff_encoder1 = fixOverflow(encoder1, last_encoder1);
+    diff_encoder2 = fixOverflow(encoder2, last_encoder2);
 
 	// Compute each wheel's dist and approximate linear dist as their average
 	dist1 = (DIST_PER_REVOLUTION * (float) diff_encoder1 / TICKS_PER_REVOLUTION);
