@@ -12,6 +12,6 @@
 #define WHEEL_DIAM 68               // Diameter of the wheel (mm)
 #define DIST_PER_REVOLUTION 210.481 //304.734 // Distance traveled for a full wheel revolution (in mm)
 #define TICKS_PER_DEG 89.00//89.06 //4.86          // Nb of diff tick (enc1 - enc2) it takes to rotate 1 deg (old value: 4.7)
-#define TICKS_OVERFLOW 2^16
+#define TICKS_OVERFLOW 65536
 #define TICKS_half_OVERFLOW TICKS_OVERFLOW/2
 #endif

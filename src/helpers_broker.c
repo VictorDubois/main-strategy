@@ -36,11 +36,13 @@ float get_orientation_float (long encoder1, long encoder2) {
         return(360.f + absolute_orientation); // reminder: abs_ori is < 0 here
 }
 
-int fixOverflow(long before, long after) {
+int fixOverflow(long after, long before) {
     if (after - before > TICKS_half_OVERFLOW) {
+	//printf("before (%ld) - after (%ld) > TICKS_half_OVERFLOW (%d). Returning %ld\n\n\n", before, after, TICKS_half_OVERFLOW, after - before - TICKS_OVERFLOW);
         return after - before - TICKS_OVERFLOW;
     }
     if (after - before < -TICKS_half_OVERFLOW) {
+	//printf("after (%ld) - before (%ld) < -TICKS_half_OVERFLOW (%d). Returning %ld\n\n\n", after, before, -TICKS_half_OVERFLOW, after - before + TICKS_OVERFLOW);
         return after - before + TICKS_OVERFLOW;
     }
     return after - before;
@@ -89,8 +91,8 @@ float compute_linear_speed (const long encoder1, const long encoder2, const long
 	int diff_encoder1, diff_encoder2;
 
 	// Compute difference in nb of ticks between last measurements and now
-	diff_encoder1 = encoder1 - last_encoder1;
-	diff_encoder2 = encoder2 - last_encoder2;
+    diff_encoder1 = fixOverflow(encoder1, last_encoder1);
+    diff_encoder2 = fixOverflow(encoder2, last_encoder2);
 
 	// Compute each wheel's speed and approximate linear speed as their average
 	speed1 = (DIST_PER_REVOLUTION * (float) diff_encoder1 / TICKS_PER_REVOLUTION) / (float) (elapsed / 1e9);
