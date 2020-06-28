@@ -457,18 +457,30 @@ void Core::update_current_speed() {
 }
 
 void Core::limit_linear_speed_cmd_by_goal() {
-    float max_deceleration = 5;// mm/iter^2
+    float max_acceleration = 0.05;// m*s-2
+    float max_deceleration = 0.05;// m*s-2
 
-    float desired_final_speed = 0;// mm/iter^2
+    float desired_final_speed = 0;// m*s-2
 
-    float distance_to_stop = (current_linear_speed-desired_final_speed)/max_deceleration;
+    float time_to_stop = (current_linear_speed-desired_final_speed)/max_deceleration;
+    std::cout << "time to stop = " << time_to_stop << std::endl;
+
+    float distance_to_stop = time_to_stop * (current_linear_speed-desired_final_speed)/2;
     std::cout << "distance to stop = " << distance_to_stop << std::endl;
 
-    float stopping_ratio = distance_to_stop/distance_to_goal;
+    // Compute extra time if accelerating
+    float average_extra_speed = (current_linear_speed + max_acceleration/2);
+    float extra_distance = average_extra_speed / BROKER_FREQ;
 
-    if(stopping_ratio > 0.5) {
-        std::cout << "Approching target, slowing down!" << std::endl;
-        linear_speed_cmd = default_linear_speed * MAX((1-stopping_ratio), 0.01);
+    if (distance_to_goal < distance_to_stop ) {
+        linear_speed_cmd = MIN(default_linear_speed, current_linear_speed - max_deceleration);
+    }
+    if (distance_to_goal > distance_to_stop + extra_distance)
+    {
+        linear_speed_cmd = MIN(default_linear_speed, current_linear_speed + max_acceleration);
+    }
+    else {
+        linear_speed_cmd = MIN(default_linear_speed, current_linear_speed);
     }
 }
 
