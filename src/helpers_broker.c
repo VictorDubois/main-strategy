@@ -128,7 +128,7 @@ int get_sensor_values (int fd, void * buf, ssize_t msg_size) {
  * The 'immediate' parameter allow to override this ramp and set the target speed directly
  * (allows for emergency stop for instance)
  */
-void update_speed (const int immediate, int *current_speed, const int new_speed) {
+void update_speed (const float immediate, float *current_speed, const float new_speed) {
 	// If immediate, do not use the ramp, set speed immediately
 	if (immediate == TRUE) {
 		*current_speed = new_speed;

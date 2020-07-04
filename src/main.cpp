@@ -64,7 +64,7 @@ void Core::updateOdometry(nav_msgs::Odometry odometry) {
 
     current_pose_pub.publish(odometry.pose.pose);
 
-    distance_to_goal = sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY()));
+    distance_to_goal = (sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY())))/1000.f;
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
@@ -96,7 +96,7 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
     update_current_speed();
     send_odometry(currentPose);
 
-    distance_to_goal = sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY()));
+    distance_to_goal = (sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY())))/1000.f;
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
@@ -185,7 +185,7 @@ Core::Core() {
 	last_goal_max_speed.linear.y = 0;
 	last_goal_max_speed.angular.z = 0;
 	ros::NodeHandle n;
-    motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel_motor", 5);
+    motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
     current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
     odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
@@ -280,10 +280,10 @@ void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, 
     new_motor_cmd.linear.x = linearSpeed;
 	new_motor_cmd.angular.z = angularSpeed;
 
-	//motors_cmd_pub.publish(new_motor_cmd);
+	motors_cmd_pub.publish(new_motor_cmd);
 	std_msgs::Bool new_enable_cmd;
     new_enable_cmd.data = enable;
-	//motors_enable_pub.publish(new_enable_cmd);
+	motors_enable_pub.publish(new_enable_cmd);
 }
 
 int Core::Setup(int argc, char* argv[]) {
@@ -445,7 +445,7 @@ void Core::update_current_speed() {
         std::cout << "Error: null time!" << std::endl;
     }
 
-    int distance_moved = (current_position - last_position).getNorme();
+    float distance_moved = ((current_position - last_position).getNorme())/1000.f;
 
     current_linear_speed = abs(distance_moved / time_since_last_speed_update);
     std::cout << "current_linear_speed = " << current_linear_speed << std::endl;
@@ -459,29 +459,40 @@ void Core::update_current_speed() {
 void Core::limit_linear_speed_cmd_by_goal() {
     float max_acceleration = 0.05;// m*s-2
     float max_deceleration = 0.05;// m*s-2
+    float new_speed_order = 0;//m/s
 
     float desired_final_speed = 0;// m*s-2
 
     float time_to_stop = (current_linear_speed-desired_final_speed)/max_deceleration;
-    std::cout << "time to stop = " << time_to_stop << std::endl;
+    std::cout << "time to stop = " << time_to_stop << "s, ";
 
     float distance_to_stop = time_to_stop * (current_linear_speed-desired_final_speed)/2;
-    std::cout << "distance to stop = " << distance_to_stop << std::endl;
+    std::cout << ", distance to stop = " << distance_to_stop << "m, ";
 
     // Compute extra time if accelerating
-    float average_extra_speed = (current_linear_speed + max_acceleration/2);
+    float average_extra_speed = (current_linear_speed+ max_acceleration/2);
     float extra_distance = average_extra_speed / BROKER_FREQ;
 
     if (distance_to_goal < distance_to_stop ) {
-        linear_speed_cmd = MIN(default_linear_speed, current_linear_speed - max_deceleration);
+	std::cout << "decelerate";
+        new_speed_order = current_linear_speed- max_deceleration;
     }
-    if (distance_to_goal > distance_to_stop + extra_distance)
+    else if (distance_to_goal < current_linear_speed/ BROKER_FREQ ) {
+	std::cout << "EMERGENVY BRAKE";
+        new_speed_order = 0;
+    }
+    else if (distance_to_goal > distance_to_stop + extra_distance)
     {
-        linear_speed_cmd = MIN(default_linear_speed, current_linear_speed + max_acceleration);
+	std::cout << "accelerate";
+        new_speed_order = current_linear_speed+ max_acceleration;
     }
     else {
-        linear_speed_cmd = MIN(default_linear_speed, current_linear_speed);
+	std::cout << "cruise speed";
+        new_speed_order = current_linear_speed;
     }
+    //linear_speed_cmd = MIN(default_linear_speed, new_speed_order);
+    linear_speed_cmd = new_speed_order;
+    std::cout << "new speed: " << new_speed_order << " => " << linear_speed_cmd << std::endl;
 }
 
 int Core::Loop() {
@@ -534,7 +545,7 @@ int Core::Loop() {
         float angular_speed_cmd = -angular_speed_vector[180];// - as positive is towards the left in ros, while the derivation is left to right
         std::cout << ",angular_speed_cmd = " << angular_speed_cmd << std::endl;
 
-        linear_speed_cmd = default_linear_speed;
+        //linear_speed_cmd = default_linear_speed;
 
         limit_linear_speed_cmd_by_goal();
 
@@ -558,7 +569,7 @@ int Core::Loop() {
         }
 
 		// Set motors speed according to values computed before
-        set_motors_speed((float) linear_speed/255.f, (float) angular_speed/20.f, true, false);
+        set_motors_speed(linear_speed, (float) angular_speed/20.f, true, false);
 	} // End of state == NORMAL
 
 	maintain_loop_timing();

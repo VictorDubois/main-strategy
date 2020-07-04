@@ -134,10 +134,11 @@ private:
 
 	void send_odometry(const geometry_msgs::Pose& current_pose);
 	
-    const int default_linear_speed = 20; // Line speed to set when no positive valence strategy fires
+    const float default_linear_speed = 0.01; // Line speed to set when no positive valence strategy fires
 	unsigned int nb_attractors;
     float target_orientation;
-	int mode, linear_speed, angular_speed, linear_speed_cmd;
+	int mode;
+	float linear_speed, angular_speed, linear_speed_cmd;
 	int status;
 	char cwd[1024];
 	long encoder1, encoder2, last_encoder1, last_encoder2, elapsed, chrono;
