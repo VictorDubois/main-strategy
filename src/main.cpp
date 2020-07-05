@@ -64,7 +64,7 @@ void Core::updateOdometry(nav_msgs::Odometry odometry) {
 
     current_pose_pub.publish(odometry.pose.pose);
 
-    distance_to_goal = (sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY())))/1000.f;
+    distance_to_goal = (sqrt((X - goal_position.getX()/1000.f) * (X - goal_position.getX()/1000.f) + (Y - goal_position.getY()/1000.f) * (Y - goal_position.getY()/1000.f)));
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
@@ -96,7 +96,7 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
     update_current_speed();
     send_odometry(currentPose);
 
-    distance_to_goal = (sqrt((X - goal_position.getX()) * (X - goal_position.getX()) + (Y - goal_position.getY()) * (Y - goal_position.getY())))/1000.f;
+    distance_to_goal = (sqrt((X - goal_position.getX()/1000.f) * (X - goal_position.getX()/1000.f) + (Y - goal_position.getY()/1000.f) * (Y - goal_position.getY()/1000.f)));
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
@@ -366,8 +366,8 @@ geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2
     current_position = Position(X, Y, false);
 
     geometry_msgs::Pose currentPose;
-    currentPose.position.x = X/1000;
-    currentPose.position.y = Y/1000;
+    currentPose.position.x = X;
+    currentPose.position.y = Y;
     //currentPose.orientation.z = current_theta * M_PI/180.f;
 
     tf2::Quaternion orientation_quat;

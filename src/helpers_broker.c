@@ -78,7 +78,7 @@ float compute_linear_dist (const long encoder1, const long encoder2) {
 	last_encoder2 = encoder2;
 
 	// Return the computed linear dist
-	return dist;
+    return dist/1000.f;// convert to meters
 }
 
 /*
@@ -109,7 +109,7 @@ float compute_linear_speed (const long encoder1, const long encoder2, const long
 	last_encoder2 = encoder2;
 
 	// Return the computed linear speed
-	return speed;
+    return speed/1000.f;// convert to meters
 }
 
 /*
