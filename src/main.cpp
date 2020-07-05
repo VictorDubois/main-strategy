@@ -56,7 +56,7 @@ void Core::updateOdometry(nav_msgs::Odometry odometry) {
 
     X = odometry.pose.pose.position.x;
     Y = odometry.pose.pose.position.y;
-    current_position = Position(X, Y, false);
+    current_position = Position(X * 1000, Y * 1000, false);
 
     double siny_cosp = 2 * (odometry.pose.pose.orientation.w * odometry.pose.pose.orientation.z + odometry.pose.pose.orientation.x * odometry.pose.pose.orientation.y);
     double cosy_cosp = 1 - 2 * (odometry.pose.pose.orientation.y * odometry.pose.pose.orientation.y + odometry.pose.pose.orientation.z * odometry.pose.pose.orientation.z);
@@ -363,7 +363,7 @@ geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2
 	
     std::cout << "X = " << X << ", Y = " << Y << ", theta = " << current_theta << ",linear_dist = " << linear_dist << std::endl;
 
-    current_position = Position(X, Y, false);
+    current_position = Position(X * 1000, Y * 1000, false);
 
     geometry_msgs::Pose currentPose;
     currentPose.position.x = X;
