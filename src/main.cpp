@@ -54,8 +54,8 @@ void Core::updateOdometry(nav_msgs::Odometry odometry) {
     last_position.setX(X);
     last_position.setY(Y);
 
-    X = odometry.pose.pose.position.x;
-    Y = odometry.pose.pose.position.y;
+    X = odometry.pose.pose.position.x + starting_position.getX()/1000.f;
+    Y = odometry.pose.pose.position.y + starting_position.getY()/1000.f;
     current_position = Position(X * 1000, Y * 1000, false);
 
     double siny_cosp = 2 * (odometry.pose.pose.orientation.w * odometry.pose.pose.orientation.z + odometry.pose.pose.orientation.x * odometry.pose.pose.orientation.y);
@@ -119,6 +119,7 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 void Core::updateRelativeGoal() {
     // Convert absolute position to relative position
     Position relative_goal_position = goal_position - current_position;
+    //Position relative_goal_position = goal_position - starting_position - current_position;
 
     // Orient to goal
     target_orientation = relative_goal_position.getAngle() * 180./M_PI;
@@ -170,6 +171,7 @@ void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle) {
 
 Core::Core() {
 	ros::start();
+	is_blue = false;
     last_speed_update_time = ros::Time::now();
     current_linear_speed = 0;
     encoders_initialized = false;
@@ -263,6 +265,15 @@ Core::Core() {
 	std::cout << "There are " << positionsPolar.size() << " positionPolar, " << positionsCart.size() << " positionCart" << std::endl;
 	fflush(stdout);
 
+	starting_position = Position(200, 800, !is_blue);
+	X = starting_position.getX()/1000.f;
+	Y = starting_position.getY()/1000.f;
+	if (is_blue) {
+		theta_zero = 0.f;
+	}
+	else {
+		theta_zero = 180.f;
+	}
 	chrono = 0;
 	last_encoder1 = last_encoder2 = 0;
 }
@@ -356,7 +367,7 @@ void Core::update_encoders(long& encoder1, long& encoder2) {
 
 geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
     float linear_dist = compute_linear_dist(encoder1, encoder2);
-    current_theta = get_orientation_float(encoder1, encoder2);
+    current_theta = get_orientation_float(encoder1, encoder2) + theta_zero;
 
     X += linear_dist * cos(current_theta * M_PI/180.f);
     Y += linear_dist * sin(current_theta * M_PI/180.f);

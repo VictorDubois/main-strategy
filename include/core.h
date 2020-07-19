@@ -173,6 +173,7 @@ private:
     Position current_position;
     Position goal_position;
     Position last_position;
+    Position starting_position;
     float distance_to_goal;
     float current_linear_speed;
     float current_angular_speed;
