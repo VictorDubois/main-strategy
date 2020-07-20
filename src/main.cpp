@@ -170,7 +170,6 @@ Core::Core() {
     current_linear_speed = 0;
     encoders_initialized = false;
     goal_position = Position();
-	last_distance = 0;
     distance_to_goal = 0;
 	geometry_msgs::Twist last_lidar_max_speed;
 	last_lidar_max_speed.linear.x = 0;
@@ -196,15 +195,14 @@ Core::Core() {
 	lidar_output[NB_NEURONS] = {0.};
 	angular_speed_vector[NB_NEURONS] = {0.};
 	angular_landscape[NB_NEURONS] = {0.};
-	is_tirette_msg_displayed = false;
 
 	printf("done! Proceeding.\nStarting IA.\n");
 
 	/**************************************
 	 *      Variable initialization       *
 	 **************************************/
-	linear_speed = 0; // motor command for linear speed, in percentage (from -100 to 100)
-	angular_speed = 0; // motor command for angular speed, in percentage (from -100 to 100)
+    linear_speed = 0;
+    angular_speed = 0;
 	linear_speed_cmd = 0;
 
 	starting_position = Position(200, 800, !is_blue);
@@ -241,31 +239,11 @@ void Core::set_motors_speed(float linearSpeed, float angularSpeed, bool enable, 
 }
 
 int Core::Setup(int argc, char* argv[]) {
-	/**************************************
-	 *               Setup                *
-	 **************************************/
-	mode = 0;
-
-	/**************************************
-	 *         Broker Main Loop           *
-	 **************************************/
 	// Take time before entering the loop
 	clock_gettime(CLOCK_MONOTONIC, &last);
 	usleep(10000);// So the next now-last won't return 0
 
-	/*************************************************************
-	 *			   MAIN LOOP
-	 ************************************************************/
-
-	// old wait for tirette
-
-	// Take time before entering the loop
-	clock_gettime(CLOCK_MONOTONIC, &last);
-
 	stop_motors();
-	printf("before while\n");
-	fflush(stdout);
-
 
 	return 0;
 }

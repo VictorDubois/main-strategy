@@ -135,12 +135,8 @@ private:
 	void send_odometry(const geometry_msgs::Pose& current_pose);
 	
     const float default_linear_speed = 0.01; // Line speed to set when no positive valence strategy fires
-	unsigned int nb_attractors;
     float target_orientation;
-	int mode;
 	float linear_speed, angular_speed, linear_speed_cmd;
-	int status;
-	char cwd[1024];
 	long encoder1, encoder2, last_encoder1, last_encoder2, elapsed, chrono;
 	float goal_output[NB_NEURONS] = {0.};
 	float obstacles_output[NB_NEURONS] = {0.};
@@ -148,7 +144,6 @@ private:
 	float angular_speed_vector[NB_NEURONS] = {0.};
 	float angular_landscape[NB_NEURONS] = {0.};
 	struct timespec now, last, begin_match;
-	bool is_tirette_msg_displayed = false;
 	int is_blue;
 	ros::Publisher motors_cmd_pub;
 	ros::Publisher motors_enable_pub;
@@ -161,7 +156,6 @@ private:
 	ros::Subscriber tirette_sub;
 	ros::Subscriber color_sub;
 	tf::TransformBroadcaster odom_broadcaster;
-	int32_t last_distance;
 	float X;
 	float Y;
 	float theta_zero;
