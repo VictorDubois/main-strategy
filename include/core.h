@@ -165,7 +165,7 @@ private:
     int32_t starting_encoder2;
     bool encoders_initialized;
     Position current_position;
-    Position goal_position;
+    PositionPlusAngle goal_position;
     Position last_position;
     Position starting_position;
     float distance_to_goal;
@@ -188,7 +188,13 @@ private:
 	void updateTirette(std_msgs::Bool starting);
 	bool digitalRead(int);
 	geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);
-    void updateRelativeGoal();
+
+    /**
+     * @brief getGoalAngle returns the relative angle in degres to the goal
+     * @return float the angle
+     */
+    float getAngleToGoal();
+
     void update_current_speed();
     void limit_linear_speed_cmd_by_goal();
 

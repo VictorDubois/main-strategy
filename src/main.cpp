@@ -64,7 +64,7 @@ void Core::updateOdometry(nav_msgs::Odometry odometry) {
 
     current_pose_pub.publish(odometry.pose.pose);
 
-    distance_to_goal = (sqrt((X - goal_position.getX()/1000.f) * (X - goal_position.getX()/1000.f) + (Y - goal_position.getY()/1000.f) * (Y - goal_position.getY()/1000.f)));
+    distance_to_goal = (sqrt((X - goal_position.getPosition().getX()/1000.f) * (X - goal_position.getPosition().getX()/1000.f) + (Y - goal_position.getPosition().getY()/1000.f) * (Y - goal_position.getPosition().getY()/1000.f)));
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
@@ -91,7 +91,7 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
     update_current_speed();
     send_odometry(currentPose);
 
-    distance_to_goal = (sqrt((X - goal_position.getX()/1000.f) * (X - goal_position.getX()/1000.f) + (Y - goal_position.getY()/1000.f) * (Y - goal_position.getY()/1000.f)));
+    distance_to_goal = (sqrt((X - goal_position.getPosition().getX()/1000.f) * (X - goal_position.getPosition().getX()/1000.f) + (Y - goal_position.getPosition().getY()/1000.f) * (Y - goal_position.getPosition().getY()/1000.f)));
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
@@ -111,19 +111,20 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector) {
 	return sqrt((vector.x * vector.x) + (vector.y * vector.y));
 }
 
-void Core::updateRelativeGoal() {
+float Core::getAngleToGoal() {
     // Convert absolute position to relative position
-    Position relative_goal_position = goal_position - current_position;
+    Position relative_goal_position = goal_position.getPosition() - current_position;
     //Position relative_goal_position = goal_position - starting_position - current_position;
 
     // Orient to goal
-    target_orientation = relative_goal_position.getAngle() * 180./M_PI;
+    float relative_goal_position_angle = relative_goal_position.getAngle() * 180./M_PI;
     std::cout << "relative goal position = " << relative_goal_position.getX() << ", " << relative_goal_position.getY() << std::endl;
-    std::cout << "target_orientation = " << target_orientation << std::endl;
+    std::cout << "target_orientation = " << relative_goal_position_angle << std::endl;
+    return relative_goal_position_angle;
 }
 
 void Core::updateGoal(geometry_msgs::Pose goal_pose) {
-    goal_position = Position(goal_pose.position);
+    goal_position = PositionPlusAngle(goal_pose);
 
 	//last_goal_max_speed = goal_out.max_speed;
 }
@@ -169,7 +170,7 @@ Core::Core() {
     last_speed_update_time = ros::Time::now();
     current_linear_speed = 0;
     encoders_initialized = false;
-    goal_position = Position();
+    goal_position = PositionPlusAngle();
     distance_to_goal = 0;
 	geometry_msgs::Twist last_lidar_max_speed;
 	last_lidar_max_speed.linear.x = 0;
@@ -409,7 +410,15 @@ int Core::Loop() {
 		// TODO: assign priority integers to strategies, take the strategy that has the max of priority * strength
 
 		//compute_target_speed_orientation(orientation);
-        updateRelativeGoal();
+
+        if (distance_to_goal > 0.02) {
+            // orient towards the goal's position
+            target_orientation = getAngleToGoal();
+        }
+        else {
+            // respect the goal's own orientation
+            target_orientation = goal_position.getAngle();
+        }
 
 		// Inhibit linear speed if there are obstacles
 
