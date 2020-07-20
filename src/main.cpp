@@ -85,11 +85,6 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders) {
     encoder1 -= starting_encoder1;
     encoder2 -= starting_encoder2;
 
-	// low pass filter
-    //update_encoders(encoder1, encoder2);
-	//std::cout << "enc1: " << encoder1 << ",enc2: " << encoder2 << std::endl;
-	//std::cout << get_orientation(encoder1, encoder2) << std::endl;
-
 	geometry_msgs::Pose currentPose = update_current_pose(encoder1, encoder2);
 
 	current_pose_pub.publish(currentPose);
@@ -142,7 +137,6 @@ void Core::updateTeamColor(std_msgs::Bool new_color) {
 	else {
 		std::cout << "We are on the yellow Team" << std::endl;
 	}
-	
 }
 
 void Core::updateTirette(std_msgs::Bool starting) {
@@ -205,7 +199,6 @@ Core::Core() {
 	is_tirette_msg_displayed = false;
 
 	printf("done! Proceeding.\nStarting IA.\n");
-	//@TODO Reset encoders (for now, the robot starts at its origin point)
 
 	/**************************************
 	 *      Variable initialization       *
@@ -213,57 +206,6 @@ Core::Core() {
 	linear_speed = 0; // motor command for linear speed, in percentage (from -100 to 100)
 	angular_speed = 0; // motor command for angular speed, in percentage (from -100 to 100)
 	linear_speed_cmd = 0;
-
-	std::vector<std::pair<int, int> > positionsCart;
-	std::vector<std::pair<float, float> > positionsPolar;
-
-	// first: longueur (vers l'autre couleur)
-	// second: profondeur (vers le publique)
-	std::pair<int, int> positionDepart = std::make_pair(300, 450);
-	int angleDepart = -90;//degrees
-	positionsCart.push_back(std::make_pair(800, 450));//OK          out of red
-	positionsCart.push_back(std::make_pair(800, 750));//OK          out of green
-	positionsCart.push_back(std::make_pair(300, 750));//OK          mid green
-	positionsCart.push_back(std::make_pair(1700, 450));//           out of top of accel
-	positionsCart.push_back(std::make_pair(1700, 200));//           in front of top of accel
-	if (is_blue) { //BLUE
-		positionsCart.push_back(std::make_pair(2250, 450));//            out of goldenium
-		positionsCart.push_back(std::make_pair(2250, 200));//            in front of goldenium
-	} else { // YELLOW
-		positionsCart.push_back(std::make_pair(2230, 450));//            out of goldenium
-		positionsCart.push_back(std::make_pair(2230, 200));//            in front of goldenium
-	}
-	positionsCart.push_back(std::make_pair(1500, 800));//          waypoint behind backhole
-
-
-	// Create polar position from cartesian positions
-	for (auto position: positionsCart) {
-		float distance = 0;
-		float angle = 0;
-		cart_to_polar(position.first - positionDepart.first, position.second - positionDepart.second, angle, distance);
-		angle += angleDepart;
-		positionsPolar.push_back(std::make_pair(distance, angle));
-	}
-
-	// Revert for the other color
-	if (is_blue) { // BLUE
-		printf("Reversing position because of color choice\n");
-		fflush(stdout);
-		for (auto& position: positionsPolar) {
-			std::cout << "position, before: " << position.second << std::endl;
-			position.second = - position.second;
-			std::cout << "after: " << position.second << std::endl;
-		}
-		fflush(stdout);
-	}
-	else {
-		printf("Keeping positions\n");
-		fflush(stdout);
-	}
-
-
-	std::cout << "There are " << positionsPolar.size() << " positionPolar, " << positionsCart.size() << " positionCart" << std::endl;
-	fflush(stdout);
 
 	starting_position = Position(200, 800, !is_blue);
 	X = starting_position.getX()/1000.f;
@@ -274,6 +216,7 @@ Core::Core() {
 	else {
 		theta_zero = 180.f;
 	}
+
 	chrono = 0;
 	last_encoder1 = last_encoder2 = 0;
 }
@@ -331,7 +274,6 @@ void Core::landscapeFromAngleAndStrength(std::vector<float> landscape, float ang
 	for (int i = 0; i < NB_NEURONS; i++) {
 		landscape[i] = cos(angle-i) * strength;
 	}
-
 }
 
 bool Core::digitalRead(int) {
@@ -343,26 +285,6 @@ Core::~Core() {
 	stop_motors();
 
 	printf ("Got out of the main loop, stopped everything.\n");
-}
-
-void Core::update_encoders(long& encoder1, long& encoder2) {
-	/*
-	 * We currently have a bug where sometimes the value of an encoder jumps to a
-	 * very high value. We mitigate this by "filtering" these big jumps
-	 */
-	if (abs(encoder1 - last_encoder1) > 2000) {
-		fprintf(stderr, "[WARNING] Jump in encoder1 value (%ld), skipping step!\n", encoder1 - last_encoder2);
-		encoder1 = last_encoder1;
-	} else {
-		last_encoder1 = encoder1;
-	}
-	if (abs(encoder2 - last_encoder2) > 2000) {
-		fprintf(stderr, "[WARNING] Jump in encoder2 value (%ld), skipping step!\n", encoder2 - last_encoder2);
-		encoder2 = last_encoder2;
-		}
-	 else {
-		last_encoder2 = encoder2;
-	}
 }
 
 geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2) {
@@ -379,7 +301,6 @@ geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2
     geometry_msgs::Pose currentPose;
     currentPose.position.x = X;
     currentPose.position.y = Y;
-    //currentPose.orientation.z = current_theta * M_PI/180.f;
 
     tf2::Quaternion orientation_quat;
     orientation_quat.setRPY(0, 0, current_theta * M_PI/180.f);
@@ -388,43 +309,31 @@ geometry_msgs::Pose Core::update_current_pose(int32_t encoder1, int32_t encoder2
 }
 
 void Core::send_odometry(const geometry_msgs::Pose& currentPose) {
-//first, we'll publish the transform over tf
-	geometry_msgs::TransformStamped odom_trans;
+    //first, we'll publish the transform over tf
+    geometry_msgs::TransformStamped odom_trans;
 	odom_trans.header.stamp = ros::Time::now();
-      odom_trans.header.frame_id = "odom";
-       odom_trans.child_frame_id = "base_link";
-   
-       odom_trans.transform.translation.x = currentPose.position.x;
-       odom_trans.transform.translation.y = currentPose.position.y;
-         odom_trans.transform.translation.z = 0.0;
-         odom_trans.transform.rotation = currentPose.orientation;
-    
-        //send the transform
-        odom_broadcaster.sendTransform(odom_trans);
+    odom_trans.header.frame_id = "odom";
+    odom_trans.child_frame_id = "base_link";
+
+    odom_trans.transform.translation.x = currentPose.position.x;
+    odom_trans.transform.translation.y = currentPose.position.y;
+     odom_trans.transform.translation.z = 0.0;
+     odom_trans.transform.rotation = currentPose.orientation;
+
+    //send the transform
+    odom_broadcaster.sendTransform(odom_trans);
 
 	nav_msgs::Odometry odom_msg;
-	
-	//odom_msg.header.frame_id = "base_link";
+
 	odom_msg.header.frame_id = "odom";
-	odom_msg.header.stamp = ros::Time::now();
-	/*odom_msg.header.stamp.nsec = 0;
-	odom_msg.header.stamp.sec = 0;
-	odom_msg.header.seq = 0;*/
-	//odom_msg.child_frame_id = "odom";
+    odom_msg.header.stamp = ros::Time::now();
 	odom_msg.child_frame_id = "base_link";
 
 	for (unsigned int i = 0; i < (sizeof(odom_msg.pose.covariance)/sizeof(odom_msg.pose.covariance[0])); i++){
 		odom_msg.pose.covariance[i] = 0;
 	}
 
-	odom_msg.pose.pose = currentPose;
-	/*odom_msg.pose.pose.position.x = 0;
-	odom_msg.pose.pose.position.y = 0;
-	odom_msg.pose.pose.position.z = 0;
-
-	odom_msg.pose.pose.orientation.x = 0;
-	odom_msg.pose.pose.orientation.y = 0;
-	odom_msg.pose.pose.orientation.z = 0;*/
+    odom_msg.pose.pose = currentPose;
 	odom_msg.pose.covariance[0] = 0.1;
 	odom_msg.pose.covariance[7] = 0.1;
 	odom_msg.pose.covariance[35] = 0.2;
