@@ -1,1 +1,1 @@
-../../../goal_strategy/src/Krabi/stm32/src/angle.cpp
+krabi/angle.cpp

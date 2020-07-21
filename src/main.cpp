@@ -303,17 +303,17 @@ void Core::send_odometry(const geometry_msgs::Pose& currentPose) {
     odom_broadcaster.sendTransform(odom_trans);
 
 	nav_msgs::Odometry odom_msg;
-
 	odom_msg.header.frame_id = "odom";
-    odom_msg.header.stamp = ros::Time::now();
+	odom_msg.header.stamp = ros::Time::now();
 	odom_msg.child_frame_id = "base_link";
 
 	for (unsigned int i = 0; i < (sizeof(odom_msg.pose.covariance)/sizeof(odom_msg.pose.covariance[0])); i++){
 		odom_msg.pose.covariance[i] = 0;
 	}
 
-    odom_msg.pose.pose = currentPose;
-	odom_msg.pose.covariance[0] = 0.1;
+	odom_msg.pose.pose = currentPose;
+
+  odom_msg.pose.covariance[0] = 0.1;
 	odom_msg.pose.covariance[7] = 0.1;
 	odom_msg.pose.covariance[35] = 0.2;
 
@@ -326,13 +326,13 @@ void Core::send_odometry(const geometry_msgs::Pose& currentPose) {
 		odom_msg.twist.covariance[i] = 0;
 	}
 
-	odom_msg.twist.twist.linear.x = current_linear_speed;//(left_speed+right_speed)/2;
+	odom_msg.twist.twist.linear.x = current_linear_speed;
 	odom_msg.twist.twist.linear.y = 0;
 	odom_msg.twist.twist.linear.z = 0;
 
 	odom_msg.twist.twist.angular.x = 0;
 	odom_msg.twist.twist.angular.y = 0;
-	odom_msg.twist.twist.angular.z = current_angular_speed;//(left_speed-right_speed)/2;
+	odom_msg.twist.twist.angular.z = current_angular_speed;
 	odom_pub.publish(odom_msg);
 }
 
@@ -377,7 +377,7 @@ void Core::limit_linear_speed_cmd_by_goal() {
         new_speed_order = current_linear_speed- max_deceleration;
     }
     else if (distance_to_goal < current_linear_speed/ BROKER_FREQ ) {
-	std::cout << "EMERGENVY BRAKE";
+	std::cout << "EMERGENCY BRAKE";
         new_speed_order = 0;
     }
     else if (distance_to_goal > distance_to_stop + extra_distance)

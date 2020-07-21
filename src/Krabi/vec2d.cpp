@@ -1,1 +1,1 @@
-../../../goal_strategy/src/Krabi/stm32/src/vec2d.cpp
+krabi/vec2d.cpp
