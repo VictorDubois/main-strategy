@@ -196,6 +196,7 @@ Core::Core() {
 	lidar_output[NB_NEURONS] = {0.};
 	angular_speed_vector[NB_NEURONS] = {0.};
 	angular_landscape[NB_NEURONS] = {0.};
+	orienting = false;
 
 	printf("done! Proceeding.\nStarting IA.\n");
 
@@ -411,13 +412,19 @@ int Core::Loop() {
 
 		//compute_target_speed_orientation(orientation);
 
-        if (distance_to_goal > 0.02) {
+    if (distance_to_goal > 0.05) {
+      orienting = false;
+    }
+      if (distance_to_goal > 0.02 && !orienting) {
+
             // orient towards the goal's position
             target_orientation = getAngleToGoal();
         }
         else {
+        orienting = true;
             // respect the goal's own orientation
             target_orientation = goal_position.getAngle();
+	    std::cout << "########################################" << std::endl << "Positionned, orienting to " << goal_position.getAngle() << std::endl << "########################################" << std::endl;
         }
 
 		// Inhibit linear speed if there are obstacles

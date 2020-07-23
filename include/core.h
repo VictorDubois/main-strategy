@@ -172,6 +172,7 @@ private:
     float current_linear_speed;
     float current_angular_speed;
     ros::Time last_speed_update_time;
+    bool orienting;
 
 	void stop_motors();
 	void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
