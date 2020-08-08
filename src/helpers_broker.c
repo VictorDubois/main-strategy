@@ -73,7 +73,7 @@ float compute_linear_dist(const long encoder1, const long encoder2)
     // Compute each wheel's dist and approximate linear dist as their average
     dist1 = (DIST_PER_REVOLUTION * (float)diff_encoder1 / TICKS_PER_REVOLUTION);
     dist2 = (DIST_PER_REVOLUTION * (float)diff_encoder2 / TICKS_PER_REVOLUTION);
-    dist = (dist1 + dist2) / 2.0;
+    dist = (dist1 + dist2) / 2.0f;
 
     if (fabsf(dist) > 500.)
     {

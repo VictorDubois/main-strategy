@@ -129,6 +129,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
  include
+ ../lidar_strat/include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -149,6 +150,7 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/goal_strategy_node.cpp)
 add_executable(main_strategy_node 
 src/main.cpp
+../lidar_strat/src/lidarStrat.cpp
 src/helpers_broker.c
 src/Krabi/position.cpp
 src/Krabi/positionPlusAngle.cpp

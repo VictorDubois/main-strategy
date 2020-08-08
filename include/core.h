@@ -4,22 +4,8 @@
 
 #define STANDALONE_STRATEGIE 1
 #include "ros/ros.h"
-#include <fcntl.h>
-#include <math.h>
-#include <pthread.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ipc.h>
-#include <sys/mman.h>
-#include <sys/shm.h>
-#include <sys/stat.h> /* For mode constants */
-#include <sys/types.h>
 #include <tf/transform_broadcaster.h>
 #include <time.h>
-#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -136,7 +122,7 @@ private:
     void send_odometry(const geometry_msgs::Pose& current_pose);
 
     const float default_linear_speed
-      = 0.01; // Line speed to set when no positive valence strategy fires
+      = 0.01f; // Line speed to set when no positive valence strategy fires
     float target_orientation;
     float linear_speed, angular_speed, linear_speed_cmd;
     long encoder1, encoder2, last_encoder1, last_encoder2, elapsed, chrono;
@@ -200,6 +186,8 @@ private:
 
     void update_current_speed();
     void limit_linear_speed_cmd_by_goal();
+
+    float speed_inhibition_from_obstacle;
 
 public:
     Core();

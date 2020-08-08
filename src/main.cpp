@@ -5,6 +5,8 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #define MAX_ALLOWED_ANGULAR_SPEED 0.2
 
+#include "../../lidar_strat/include/lidarStrat.h"
+
 #ifndef MAX
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -183,10 +185,14 @@ void Core::updateTirette(std_msgs::Bool starting)
 void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle)
 {
     // Compute repulsive vector from obstacles
-    int16_t closest_obstacle_id = vector_to_angle(closest_obstacle);
+    float closest_obstacle_id = vector_to_angle(closest_obstacle);
+    float obstacle_distance = vector_to_amplitude(closest_obstacle);
 
     // Compute intensity of obstacle
     float obstacle_dangerouseness = 175. * vector_to_amplitude(closest_obstacle);
+
+    speed_inhibition_from_obstacle
+      = LidarStrat::speed_inhibition(closest_obstacle_id, obstacle_distance, 1);
 
     // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
     // Then apply gaussian function centered on the sensor's angle
@@ -215,6 +221,7 @@ Core::Core()
     last_goal_max_speed.linear.x = 0;
     last_goal_max_speed.linear.y = 0;
     last_goal_max_speed.angular.z = 0;
+    speed_inhibition_from_obstacle = 0;
     ros::NodeHandle n;
     motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
@@ -418,9 +425,9 @@ void Core::update_current_speed()
 
 void Core::limit_linear_speed_cmd_by_goal()
 {
-    float max_acceleration = 0.05; // m*s-2
-    float max_deceleration = 0.05; // m*s-2
-    float new_speed_order = 0;     // m/s
+    float max_acceleration = 0.05f; // m*s-2
+    float max_deceleration = 0.05f; // m*s-2
+    float new_speed_order = 0;      // m/s
 
     float desired_final_speed = 0; // m*s-2
 
@@ -482,11 +489,11 @@ int Core::Loop()
 
         // compute_target_speed_orientation(orientation);
 
-        if (distance_to_goal > 0.05)
+        if (distance_to_goal > 0.05f)
         {
             orienting = false;
         }
-        if (distance_to_goal > 0.02 && !orienting)
+        if (distance_to_goal > 0.02f && !orienting)
         {
 
             // orient towards the goal's position
@@ -509,7 +516,7 @@ int Core::Loop()
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             goal_output[i]
-              = target(107., 1.1, fmod(360 + 180 - (target_orientation - current_theta), 360), i);
+              = target(107.f, 1.1f, fmod(360 + 180 - (target_orientation - current_theta), 360), i);
         }
 
         std::cout << "relative_target_orientation: " << (target_orientation - current_theta)
@@ -567,7 +574,7 @@ int Core::Loop()
         }
 
         // Set motors speed according to values computed before
-        set_motors_speed(linear_speed, (float)angular_speed / 20.f, true, false);
+        set_motors_speed(linear_speed, angular_speed / 20.f, true, false);
     } // End of state == NORMAL
 
     maintain_loop_timing();
