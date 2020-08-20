@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#define MAX_ALLOWED_ANGULAR_SPEED 0.2
+#define MAX_ALLOWED_ANGULAR_SPEED 0.2f
 
 #include "../../lidar_strat/include/lidarStrat.h"
 
@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 {
     ros::init(argc, argv, "mainStrat");
     Core* my_core = new Core();
-    my_core->Setup(argc, argv);
+    my_core->Setup();
 
     while (my_core->Loop() && ros::ok())
     {
@@ -290,7 +290,7 @@ void Core::set_motors_speed(float linearSpeed,
     motors_enable_pub.publish(new_enable_cmd);
 }
 
-int Core::Setup(int argc, char* argv[])
+int Core::Setup()
 {
     // Take time before entering the loop
     clock_gettime(CLOCK_MONOTONIC, &last);
@@ -551,13 +551,16 @@ int Core::Loop()
 
         limit_linear_speed_cmd_by_goal();
 
+        linear_speed_cmd
+          = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
+
         limit_angular_speed_cmd(angular_speed_cmd);
 
         update_speed(FALSE, &angular_speed, angular_speed_cmd);
         // update_speed(FALSE, &linear_speed, linear_speed_cmd);
         linear_speed = linear_speed_cmd;
 
-        if (DISABLE_LINEAR_SPEED)
+        if (DISABLE_LINEAR_SPEED || orienting)
         {
             linear_speed = 0;
         }
@@ -568,10 +571,12 @@ int Core::Loop()
         }
 
         // linear_speed = 0;
-        if (angular_speed < -1 || angular_speed > 1)
+        // Modulate linear speed by angular speed: stop going forward when you want to turn
+        linear_speed = MIN(linear_speed, linear_speed / abs(angular_speed));
+        /*if (angular_speed < -1 || angular_speed > 1)
         {
             linear_speed = 0;
-        }
+        }*/
 
         // Set motors speed according to values computed before
         set_motors_speed(linear_speed, angular_speed / 20.f, true, false);

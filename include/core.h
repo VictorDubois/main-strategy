@@ -192,6 +192,6 @@ private:
 public:
     Core();
     ~Core();
-    int Setup(int argc, char* argv[]);
+    int Setup();
     int Loop();
 };
