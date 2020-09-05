@@ -186,15 +186,16 @@ void Core::updateLidar(geometry_msgs::Pose closest_obstacle)
 {
     // Compute repulsive vector from obstacles
     float closest_obstacle_id = vector_to_angle(closest_obstacle.position);
+    float closest_obstacle_angle = closest_obstacle_id + 180;
     float obstacle_distance = vector_to_amplitude(closest_obstacle.position);
 
     // Compute intensity of obstacle
     float obstacle_dangerouseness = 175. * obstacle_distance;
 
     speed_inhibition_from_obstacle
-      = LidarStrat::speed_inhibition(closest_obstacle_id, obstacle_distance, 1);
+      = LidarStrat::speed_inhibition(obstacle_distance, closest_obstacle_angle, 1);
 
-    std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @ " << obstacle_distance << "m." << std::endl;
+    std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @" << obstacle_distance << "m, " << closest_obstacle_angle << "°." << std::endl;
 
     // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
     // Then apply gaussian function centered on the sensor's angle
