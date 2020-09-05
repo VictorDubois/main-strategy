@@ -24,6 +24,7 @@ extern "C"
 #include "geometry_msgs/Vector3.h"
 #include "helpers_broker.h"
 #include "nav_msgs/Odometry.h"
+//#include "../../goal_strategy/motors.h"
 #include <goal_strategy/motors.h>
 #include <std_msgs/Bool.h>
 
@@ -172,7 +173,7 @@ private:
     float vector_to_amplitude(geometry_msgs::Vector3 vector);
     float vector_to_amplitude(geometry_msgs::Point vector);
     void updateGoal(geometry_msgs::Pose goal_pose);
-    void updateLidar(geometry_msgs::Vector3 closest_obstacle);
+    void updateLidar(geometry_msgs::Pose closest_obstacle);
     void updateTeamColor(std_msgs::Bool new_color);
     void updateTirette(std_msgs::Bool starting);
     bool digitalRead(int);

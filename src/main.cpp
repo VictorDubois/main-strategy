@@ -5,7 +5,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #define MAX_ALLOWED_ANGULAR_SPEED 0.2f
 
-#include "../../lidar_strat/include/lidarStrat.h"
+#include "../../lidar_strategy/include/lidarStrat.h"
 
 #ifndef MAX
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -182,17 +182,19 @@ void Core::updateTirette(std_msgs::Bool starting)
     }
 }
 
-void Core::updateLidar(geometry_msgs::Vector3 closest_obstacle)
+void Core::updateLidar(geometry_msgs::Pose closest_obstacle)
 {
     // Compute repulsive vector from obstacles
-    float closest_obstacle_id = vector_to_angle(closest_obstacle);
-    float obstacle_distance = vector_to_amplitude(closest_obstacle);
+    float closest_obstacle_id = vector_to_angle(closest_obstacle.position);
+    float obstacle_distance = vector_to_amplitude(closest_obstacle.position);
 
     // Compute intensity of obstacle
-    float obstacle_dangerouseness = 175. * vector_to_amplitude(closest_obstacle);
+    float obstacle_dangerouseness = 175. * obstacle_distance;
 
     speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(closest_obstacle_id, obstacle_distance, 1);
+
+    std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @ " << obstacle_distance << "m." << std::endl;
 
     // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
     // Then apply gaussian function centered on the sensor's angle
@@ -230,7 +232,7 @@ Core::Core()
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
-    lidar_sub = n.subscribe("obstacle_lidar", 1000, &Core::updateLidar, this);
+    lidar_sub = n.subscribe("obstacle_pose", 1000, &Core::updateLidar, this);
     color_sub = n.subscribe("team_color", 1000, &Core::updateTeamColor, this);
     tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
     goal_output[NB_NEURONS] = { 0. };
@@ -489,7 +491,7 @@ int Core::Loop()
 
         // compute_target_speed_orientation(orientation);
 
-        if (distance_to_goal > 0.05f)
+        if (distance_to_goal >= 0.05f)
         {
             orienting = false;
         }
@@ -551,8 +553,7 @@ int Core::Loop()
 
         limit_linear_speed_cmd_by_goal();
 
-        linear_speed_cmd
-          = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
+        //linear_speed_cmd = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
 
         limit_angular_speed_cmd(angular_speed_cmd);
 
@@ -572,11 +573,12 @@ int Core::Loop()
 
         // linear_speed = 0;
         // Modulate linear speed by angular speed: stop going forward when you want to turn
-        linear_speed = MIN(linear_speed, linear_speed / abs(angular_speed));
-        /*if (angular_speed < -1 || angular_speed > 1)
+        //linear_speed = MIN(linear_speed, linear_speed / abs(angular_speed));
+        if (angular_speed < -1 || angular_speed > 1)
         {
             linear_speed = 0;
-        }*/
+        }
+	std::cout << "linear speed = " << linear_speed << ", orienting = " << orienting << "speed inihib from obstacles = " << speed_inhibition_from_obstacle << " * " << default_linear_speed << std::endl ;
 
         // Set motors speed according to values computed before
         set_motors_speed(linear_speed, angular_speed / 20.f, true, false);
