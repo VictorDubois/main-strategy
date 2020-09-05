@@ -123,7 +123,7 @@ private:
     void send_odometry(const geometry_msgs::Pose& current_pose);
 
     const float default_linear_speed
-      = 0.01f; // Line speed to set when no positive valence strategy fires
+      = 0.2f; // Line speed to set when no positive valence strategy fires
     float target_orientation;
     float linear_speed, angular_speed, linear_speed_cmd;
     long encoder1, encoder2, last_encoder1, last_encoder2, elapsed, chrono;

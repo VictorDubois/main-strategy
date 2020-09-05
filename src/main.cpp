@@ -531,7 +531,7 @@ int Core::Loop()
         {
             // Temporarily check if joystick is active (later: use weighted sum)
             // if (s_joystick.output->strength == 0) {
-            angular_landscape[i] = goal_output[i] + lidar_output[i];
+            angular_landscape[i] = goal_output[i];// + lidar_output[i];
             /*}
             else {
                     printf("joystick is active\n");
@@ -554,7 +554,7 @@ int Core::Loop()
 
         limit_linear_speed_cmd_by_goal();
 
-        //linear_speed_cmd = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
+        linear_speed_cmd = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
 
         limit_angular_speed_cmd(angular_speed_cmd);
 
