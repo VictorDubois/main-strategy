@@ -5,7 +5,6 @@
 #define STANDALONE_STRATEGIE 1
 #include "ros/ros.h"
 #include <tf/transform_broadcaster.h>
-#include <time.h>
 #include <utility>
 #include <vector>
 
@@ -132,7 +131,7 @@ private:
     float lidar_output[NB_NEURONS] = { 0. };
     float angular_speed_vector[NB_NEURONS] = { 0. };
     float angular_landscape[NB_NEURONS] = { 0. };
-    struct timespec now, last, begin_match;
+    ros::Time begin_match;
     int is_blue;
     ros::Publisher motors_cmd_pub;
     ros::Publisher motors_enable_pub;

@@ -24,7 +24,7 @@
 //#define DEBUG_cart_to_polar
 void Core::cart_to_polar(int posX, int posY, float& theta, float& distance)
 {
-    theta = ((180. / M_PI) * atan2((float)posX, (float)posY));
+    theta = ((180.f / M_PI) * atan2((float)posX, (float)posY));
     distance = sqrt((float)(posX * posX + posY * posY));
 
     // fix angular ambiguity
@@ -45,11 +45,14 @@ void Core::cart_to_polar(int posX, int posY, float& theta, float& distance)
 int main(int argc, char* argv[])
 {
     ros::init(argc, argv, "mainStrat");
+    ros::start();
+    ros::Rate staticLoop(10);
     Core* my_core = new Core();
     my_core->Setup();
 
     while (my_core->Loop() && ros::ok())
     {
+        staticLoop.sleep();
         ros::spinOnce();
     }
 
@@ -177,8 +180,9 @@ void Core::updateTirette(std_msgs::Bool starting)
     {
         std::cout << "Go for launch!" << std::endl;
         state = NORMAL;
+
         // Start counting the time
-        clock_gettime(CLOCK_MONOTONIC, &begin_match);
+        begin_match = ros::Time::now();
     }
 }
 
@@ -195,7 +199,8 @@ void Core::updateLidar(geometry_msgs::Pose closest_obstacle)
     speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle_distance, closest_obstacle_angle, 1);
 
-    std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @" << obstacle_distance << "m, " << closest_obstacle_angle << "°." << std::endl;
+    std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @"
+              << obstacle_distance << "m, " << closest_obstacle_angle << "°." << std::endl;
 
     // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
     // Then apply gaussian function centered on the sensor's angle
@@ -209,7 +214,7 @@ void Core::updateLidar(geometry_msgs::Pose closest_obstacle)
 
 Core::Core()
 {
-    ros::start();
+    ros::NodeHandle n;
     is_blue = false;
     last_speed_update_time = ros::Time::now();
     current_linear_speed = 0;
@@ -225,7 +230,6 @@ Core::Core()
     last_goal_max_speed.linear.y = 0;
     last_goal_max_speed.angular.z = 0;
     speed_inhibition_from_obstacle = 0;
-    ros::NodeHandle n;
     motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
     current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
@@ -296,7 +300,6 @@ void Core::set_motors_speed(float linearSpeed,
 int Core::Setup()
 {
     // Take time before entering the loop
-    clock_gettime(CLOCK_MONOTONIC, &last);
     usleep(10000); // So the next now-last won't return 0
 
     stop_motors();
@@ -471,8 +474,7 @@ void Core::limit_linear_speed_cmd_by_goal()
 
 int Core::Loop()
 {
-
-    if (is_time_to_stop())
+    if ((state != WAIT_TIRETTE) && is_time_to_stop())
     {
         std::cout << "Time's up !" << std::endl;
         return state;
@@ -486,7 +488,7 @@ int Core::Loop()
     {
         chrono = compute_match_chrono();
 
-        // Get the orientation we need to follow to reach the goal
+        // Get the orientation we need to follow to rea ch the goal
         // TODO: assign priority integers to strategies, take the strategy that has the max of
         // priority * strength
 
@@ -531,7 +533,7 @@ int Core::Loop()
         {
             // Temporarily check if joystick is active (later: use weighted sum)
             // if (s_joystick.output->strength == 0) {
-            angular_landscape[i] = goal_output[i];// + lidar_output[i];
+            angular_landscape[i] = goal_output[i]; // + lidar_output[i];
             /*}
             else {
                     printf("joystick is active\n");
@@ -554,7 +556,8 @@ int Core::Loop()
 
         limit_linear_speed_cmd_by_goal();
 
-        linear_speed_cmd = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
+        linear_speed_cmd
+          = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
 
         limit_angular_speed_cmd(angular_speed_cmd);
 
@@ -574,12 +577,14 @@ int Core::Loop()
 
         // linear_speed = 0;
         // Modulate linear speed by angular speed: stop going forward when you want to turn
-        //linear_speed = MIN(linear_speed, linear_speed / abs(angular_speed));
+        // linear_speed = MIN(linear_speed, linear_speed / abs(angular_speed));
         if (angular_speed < -1 || angular_speed > 1)
         {
             linear_speed = 0;
         }
-	std::cout << "linear speed = " << linear_speed << ", orienting = " << orienting << "speed inihib from obstacles = " << speed_inhibition_from_obstacle << " * " << default_linear_speed << std::endl ;
+        std::cout << "linear speed = " << linear_speed << ", orienting = " << orienting
+                  << "speed inihib from obstacles = " << speed_inhibition_from_obstacle << " * "
+                  << default_linear_speed << std::endl;
 
         // Set motors speed according to values computed before
         set_motors_speed(linear_speed, angular_speed / 20.f, true, false);
@@ -592,71 +597,35 @@ int Core::Loop()
 
 bool Core::is_time_to_stop()
 {
-    clock_gettime(CLOCK_MONOTONIC, &now);
-
     // Exit and stop robot if we reached the end of the match
-    if (ENABLE_TIMEOUT_END_MATCH == TRUE && chrono > TIMEOUT_END_MATCH)
+    if (ENABLE_TIMEOUT_END_MATCH == TRUE
+        && (ros::Time::now() - begin_match).toSec() * 1000 > TIMEOUT_END_MATCH)
     {
         state = EXIT;
         return true;
-    }
-
-    // At the beginning of a new loop, compute elapsed time since last loop
-    elapsed = now.tv_nsec - last.tv_nsec; // elapsed time in ns
-    // To support rollover
-    if (elapsed <= 0)
-    {
-        elapsed += 1000000000L;
     }
     return false;
 }
 
 void Core::maintain_loop_timing()
 {
-    // Update "last" values
-    last = now;
-
     // Recompute current time at the end of this loop's execution
-    clock_gettime(CLOCK_MONOTONIC, &now);
     // Compute elapsed time between the beginning and the end (now) of this loop's execution
-    elapsed = now.tv_nsec - last.tv_nsec;
+    ros::Duration elapsed = ros::Time::now() - begin_match;
 
-    if (elapsed <= 0)
-        elapsed += 1000000000L;
+    /*std::cout << "expectedCycleTime" << loop_rate->expectedCycleTime() << std::endl;
+    std::cout << "cycleTime" << loop_rate->cycleTime() << std::endl;*/
 
-    // Subtract this loop's execution time to the period we want (based on the FREQ)
-    int delay = ((int)1e6 / BROKER_FREQ) - (elapsed / 1000);
-
-    // Sanitize input
-    if (delay < 0)
-    {
-        printf("[WARNING] Computed delay < 0, setting to 0...\n");
-        delay = 0;
-    }
-
-    // Print a warning message if this loop's execution took too much time compared with the desired
-    // frequency
-    if (delay < (int)(0.10 * (int)1e6 / BROKER_FREQ))
-    {
-        fprintf(stderr, "[WARNING] Main loop consumes more than 90%% of the period.\n");
-    }
-
-    // Wait according to required freq, adjusted with the time this loop's execution took
-    usleep(delay);
+    // loop_rate->sleep();
+    // staticLoop.sleep();
 }
 
 // Compute elapsed time since beginning of match in ms
 long Core::compute_match_chrono()
 {
-    long l_chrono = now.tv_nsec - begin_match.tv_nsec; // First compute nano seconds...
-    if (l_chrono <= 0)                                 // Then support rollover
-        l_chrono += 1000000000L;
-    l_chrono /= 1000000L; // Divide by 1e6 to convert to ms
+    double l_chrono = (ros::Time::now().toSec() - begin_match.toSec()) * 1000;
 
-    l_chrono
-      += (now.tv_sec - begin_match.tv_sec) * 1000L; // And add seconds * 1000 (to convert to ms)
-
-    return l_chrono;
+    return static_cast<long>(l_chrono);
 }
 
 void Core::compute_target_speed_orientation(const unsigned int orientation)
