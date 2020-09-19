@@ -110,9 +110,6 @@ private:
     // Maintain loop frequency @BROKER_FREQ Hz
     void maintain_loop_timing();
 
-    // Compute elapsed time since beginning of match in ms
-    long compute_match_chrono();
-
     // Set target speed and orientation
     void compute_target_speed_orientation(const unsigned int orientation);
 
@@ -121,11 +118,14 @@ private:
 
     void send_odometry(const geometry_msgs::Pose& current_pose);
 
+    // Publish the time remaining on the match's clock
+    void publish_remaining_time();
+
     const float default_linear_speed
       = 0.2f; // Line speed to set when no positive valence strategy fires
     float target_orientation;
     float linear_speed, angular_speed, linear_speed_cmd;
-    long encoder1, encoder2, last_encoder1, last_encoder2, elapsed, chrono;
+    long encoder1, encoder2, last_encoder1, last_encoder2, elapsed;
     float goal_output[NB_NEURONS] = { 0. };
     float obstacles_output[NB_NEURONS] = { 0. };
     float lidar_output[NB_NEURONS] = { 0. };
@@ -137,6 +137,7 @@ private:
     ros::Publisher motors_enable_pub;
     ros::Publisher current_pose_pub;
     ros::Publisher odom_pub;
+    ros::Publisher chrono_pub;
     ros::Subscriber encoders_sub;
     ros::Subscriber odometry_sub;
     ros::Subscriber goal_sub;

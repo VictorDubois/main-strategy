@@ -1,5 +1,6 @@
 #include "core.h"
 #include "ros/ros.h"
+#include <std_msgs/Duration.h>
 #include <stdexcept>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
@@ -217,6 +218,7 @@ Core::Core()
     ros::NodeHandle n;
     is_blue = false;
     last_speed_update_time = ros::Time::now();
+    begin_match = ros::Time(0);
     current_linear_speed = 0;
     encoders_initialized = false;
     goal_position = PositionPlusAngle();
@@ -234,6 +236,7 @@ Core::Core()
     motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
     current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
     odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
+    chrono_pub = n.advertise<std_msgs::Duration>("remaining_time", 5);
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
@@ -268,7 +271,6 @@ Core::Core()
         theta_zero = 180.f;
     }
 
-    chrono = 0;
     last_encoder1 = last_encoder2 = 0;
 }
 
@@ -486,8 +488,6 @@ int Core::Loop()
     }
     else if (state == NORMAL)
     {
-        chrono = compute_match_chrono();
-
         // Get the orientation we need to follow to rea ch the goal
         // TODO: assign priority integers to strategies, take the strategy that has the max of
         // priority * strength
@@ -590,9 +590,26 @@ int Core::Loop()
         set_motors_speed(linear_speed, angular_speed / 20.f, true, false);
     } // End of state == NORMAL
 
-    maintain_loop_timing();
+    publish_remaining_time();
 
     return state;
+}
+
+void Core::publish_remaining_time()
+{
+    std_msgs::Duration remaining_time_msg;
+
+    if (begin_match.toSec() < 1)
+    {
+        remaining_time_msg.data = ros::Duration(TIMEOUT_END_MATCH / 1000);
+    }
+    else
+    {
+        ros::Time end_of_match = ros::Time(begin_match.toSec() + TIMEOUT_END_MATCH / 1000);
+        remaining_time_msg.data = end_of_match - ros::Time::now();
+    }
+
+    chrono_pub.publish(remaining_time_msg);
 }
 
 bool Core::is_time_to_stop()
@@ -605,27 +622,6 @@ bool Core::is_time_to_stop()
         return true;
     }
     return false;
-}
-
-void Core::maintain_loop_timing()
-{
-    // Recompute current time at the end of this loop's execution
-    // Compute elapsed time between the beginning and the end (now) of this loop's execution
-    ros::Duration elapsed = ros::Time::now() - begin_match;
-
-    /*std::cout << "expectedCycleTime" << loop_rate->expectedCycleTime() << std::endl;
-    std::cout << "cycleTime" << loop_rate->cycleTime() << std::endl;*/
-
-    // loop_rate->sleep();
-    // staticLoop.sleep();
-}
-
-// Compute elapsed time since beginning of match in ms
-long Core::compute_match_chrono()
-{
-    double l_chrono = (ros::Time::now().toSec() - begin_match.toSec()) * 1000;
-
-    return static_cast<long>(l_chrono);
 }
 
 void Core::compute_target_speed_orientation(const unsigned int orientation)
