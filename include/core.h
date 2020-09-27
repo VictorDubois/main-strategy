@@ -177,6 +177,8 @@ private:
     bool digitalRead(int);
     geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);
 
+    bool reverseGear();
+
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
      * @return float the angle

@@ -287,13 +287,17 @@ void Core::set_motors_speed(float linearSpeed,
                             bool /*resetEncoders*/)
 {
     geometry_msgs::Twist new_motor_cmd;
-    new_motor_cmd.linear.x = linearSpeed;
+    new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
     new_motor_cmd.angular.z = angularSpeed;
 
     motors_cmd_pub.publish(new_motor_cmd);
     std_msgs::Bool new_enable_cmd;
     new_enable_cmd.data = enable;
     motors_enable_pub.publish(new_enable_cmd);
+}
+
+bool Core::reverseGear() {
+    return false;
 }
 
 int Core::Setup()
@@ -509,6 +513,10 @@ int Core::Loop()
             std::cout << "########################################" << std::endl
                       << "Positionned, orienting to " << goal_position.getAngle() << std::endl
                       << "########################################" << std::endl;
+        }
+
+        if (reverseGear()) {
+            target_orientation += 180.f;
         }
 
         // Inhibit linear speed if there are obstacles
