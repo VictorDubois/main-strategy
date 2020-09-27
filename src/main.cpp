@@ -226,7 +226,7 @@ Core::Core()
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
-    lidar_sub = n.subscribe("obstacle_pose", 1000, &Core::updateLidar, this);
+    lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);
     tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
 
     n.param<bool>("isBlue", is_blue, true);
