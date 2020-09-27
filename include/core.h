@@ -132,7 +132,7 @@ private:
     float angular_speed_vector[NB_NEURONS] = { 0. };
     float angular_landscape[NB_NEURONS] = { 0. };
     ros::Time begin_match;
-    int is_blue;
+    bool is_blue;
     ros::Publisher motors_cmd_pub;
     ros::Publisher motors_enable_pub;
     ros::Publisher current_pose_pub;
@@ -143,7 +143,6 @@ private:
     ros::Subscriber goal_sub;
     ros::Subscriber lidar_sub;
     ros::Subscriber tirette_sub;
-    ros::Subscriber color_sub;
     tf::TransformBroadcaster odom_broadcaster;
     float X;
     float Y;
@@ -174,7 +173,6 @@ private:
     float vector_to_amplitude(geometry_msgs::Point vector);
     void updateGoal(geometry_msgs::Pose goal_pose);
     void updateLidar(geometry_msgs::Pose closest_obstacle);
-    void updateTeamColor(std_msgs::Bool new_color);
     void updateTirette(std_msgs::Bool starting);
     bool digitalRead(int);
     geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);

@@ -161,20 +161,6 @@ void Core::updateGoal(geometry_msgs::Pose goal_pose)
     // last_goal_max_speed = goal_out.max_speed;
 }
 
-void Core::updateTeamColor(std_msgs::Bool new_color)
-{
-    is_blue = new_color.data;
-
-    if (is_blue)
-    {
-        std::cout << "We are on the blue Team" << std::endl;
-    }
-    else
-    {
-        std::cout << "We are on the yellow Team" << std::endl;
-    }
-}
-
 void Core::updateTirette(std_msgs::Bool starting)
 {
     if (starting.data && state == WAIT_TIRETTE)
@@ -241,8 +227,17 @@ Core::Core()
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
     lidar_sub = n.subscribe("obstacle_pose", 1000, &Core::updateLidar, this);
-    color_sub = n.subscribe("team_color", 1000, &Core::updateTeamColor, this);
     tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
+
+    n.param<bool>("isBlue", is_blue, true);
+
+    if(is_blue) {
+        std::cout << "Is Blue !" << std::endl;
+    }
+    else {
+        std::cout << "Not Blue :'(" << std::endl;
+    }
+
     goal_output[NB_NEURONS] = { 0. };
     obstacles_output[NB_NEURONS] = { 0. };
     lidar_output[NB_NEURONS] = { 0. };
@@ -270,6 +265,8 @@ Core::Core()
     {
         theta_zero = 180.f;
     }
+
+    std::cout << "Starting position: X = " << X << ", Y = " << Y << "Theta_zero = " << theta_zero << std::endl;
 
     last_encoder1 = last_encoder2 = 0;
 }
