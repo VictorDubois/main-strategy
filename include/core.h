@@ -171,8 +171,8 @@ private:
     float vector_to_angle(geometry_msgs::Point vector);
     float vector_to_amplitude(geometry_msgs::Vector3 vector);
     float vector_to_amplitude(geometry_msgs::Point vector);
-    void updateGoal(geometry_msgs::Pose goal_pose);
-    void updateLidar(geometry_msgs::Pose closest_obstacle);
+    void updateGoal(geometry_msgs::PoseStamped goal_pose);
+    void updateLidar(geometry_msgs::PoseStamped closest_obstacle);
     void updateTirette(std_msgs::Bool starting);
     bool digitalRead(int);
     geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);

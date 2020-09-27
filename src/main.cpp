@@ -154,9 +154,9 @@ float Core::getAngleToGoal()
     return relative_goal_position_angle;
 }
 
-void Core::updateGoal(geometry_msgs::Pose goal_pose)
+void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
 {
-    goal_position = PositionPlusAngle(goal_pose);
+    goal_position = PositionPlusAngle(goal_pose.pose);
 
     // last_goal_max_speed = goal_out.max_speed;
 }
@@ -173,12 +173,12 @@ void Core::updateTirette(std_msgs::Bool starting)
     }
 }
 
-void Core::updateLidar(geometry_msgs::Pose closest_obstacle)
+void Core::updateLidar(geometry_msgs::PoseStamped closest_obstacle)
 {
     // Compute repulsive vector from obstacles
-    float closest_obstacle_id = vector_to_angle(closest_obstacle.position);
+    float closest_obstacle_id = vector_to_angle(closest_obstacle.pose.position);
     float closest_obstacle_angle = closest_obstacle_id + 180;
-    float obstacle_distance = vector_to_amplitude(closest_obstacle.position);
+    float obstacle_distance = vector_to_amplitude(closest_obstacle.pose.position);
 
     // Compute intensity of obstacle
     float obstacle_dangerouseness = 175. * obstacle_distance;
