@@ -142,7 +142,9 @@ private:
     ros::Subscriber odometry_sub;
     ros::Subscriber goal_sub;
     ros::Subscriber lidar_sub;
+    ros::Subscriber lidar_behind_sub;
     ros::Subscriber tirette_sub;
+    ros::Subscriber reverse_gear_sub;
     tf::TransformBroadcaster odom_broadcaster;
     float X;
     float Y;
@@ -161,6 +163,7 @@ private:
     float current_angular_speed;
     ros::Time last_speed_update_time;
     bool orienting;
+    bool m_reverse_gear_activated;
 
     void stop_motors();
     void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
@@ -173,7 +176,9 @@ private:
     float vector_to_amplitude(geometry_msgs::Point vector);
     void updateGoal(geometry_msgs::PoseStamped goal_pose);
     void updateLidar(geometry_msgs::PoseStamped closest_obstacle);
+    void updateLidarBehind(geometry_msgs::PoseStamped closest_obstacle);
     void updateTirette(std_msgs::Bool starting);
+    void updateGear(std_msgs::Bool a_reverse_gear_activated);
     bool digitalRead(int);
     geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);
 

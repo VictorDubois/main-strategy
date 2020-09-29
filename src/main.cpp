@@ -175,6 +175,10 @@ void Core::updateTirette(std_msgs::Bool starting)
 
 void Core::updateLidar(geometry_msgs::PoseStamped closest_obstacle)
 {
+    if (reverseGear())
+    {
+        return;
+    }
     // Compute repulsive vector from obstacles
     float closest_obstacle_id = vector_to_angle(closest_obstacle.pose.position);
     float closest_obstacle_angle = closest_obstacle_id + 180;
@@ -197,6 +201,41 @@ void Core::updateLidar(geometry_msgs::PoseStamped closest_obstacle)
         lidar_output[j] += -gaussian(
           50., obstacle_dangerouseness, (fmod(360 + 180 + closest_obstacle_id, 360)), j);
     }
+}
+
+void Core::updateLidarBehind(geometry_msgs::PoseStamped closest_obstacle)
+{
+    if (!reverseGear())
+    {
+        return;
+    }
+    // Compute repulsive vector from obstacles
+    float closest_obstacle_id = vector_to_angle(closest_obstacle.pose.position);
+    float closest_obstacle_angle = closest_obstacle_id + 180;
+    float obstacle_distance = vector_to_amplitude(closest_obstacle.pose.position);
+
+    // Compute intensity of obstacle
+    float obstacle_dangerouseness = 175. * obstacle_distance;
+
+    speed_inhibition_from_obstacle
+      = LidarStrat::speed_inhibition(obstacle_distance, closest_obstacle_angle, 1);
+
+    std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @"
+              << obstacle_distance << "m, " << closest_obstacle_angle << "°." << std::endl;
+
+    // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
+    // Then apply gaussian function centered on the sensor's angle
+    for (int j = 0; j < NB_NEURONS; j += 1)
+    {
+        // obstacles_output[j] += - gaussian(50., a, (360 + 180 - idx) % 360, j);
+        lidar_output[j] += -gaussian(
+          50., obstacle_dangerouseness, (fmod(360 + 180 + closest_obstacle_id, 360)), j);
+    }
+}
+
+void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
+{
+    m_reverse_gear_activated = a_reverse_gear_activated.data;
 }
 
 Core::Core()
@@ -227,14 +266,18 @@ Core::Core()
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
     lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);
+    lidar_behind_sub = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidar, this);
     tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
+    reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
     n.param<bool>("isBlue", is_blue, true);
 
-    if(is_blue) {
+    if (is_blue)
+    {
         std::cout << "Is Blue !" << std::endl;
     }
-    else {
+    else
+    {
         std::cout << "Not Blue :'(" << std::endl;
     }
 
@@ -266,7 +309,8 @@ Core::Core()
         theta_zero = 180.f;
     }
 
-    std::cout << "Starting position: X = " << X << ", Y = " << Y << "Theta_zero = " << theta_zero << std::endl;
+    std::cout << "Starting position: X = " << X << ", Y = " << Y << "Theta_zero = " << theta_zero
+              << std::endl;
 
     last_encoder1 = last_encoder2 = 0;
 }
@@ -296,8 +340,9 @@ void Core::set_motors_speed(float linearSpeed,
     motors_enable_pub.publish(new_enable_cmd);
 }
 
-bool Core::reverseGear() {
-    return false;
+bool Core::reverseGear()
+{
+    return m_reverse_gear_activated;
 }
 
 int Core::Setup()
@@ -515,7 +560,8 @@ int Core::Loop()
                       << "########################################" << std::endl;
         }
 
-        if (reverseGear()) {
+        if (reverseGear())
+        {
             target_orientation += 180.f;
         }
 
