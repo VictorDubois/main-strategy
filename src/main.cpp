@@ -184,6 +184,12 @@ void Core::updateLidar(geometry_msgs::PoseStamped closest_obstacle)
     float closest_obstacle_angle = closest_obstacle_id + 180;
     float obstacle_distance = vector_to_amplitude(closest_obstacle.pose.position);
 
+    addObstacle(obstacle_distance, closest_obstacle_angle);
+}
+
+void Core::addObstacle(float obstacle_distance, float closest_obstacle_angle)
+{
+    float closest_obstacle_id = closest_obstacle_angle - 180;
     // Compute intensity of obstacle
     float obstacle_dangerouseness = 175. * obstacle_distance;
 
@@ -214,23 +220,7 @@ void Core::updateLidarBehind(geometry_msgs::PoseStamped closest_obstacle)
     float closest_obstacle_angle = closest_obstacle_id + 180;
     float obstacle_distance = vector_to_amplitude(closest_obstacle.pose.position);
 
-    // Compute intensity of obstacle
-    float obstacle_dangerouseness = 175. * obstacle_distance;
-
-    speed_inhibition_from_obstacle
-      = LidarStrat::speed_inhibition(obstacle_distance, closest_obstacle_angle, 1);
-
-    std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @"
-              << obstacle_distance << "m, " << closest_obstacle_angle << "°." << std::endl;
-
-    // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
-    // Then apply gaussian function centered on the sensor's angle
-    for (int j = 0; j < NB_NEURONS; j += 1)
-    {
-        // obstacles_output[j] += - gaussian(50., a, (360 + 180 - idx) % 360, j);
-        lidar_output[j] += -gaussian(
-          50., obstacle_dangerouseness, (fmod(360 + 180 + closest_obstacle_id, 360)), j);
-    }
+    addObstacle(obstacle_distance, closest_obstacle_angle);
 }
 
 void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
@@ -266,7 +256,8 @@ Core::Core()
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
     lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);
-    lidar_behind_sub = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidar, this);
+    lidar_behind_sub
+      = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidarBehind, this);
     tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
     reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
 

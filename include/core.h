@@ -177,6 +177,7 @@ private:
     void updateGoal(geometry_msgs::PoseStamped goal_pose);
     void updateLidar(geometry_msgs::PoseStamped closest_obstacle);
     void updateLidarBehind(geometry_msgs::PoseStamped closest_obstacle);
+    void addObstacle(float obstacle_distance, float closest_obstacle_angle);
     void updateTirette(std_msgs::Bool starting);
     void updateGear(std_msgs::Bool a_reverse_gear_activated);
     bool digitalRead(int);
