@@ -525,7 +525,7 @@ int Core::Loop()
     }
     else if (state == NORMAL)
     {
-        // Get the orientation we need to follow to rea ch the goal
+        // Get the orientation we need to follow to reach the goal
         // TODO: assign priority integers to strategies, take the strategy that has the max of
         // priority * strength
 
@@ -551,7 +551,7 @@ int Core::Loop()
                       << "########################################" << std::endl;
         }
 
-        if (reverseGear())
+        if (reverseGear() && !orienting)
         {
             target_orientation += 180.f;
         }
