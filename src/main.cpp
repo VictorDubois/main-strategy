@@ -132,20 +132,26 @@ void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
     if (!encoders_initialized)
     {
         std::cout << "initializing encoders" << std::endl;
-	starting_X = temp_X;
-	starting_Y = temp_Y;
+        starting_X = temp_X;
+        starting_Y = temp_Y;
         encoders_initialized = true;
     }
 
     X = temp_X - starting_X;
     Y = temp_Y - starting_Y;
 
+    current_theta = motors_odom.pose.orientation.z * 180 / M_PI + theta_zero;
+
     geometry_msgs::Pose currentPose = motors_odom.pose;
     currentPose.position.x = X;
     currentPose.position.y = Y;
 
+    tf2::Quaternion orientation_quat;
+    orientation_quat.setRPY(0, 0, current_theta * M_PI / 180);
+    currentPose.orientation = tf2::toMsg(orientation_quat);
+
     current_pose_pub.publish(currentPose);
-    //update_current_speed();
+    // update_current_speed();
     current_linear_speed = motors_odom.speed.linear.x;
     current_angular_speed = motors_odom.speed.angular.z;
     send_odometry(currentPose);
@@ -290,7 +296,7 @@ Core::Core()
     odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
     chrono_pub = n.advertise<std_msgs::Duration>("remaining_time", 5);
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
-    odom_light_sub = n.subscribe("odom_light", 5, &Core::updateCurrentPose, this);
+    odom_light_sub = n.subscribe("odom_light", 5, &Core::updateLightOdom, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
     lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);
