@@ -151,9 +151,9 @@ void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
     currentPose.orientation = tf2::toMsg(orientation_quat);
 
     current_pose_pub.publish(currentPose);
-    // update_current_speed();
-    current_linear_speed = motors_odom.speed.linear.x;
-    current_angular_speed = motors_odom.speed.angular.z;
+    update_current_speed();
+    // current_linear_speed = motors_odom.speed.linear.x;// not yet working: returns 0
+    // current_angular_speed = motors_odom.speed.angular.z;// not yet working: returns 0
     send_odometry(currentPose);
 
     distance_to_goal = (sqrt((X - goal_position.getPosition().getX() / 1000.f)
