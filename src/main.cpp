@@ -62,9 +62,6 @@ int main(int argc, char* argv[])
 
 void Core::updateOdometry(nav_msgs::Odometry odometry)
 {
-    last_position.setX(X);
-    last_position.setY(Y);
-
     X = odometry.pose.pose.position.x + starting_position.getX() / 1000.f;
     Y = odometry.pose.pose.position.y + starting_position.getY() / 1000.f;
     current_position = Position(X * 1000, Y * 1000, false);
@@ -91,8 +88,6 @@ void Core::updateOdometry(nav_msgs::Odometry odometry)
 void Core::updateCurrentPose(goal_strategy::encoders encoders)
 {
     return;
-    last_position.setX(X);
-    last_position.setY(Y);
 
     encoder1 = encoders.encoder_left;
     encoder2 = encoders.encoder_right;
@@ -123,22 +118,23 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders)
 
 void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
 {
-    last_position.setX(X);
-    last_position.setY(Y);
-
     float temp_X = motors_odom.pose.position.x;
     float temp_Y = motors_odom.pose.position.y;
 
     if (!encoders_initialized)
     {
         std::cout << "initializing encoders" << std::endl;
-        starting_X = temp_X;
-        starting_Y = temp_Y;
+        starting_X -= temp_X;
+        starting_Y -= temp_Y;
+        last_position.setX(starting_X);
+        last_position.setX(starting_Y);
         encoders_initialized = true;
     }
 
-    X = temp_X - starting_X;
-    Y = temp_Y - starting_Y;
+    X = temp_X + starting_X;
+    Y = temp_Y + starting_Y;
+
+    current_position = Position(X * 1000, Y * 1000, false);
 
     current_theta = motors_odom.pose.orientation.z * 180 / M_PI + theta_zero;
 
@@ -333,8 +329,10 @@ Core::Core()
     linear_speed_cmd = 0;
 
     starting_position = Position(200, 800, !is_blue);
-    X = starting_position.getX() / 1000.f;
-    Y = starting_position.getY() / 1000.f;
+    starting_X = starting_position.getX() / 1000.f;
+    starting_Y = starting_position.getY() / 1000.f;
+    X = starting_X;
+    Y = starting_Y;
     if (is_blue)
     {
         theta_zero = 0.f;
@@ -502,6 +500,9 @@ void Core::update_current_speed()
     }
 
     float distance_moved = ((current_position - last_position).getNorme()) / 1000.f;
+
+    last_position.setX(X * 1000);
+    last_position.setY(Y * 1000);
 
     current_linear_speed = abs(distance_moved / time_since_last_speed_update);
     std::cout << "current_linear_speed = " << current_linear_speed << std::endl;
