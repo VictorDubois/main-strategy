@@ -90,6 +90,7 @@ void Core::updateOdometry(nav_msgs::Odometry odometry)
 
 void Core::updateCurrentPose(goal_strategy::encoders encoders)
 {
+    return;
     last_position.setX(X);
     last_position.setY(Y);
 
@@ -111,6 +112,42 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders)
 
     current_pose_pub.publish(currentPose);
     update_current_speed();
+    send_odometry(currentPose);
+
+    distance_to_goal = (sqrt((X - goal_position.getPosition().getX() / 1000.f)
+                               * (X - goal_position.getPosition().getX() / 1000.f)
+                             + (Y - goal_position.getPosition().getY() / 1000.f)
+                                 * (Y - goal_position.getPosition().getY() / 1000.f)));
+    std::cout << "distance to goal = " << distance_to_goal << std::endl;
+}
+
+void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
+{
+    last_position.setX(X);
+    last_position.setY(Y);
+
+    float temp_X = motors_odom.pose.position.x;
+    float temp_Y = motors_odom.pose.position.y;
+
+    if (!encoders_initialized)
+    {
+        std::cout << "initializing encoders" << std::endl;
+	starting_X = temp_X;
+	starting_Y = temp_Y;
+        encoders_initialized = true;
+    }
+
+    X = temp_X - starting_X;
+    Y = temp_Y - starting_Y;
+
+    geometry_msgs::Pose currentPose = motors_odom.pose;
+    currentPose.position.x = X;
+    currentPose.position.y = Y;
+
+    current_pose_pub.publish(currentPose);
+    //update_current_speed();
+    current_linear_speed = motors_odom.speed.linear.x;
+    current_angular_speed = motors_odom.speed.angular.z;
     send_odometry(currentPose);
 
     distance_to_goal = (sqrt((X - goal_position.getPosition().getX() / 1000.f)
@@ -253,6 +290,7 @@ Core::Core()
     odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
     chrono_pub = n.advertise<std_msgs::Duration>("remaining_time", 5);
     encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
+    odom_light_sub = n.subscribe("odom_light", 5, &Core::updateCurrentPose, this);
     goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
     lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);

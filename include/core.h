@@ -25,6 +25,7 @@ extern "C"
 #include "nav_msgs/Odometry.h"
 //#include "../../goal_strategy/motors.h"
 #include <goal_strategy/motors.h>
+#include <goal_strategy/odom_light.h>
 #include <std_msgs/Bool.h>
 
 /*#include "ct_scan.h"
@@ -145,9 +146,12 @@ private:
     ros::Subscriber lidar_behind_sub;
     ros::Subscriber tirette_sub;
     ros::Subscriber reverse_gear_sub;
+    ros::Subscriber odom_light_sub;
     tf::TransformBroadcaster odom_broadcaster;
     float X;
+    float starting_X;
     float Y;
+    float starting_Y;
     float theta_zero;
     float current_theta;
     float last_theta;
@@ -169,6 +173,7 @@ private:
     void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
     void set_motors_speed(float linearSpeed, float angularSpeed);
     void updateCurrentPose(goal_strategy::encoders motors_state);
+    void updateLightOdom(goal_strategy::odom_light motors_state);
     void landscapeFromAngleAndStrength(std::vector<float> landscape, float angle, float strength);
     float vector_to_angle(geometry_msgs::Vector3 vector);
     float vector_to_angle(geometry_msgs::Point vector);
