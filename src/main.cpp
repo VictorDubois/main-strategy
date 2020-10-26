@@ -485,7 +485,7 @@ void Core::send_odometry(const geometry_msgs::Pose& currentPose)
 
     odom_msg.twist.twist.angular.x = 0;
     odom_msg.twist.twist.angular.y = 0;
-    odom_msg.twist.twist.angular.z = current_angular_speed;
+    odom_msg.twist.twist.angular.z = -current_angular_speed * M_PI / 180;
     odom_pub.publish(odom_msg);
 }
 
