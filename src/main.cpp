@@ -7,7 +7,7 @@
 #define MAX_ALLOWED_ANGULAR_SPEED 0.2f
 
 #include "../../lidar_strategy/include/lidarStrat.h"
-
+#define UPDATE_RATE 10
 #ifndef MAX
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
 {
     ros::init(argc, argv, "mainStrat");
     ros::start();
-    ros::Rate staticLoop(10);
+    ros::Rate staticLoop(UPDATE_RATE);
     Core* my_core = new Core();
     my_core->Setup();
 
@@ -470,8 +470,8 @@ void Core::update_current_speed()
 
 void Core::limit_linear_speed_cmd_by_goal()
 {
-    float max_acceleration = 0.05f; // m*s-2
-    float max_deceleration = 0.05f; // m*s-2
+    float max_acceleration = 0.15f; // m*s-2
+    float max_deceleration = 0.15f; // m*s-2
     float new_speed_order = 0;      // m/s
 
     float desired_final_speed = 0; // m*s-2
@@ -483,13 +483,14 @@ void Core::limit_linear_speed_cmd_by_goal()
     std::cout << ", distance to stop = " << distance_to_stop << "m, ";
 
     // Compute extra time if accelerating
-    float average_extra_speed = (current_linear_speed + max_acceleration / 2);
-    float extra_distance = average_extra_speed / BROKER_FREQ;
+    float average_extra_speed
+      = (2 * current_linear_speed + max_acceleration / 2 + max_deceleration / 2);
+    float extra_distance = average_extra_speed / UPDATE_RATE;
 
     if (distance_to_goal < distance_to_stop)
     {
         std::cout << "decelerate";
-        new_speed_order = current_linear_speed - max_deceleration;
+        new_speed_order = current_linear_speed - max_deceleration / UPDATE_RATE;
     }
     else if (distance_to_goal < current_linear_speed / BROKER_FREQ)
     {
@@ -499,7 +500,7 @@ void Core::limit_linear_speed_cmd_by_goal()
     else if (distance_to_goal > distance_to_stop + extra_distance)
     {
         std::cout << "accelerate";
-        new_speed_order = current_linear_speed + max_acceleration;
+        new_speed_order = current_linear_speed + max_acceleration / UPDATE_RATE;
     }
     else
     {
