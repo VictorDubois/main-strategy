@@ -118,14 +118,17 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders)
 
 void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
 {
+    // raw values send by the motor board, that are not in the correct frame
     float temp_X = motors_odom.pose.position.x;
     float temp_Y = motors_odom.pose.position.y;
+    float temp_theta = motors_odom.pose.orientation.z * 180 / M_PI;
 
     if (!encoders_initialized)
     {
         std::cout << "initializing encoders" << std::endl;
         starting_X -= temp_X;
         starting_Y -= temp_Y;
+        theta_zero -= temp_theta;
         last_position.setX(starting_X);
         last_position.setX(starting_Y);
         encoders_initialized = true;
@@ -136,7 +139,7 @@ void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
 
     current_position = Position(X * 1000, Y * 1000, false);
 
-    current_theta = motors_odom.pose.orientation.z * 180 / M_PI + theta_zero;
+    current_theta = temp_theta + theta_zero;
 
     geometry_msgs::Pose currentPose = motors_odom.pose;
     currentPose.position.x = X;
