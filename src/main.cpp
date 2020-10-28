@@ -196,6 +196,11 @@ void Core::addObstacle(float obstacle_distance, float closest_obstacle_angle)
     speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle_distance, closest_obstacle_angle, 1);
 
+    if (speed_inhibition_from_obstacle < 0.2f)
+    {
+        speed_inhibition_from_obstacle = 0.f;
+    }
+
     std::cout << "Speed inhib from obstacle = " << speed_inhibition_from_obstacle << ". Obstacle @"
               << obstacle_distance << "m, " << closest_obstacle_angle << "°." << std::endl;
 
