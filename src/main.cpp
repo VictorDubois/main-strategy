@@ -618,6 +618,9 @@ int Core::Loop()
             orienting = true;
             // respect the goal's own orientation
             target_orientation = goal_position.getAngle();
+            if (!is_blue) {
+                target_orientation += 180;// seems to be needed since odom_light
+            }
             std::cout << "########################################" << std::endl
                       << "Positionned, orienting to " << goal_position.getAngle() << std::endl
                       << "########################################" << std::endl;
