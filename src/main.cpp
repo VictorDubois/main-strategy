@@ -128,8 +128,9 @@ void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
         std::cout << "initializing encoders" << std::endl;
         starting_X -= temp_X;
         starting_Y -= temp_Y;
-	std::cout << "x = " << temp_X << ", Y = " << temp_Y << ", theta = " << temp_theta << "theta_zero = " << theta_zero << std::endl;
-        //theta_zero -= temp_theta;
+        std::cout << "x = " << temp_X << ", Y = " << temp_Y << ", theta = " << temp_theta
+                  << "theta_zero = " << theta_zero << std::endl;
+        // theta_zero -= temp_theta;
         last_position.setX(starting_X);
         last_position.setX(starting_Y);
         encoders_initialized = true;
@@ -653,10 +654,18 @@ int Core::Loop()
 
         limit_linear_speed_cmd_by_goal();
 
-	if (reverseGear() && current_position.getY() < 250)
+        // Do not be afraid of the lighthouse
+        if (current_position.getY() < 350)
         {
             speed_inhibition_from_obstacle = 1000;
         }
+
+        // Do not be afraid of the manche a air
+        if (reverseGear() && current_position.getY() > 2000 - 350)
+        {
+            speed_inhibition_from_obstacle = 1000;
+        }
+
         linear_speed_cmd
           = MIN(linear_speed_cmd, default_linear_speed * speed_inhibition_from_obstacle);
 
