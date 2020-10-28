@@ -126,8 +126,16 @@ void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
     if (!encoders_initialized)
     {
         std::cout << "initializing encoders" << std::endl;
-        starting_X -= temp_X;
+	if (!is_blue)
+	{
+	        starting_X += temp_X;
+        starting_Y += temp_Y;
+	}
+	else
+	{
+        	starting_X -= temp_X;
         starting_Y -= temp_Y;
+	}	
         std::cout << "x = " << temp_X << ", Y = " << temp_Y << ", theta = " << temp_theta
                   << "theta_zero = " << theta_zero << std::endl;
         // theta_zero -= temp_theta;
@@ -135,9 +143,17 @@ void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
         last_position.setX(starting_Y);
         encoders_initialized = true;
     }
-
-    X = temp_X + starting_X;
-    Y = temp_Y + starting_Y;
+    if (!is_blue)
+    {
+	//std::cout << ">>>>>>>>> is_blue, temp_X = " << temp_X << ", starting_X = " << starting_X << ", X = " << X << std::endl;
+        X = -temp_X + starting_X;
+    	Y = -temp_Y + starting_Y;
+    }
+    else
+    {
+        X = temp_X + starting_X;
+    	Y = temp_Y + starting_Y;
+    }
 
     current_position = Position(X * 1000, Y * 1000, false);
 
