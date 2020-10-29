@@ -638,7 +638,7 @@ int Core::Loop()
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             goal_output[i]
-              = target(107.f, 1.1f, fmod(360 + 180 - (target_orientation - current_theta), 360), i);
+              = target(207.f, 1.1f, fmod(360 + 180 - (target_orientation - current_theta), 360), i);
         }
 
         std::cout << "relative_target_orientation: " << (target_orientation - current_theta)
@@ -716,7 +716,7 @@ int Core::Loop()
                   << default_linear_speed << std::endl;
 
         // Set motors speed according to values computed before
-        set_motors_speed(linear_speed, angular_speed / 20.f, true, false);
+        set_motors_speed(linear_speed, angular_speed / 5.f, true, false);
     } // End of state == NORMAL
 
     publish_remaining_time();
