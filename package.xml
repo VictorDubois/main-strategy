@@ -64,6 +64,7 @@
   <exec_depend>goal_strategy</exec_depend>
   <exec_depend>message_runtime</exec_depend>
   <depend>geometry_msgs</depend>
+  <depend>krabi_msgs</depend>
   <depend>tf</depend>
   <depend>nav_msgs</depend>
 

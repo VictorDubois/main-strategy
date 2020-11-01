@@ -23,9 +23,9 @@ extern "C"
 #include "geometry_msgs/Vector3.h"
 #include "helpers_broker.h"
 #include "nav_msgs/Odometry.h"
-//#include "../../goal_strategy/motors.h"
-#include <goal_strategy/motors.h>
-#include <goal_strategy/odom_light.h>
+//#include "../../krabi_msgs/motors.h"
+#include <krabi_msgs/motors.h>
+#include <krabi_msgs/odom_light.h>
 #include <std_msgs/Bool.h>
 
 /*#include "ct_scan.h"
@@ -172,8 +172,8 @@ private:
     void stop_motors();
     void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
     void set_motors_speed(float linearSpeed, float angularSpeed);
-    void updateCurrentPose(goal_strategy::encoders motors_state);
-    void updateLightOdom(goal_strategy::odom_light motors_state);
+    void updateCurrentPose(krabi_msgs::encoders motors_state);
+    void updateLightOdom(krabi_msgs::odom_light motors_state);
     void landscapeFromAngleAndStrength(std::vector<float> landscape, float angle, float strength);
     float vector_to_angle(geometry_msgs::Vector3 vector);
     float vector_to_angle(geometry_msgs::Point vector);

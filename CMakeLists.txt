@@ -16,9 +16,10 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  krabi_msgs
   message_generation
   geometry_msgs
-  goal_strategy
+  #goal_strategy
   tf
   nav_msgs
 )
@@ -79,8 +80,9 @@ add_message_files(
 generate_messages(
   DEPENDENCIES
   std_msgs
+  krabi_msgs
   geometry_msgs
-  goal_strategy
+  #goal_strategy
   nav_msgs
   #UpdateStrat
 )
@@ -117,7 +119,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   #LIBRARIES goal_strategy
-  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs goal_strategy nav_msgs tf
+  CATKIN_DEPENDS roscpp rospy std_msgs geometry_msgs nav_msgs tf krabi_msgs #goal_strategy 
   #DEPENDS system_lib
 )
 

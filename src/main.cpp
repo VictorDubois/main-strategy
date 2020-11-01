@@ -13,7 +13,7 @@
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#include <goal_strategy/motors_cmd.h>
+#include <krabi_msgs/motors_cmd.h>
 
 /**
  * Convert a cartesian position to a polar one
@@ -85,7 +85,7 @@ void Core::updateOdometry(nav_msgs::Odometry odometry)
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
-void Core::updateCurrentPose(goal_strategy::encoders encoders)
+void Core::updateCurrentPose(krabi_msgs::encoders encoders)
 {
     return;
 
@@ -116,7 +116,7 @@ void Core::updateCurrentPose(goal_strategy::encoders encoders)
     std::cout << "distance to goal = " << distance_to_goal << std::endl;
 }
 
-void Core::updateLightOdom(goal_strategy::odom_light motors_odom)
+void Core::updateLightOdom(krabi_msgs::odom_light motors_odom)
 {
     // raw values send by the motor board, that are not in the correct frame
     float temp_X = motors_odom.pose.position.x;
