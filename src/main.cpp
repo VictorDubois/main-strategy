@@ -62,6 +62,14 @@ int main(int argc, char* argv[])
 
 void Core::updateOdometry(nav_msgs::Odometry odometry)
 {
+    if (!encoders_initialized)
+    {
+        std::cout << "initializing encoders" << std::endl;
+        starting_position.setX(starting_position.getX() - odometry.pose.pose.position.x * 1000);
+        starting_position.setY(starting_position.getY() - odometry.pose.pose.position.y * 1000);
+        encoders_initialized = true;
+    }
+    std::cout << "updating Odometry" << std::endl;
     X = odometry.pose.pose.position.x + starting_position.getX() / 1000.f;
     Y = odometry.pose.pose.position.y + starting_position.getY() / 1000.f;
     current_position = Position(X * 1000, Y * 1000, false);
@@ -76,7 +84,17 @@ void Core::updateOdometry(nav_msgs::Odometry odometry)
                + odometry.pose.pose.orientation.z * odometry.pose.pose.orientation.z);
     current_theta = std::atan2(siny_cosp, cosy_cosp) * 180.f / M_PI;
 
-    current_pose_pub.publish(odometry.pose.pose);
+    geometry_msgs::Pose currentPose = odometry.pose.pose;
+    currentPose.position.x = X;
+    currentPose.position.y = Y;
+
+    tf2::Quaternion orientation_quat;
+    orientation_quat.setRPY(0, 0, current_theta * M_PI / 180);
+    currentPose.orientation = tf2::toMsg(orientation_quat);
+
+    current_pose_pub.publish(currentPose);
+    current_linear_speed = odometry.twist.twist.linear.x;
+    current_angular_speed = odometry.twist.twist.angular.z;
 
     distance_to_goal = (sqrt((X - goal_position.getPosition().getX() / 1000.f)
                                * (X - goal_position.getPosition().getX() / 1000.f)
@@ -126,16 +144,16 @@ void Core::updateLightOdom(krabi_msgs::odom_light motors_odom)
     if (!encoders_initialized)
     {
         std::cout << "initializing encoders" << std::endl;
-	if (!is_blue)
-	{
-	        starting_X += temp_X;
-        starting_Y += temp_Y;
-	}
-	else
-	{
-        	starting_X -= temp_X;
-        starting_Y -= temp_Y;
-	}	
+        if (!is_blue)
+        {
+            starting_X += temp_X;
+            starting_Y += temp_Y;
+        }
+        else
+        {
+            starting_X -= temp_X;
+            starting_Y -= temp_Y;
+        }
         std::cout << "x = " << temp_X << ", Y = " << temp_Y << ", theta = " << temp_theta
                   << "theta_zero = " << theta_zero << std::endl;
         // theta_zero -= temp_theta;
@@ -145,14 +163,15 @@ void Core::updateLightOdom(krabi_msgs::odom_light motors_odom)
     }
     if (!is_blue)
     {
-	//std::cout << ">>>>>>>>> is_blue, temp_X = " << temp_X << ", starting_X = " << starting_X << ", X = " << X << std::endl;
+        // std::cout << ">>>>>>>>> is_blue, temp_X = " << temp_X << ", starting_X = " << starting_X
+        // << ", X = " << X << std::endl;
         X = -temp_X + starting_X;
-    	Y = -temp_Y + starting_Y;
+        Y = -temp_Y + starting_Y;
     }
     else
     {
         X = temp_X + starting_X;
-    	Y = temp_Y + starting_Y;
+        Y = temp_Y + starting_Y;
     }
 
     current_position = Position(X * 1000, Y * 1000, false);
@@ -618,8 +637,9 @@ int Core::Loop()
             orienting = true;
             // respect the goal's own orientation
             target_orientation = goal_position.getAngle();
-            if (!is_blue) {
-                target_orientation += 180;// seems to be needed since odom_light
+            if (!is_blue)
+            {
+                target_orientation += 180; // seems to be needed since odom_light
             }
             std::cout << "########################################" << std::endl
                       << "Positionned, orienting to " << goal_position.getAngle() << std::endl
