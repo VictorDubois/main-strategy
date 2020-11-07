@@ -15,7 +15,7 @@ extern "C"
 #include <wiringPi.h>
 }
 #endif
-#include "Krabi/positionPlusAngle.h"
+#include "krabilib/positionPlusAngle.h"
 #include "constants.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/Pose.h"
