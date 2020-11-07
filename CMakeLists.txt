@@ -6,7 +6,6 @@ set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 add_definitions(-D USE_ROS)
 add_definitions(-D USE_IOSTREAM)
 add_definitions(-D STANDALONE_STRATEGIE)
-set(ROS_BUILD_TYPE Debug)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp

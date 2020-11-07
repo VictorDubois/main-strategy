@@ -1,5 +1,0 @@
-<launch>
-  <param name="isBlue" value="true" type="bool"/>
-  <include file="krabossMainSimu.launch" />
-</launch>
-
