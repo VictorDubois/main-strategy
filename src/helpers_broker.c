@@ -94,7 +94,7 @@ float compute_linear_dist(const long encoder1, const long encoder2)
         return the linear speed by approximating it as the average of both wheels' linear speeds.
         Static variables are used to keep last value of encoders.
 */
-float compute_linear_speed(const long encoder1, const long encoder2, const long elapsed)
+float compute_m_linear_speed(const long encoder1, const long encoder2, const long elapsed)
 {
     float speed1, speed2, speed;
     int diff_encoder1, diff_encoder2;

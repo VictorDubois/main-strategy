@@ -33,6 +33,6 @@ catkin_package(
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-add_executable(main_strategy_node src/main.cpp src/helpers_broker.c)
+add_executable(main_strategy_node src/main.cpp src/helpers_broker.c src/core.cpp src/odometry/odometry.cpp)
 
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES})

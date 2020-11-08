@@ -13,7 +13,7 @@ extern "C"
     unsigned int get_orientation(long encoder1, long encoder2);
     float get_orientation_float(long encoder1, long encoder2);
     float compute_linear_dist(const long encoder1, const long encoder2);
-    float compute_linear_speed(long encoder1, long encoder2, long elapsed);
+    float compute_m_linear_speed(long encoder1, long encoder2, long elapsed);
     int get_sensor_values(int fd, void* buf, ssize_t msg_size);
     void update_speed(const float immediate, float* current_speed, const float new_speed);
     float pseudo_gaussian_derivative(const int x);
