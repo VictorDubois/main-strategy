@@ -1,0 +1,19 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "",
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "includePath": [
+        "/home/yanis/ros_ws_cdfr/devel/include/**",
+        "/opt/ros/melodic/include/**",
+        "/home/yanis/ros_ws_cdfr/src/krabi/goal_strategy/include/**",
+        "/home/yanis/ros_ws_cdfr/src/krabi/lidar_strategy/include/**",
+        "/home/yanis/ros_ws_cdfr/src/krabi/main-strategy/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS"
+    }
+  ]
+}

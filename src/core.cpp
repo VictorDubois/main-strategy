@@ -61,20 +61,20 @@ float Core::vector_to_amplitude(geometry_msgs::Point vector)
 float Core::getAngleToGoal()
 {
     // Convert absolute position to relative position
-    Position relative_m_goal_position = m_goal_position.getPosition() - m_current_position;
-    // Position relative_m_goal_position = m_goal_position - m_starting_position - m_current_position;
+    Position relative_m_goal_pose = m_goal_pose.getPosition() - m_current_pose.getPosition();
+    // Position relative_m_goal_pose = m_goal_pose - m_starting_position - m_current_pose.getPosition();
 
     // Orient to goal
-    float relative_m_goal_position_angle = relative_m_goal_position.getAngle() * 180. / M_PI;
-    std::cout << "relative goal position = " << relative_m_goal_position.getX() << ", "
-              << relative_m_goal_position.getY() << std::endl;
-    std::cout << "m_target_orientation = " << relative_m_goal_position_angle << std::endl;
-    return relative_m_goal_position_angle;
+    float relative_m_goal_pose_angle = relative_m_goal_pose.getAngle() * 180. / M_PI;
+    std::cout << "relative goal position = " << relative_m_goal_pose.getX() << ", "
+              << relative_m_goal_pose.getY() << std::endl;
+    std::cout << "m_target_orientation = " << relative_m_goal_pose_angle << std::endl;
+    return relative_m_goal_pose_angle;
 }
 
 void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
 {
-    m_goal_position = PositionPlusAngle(goal_pose.pose);
+    m_goal_pose = PositionPlusAngle(goal_pose.pose);
 
     // last_goal_max_speed = goal_out.max_speed;
 }
@@ -155,11 +155,8 @@ Core::Core()
 {
     ros::NodeHandle n;
     m_is_blue = false;
-    m_last_speed_update_time = ros::Time::now();
     m_begin_match = ros::Time(0);
-    m_current_linear_speed = 0;
-    m_encoders_initialized = false;
-    m_goal_position = PositionPlusAngle();
+    m_goal_pose = PositionPlusAngle();
     m_distance_to_goal = 0;
     geometry_msgs::Twist last_lidar_max_speed;
     last_lidar_max_speed.linear.x = 0;
@@ -172,14 +169,10 @@ Core::Core()
     m_speed_inhibition_from_obstacle = 0;
     m_motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     m_motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
-    m_current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
-    m_odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
     m_chrono_pub = n.advertise<std_msgs::Duration>("remaining_time", 5);
-    m_encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
-    m_odom_light_sub = n.subscribe("odom_light", 5, &Core::updateLightOdom, this);
     m_goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
-    m_odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
     m_lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);
+    m_odometry_sub = n.subscribe("odom",1000, &Core::updateOdom, this);
     m_lidar_behind_sub
       = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidarBehind, this);
     m_tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
@@ -211,25 +204,21 @@ Core::Core()
     m_linear_speed = 0;
     m_angular_speed = 0;
     m_linear_speed_cmd = 0;
+    m_angular_speed_cmd = 0;
 
-    m_starting_position = Position(200, 800, !m_is_blue);
-    m_starting_X = m_starting_position.getX() / 1000.f;
-    m_starting_Y = m_starting_position.getY() / 1000.f;
-    m_X = m_starting_X;
-    m_Y = m_starting_Y;
-    if (m_is_blue)
-    {
-        m_theta_zero = 0.f;
-    }
-    else
-    {
-        m_theta_zero = 180.f;
-    }
+}
 
-    std::cout << "Starting position: X = " << m_X << ", Y = " << m_Y << " Theta_zero = " << m_theta_zero
-              << std::endl;
-
-    m_last_encoder1 = m_last_encoder2 = 0;
+void Core::updateOdom(const nav_msgs::Odometry& odometry){
+    m_current_pose.setX(odometry.pose.pose.position.x);
+    m_current_pose.setY(odometry.pose.pose.position.y);
+    double roll, pitch, yaw;
+    auto quat = odometry.pose.pose.orientation;
+    tf::Quaternion q(quat.x, quat.y, quat.z, quat.w);
+    tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+    m_current_pose.setAngle(yaw);
+    
+    m_linear_speed = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y,0).length();
+    m_angular_speed = odometry.twist.twist.angular.z;
 }
 
 void Core::stopMotors()
@@ -280,11 +269,6 @@ void Core::landscapeFromAngleAndStrength(std::vector<float> landscape, float ang
     }
 }
 
-bool Core::digitalRead(int)
-{
-    return true;
-}
-
 Core::~Core()
 {
     // We broke out of the loop, stop everything
@@ -292,8 +276,6 @@ Core::~Core()
 
     printf("Got out of the main loop, stopped everything.\n");
 }
-
-
 
 Core::State Core::Loop()
 {
@@ -329,13 +311,13 @@ Core::State Core::Loop()
         {
             m_orienting = true;
             // respect the goal's own orientation
-            m_target_orientation = m_goal_position.getAngle();
+            m_target_orientation = m_goal_pose.getAngle();
             if (!m_is_blue)
             {
                 m_target_orientation += 180; // seems to be needed since odom_light
             }
             std::cout << "########################################" << std::endl
-                      << "Positionned, m_orienting to " << m_goal_position.getAngle() << std::endl
+                      << "Positionned, m_orienting to " << m_goal_pose.getAngle() << std::endl
                       << "########################################" << std::endl;
         }
 
@@ -351,10 +333,10 @@ Core::State Core::Loop()
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             m_goal_output[i]
-              = target(207.f, 1.1f, fmod(360 + 180 - (m_target_orientation - m_current_theta), 360), i);
+              = target(207.f, 1.1f, fmod(360 + 180 - (m_target_orientation - m_current_pose.getAngle()), 360), i);
         }
 
-        std::cout << "relative_m_target_orientation: " << (m_target_orientation - m_current_theta)
+        std::cout << "relative_m_target_orientation: " << (m_target_orientation - m_current_pose.getAngle())
                   << ", peak value: " << get_idx_of_max(m_goal_output, NB_NEURONS)
                   << ", central value = " << m_goal_output[180];
 
@@ -387,13 +369,13 @@ Core::State Core::Loop()
         limitLinearSpeedCmdByGoal();
 
         // Do not be afraid of the lighthouse
-        if (m_current_position.getY() < 350)
+        if (m_current_pose.getPosition().getY() < 350)
         {
             m_speed_inhibition_from_obstacle = 1000;
         }
 
         // Do not be afraid of the manche a air
-        if (reverseGear() && m_current_position.getY() > 2000 - 350)
+        if (reverseGear() && m_current_pose.getPosition().getY() > 2000 - 350)
         {
             m_speed_inhibition_from_obstacle = 1000;
         }
@@ -403,9 +385,7 @@ Core::State Core::Loop()
 
         limitAngularSpeedCmd(m_angular_speed_cmd);
 
-        update_speed(FALSE, &m_angular_speed, m_angular_speed_cmd);
-        // update_speed(FALSE, &m_linear_speed, m_linear_speed_cmd);
-        m_linear_speed = m_linear_speed_cmd;
+        update_speed(false, &m_angular_speed, m_angular_speed_cmd);
 
         if (DISABLE_LINEAR_SPEED || m_orienting)
         {
@@ -502,4 +482,48 @@ void Core::limitAngularSpeedCmd(float& m_angular_speed)
     // Cap angular speed, so that the robot doesn't turn TOO FAST on itself
     std::max(m_angular_speed, -MAX_ALLOWED_ANGULAR_SPEED);
     std::min(m_angular_speed, MAX_ALLOWED_ANGULAR_SPEED);
+}
+
+void Core::limitLinearSpeedCmdByGoal()
+{
+    float max_acceleration = 0.15f; // m*s-2
+    float max_deceleration = 0.15f; // m*s-2
+    float new_speed_order = 0;      // m/s
+
+    float desired_final_speed = 0; // m*s-2
+
+    float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
+    std::cout << "time to stop = " << time_to_stop << "s, ";
+
+    float distance_to_stop = time_to_stop * (m_linear_speed - desired_final_speed) / 2;
+    std::cout << ", distance to stop = " << distance_to_stop << "m, ";
+
+    // Compute extra time if accelerating
+    float average_extra_speed
+      = (2 * m_linear_speed + max_acceleration / 2 + max_deceleration / 2);
+    float extra_distance = average_extra_speed / UPDATE_RATE;
+
+    if (m_distance_to_goal < distance_to_stop)
+    {
+        std::cout << "decelerate";
+        new_speed_order = m_linear_speed - max_deceleration / UPDATE_RATE;
+    }
+    else if (m_distance_to_goal < m_linear_speed / UPDATE_RATE)
+    {
+        std::cout << "EMERGENCY BRAKE";
+        new_speed_order = 0;
+    }
+    else if (m_distance_to_goal > distance_to_stop + extra_distance)
+    {
+        std::cout << "accelerate";
+        new_speed_order = m_linear_speed + max_acceleration / UPDATE_RATE;
+    }
+    else
+    {
+        std::cout << "cruise speed";
+        new_speed_order = m_linear_speed;
+    }
+    // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
+    m_linear_speed_cmd = new_speed_order;
+    std::cout << "new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl;
 }

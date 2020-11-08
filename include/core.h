@@ -63,10 +63,6 @@ private:
     //#define DEBUG_cartToPolar
     void cartToPolar(int posX, int posY, float& theta, float& distance);
 
-    // Update encoders + sanitize their inputs
-    void updateEncoders(long& encoder1, long& encoder2);
-    void updateOdometry(nav_msgs::Odometry odometry);
-
     // Has the tirette been pulled?
     bool areWeGoForLaunch();
 
@@ -83,8 +79,6 @@ private:
     // Enforce limits on angular speed: absolute max and obstacle inhibition
     void limitAngularSpeedCmd(float& m_angular_speed);
 
-    void sendOdometry(const geometry_msgs::Pose& current_pose);
-
     // Publish the time remaining on the match's clock
     void publishRemainingTime();
 
@@ -92,8 +86,6 @@ private:
     void stopMotors();
     void setMotorsSpeed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
     void setMotorsSpeed(float linearSpeed, float angularSpeed);
-    void updateCurrentPose(krabi_msgs::encoders motors_state);
-    void updateLightOdom(krabi_msgs::odom_light motors_state);
     void landscapeFromAngleAndStrength(std::vector<float> landscape, float angle, float strength);
     static float vector_to_angle(geometry_msgs::Vector3 vector);
     static float vector_to_angle(geometry_msgs::Point vector);
@@ -105,8 +97,7 @@ private:
     void addObstacle(float obstacle_distance, float closest_obstacle_angle);
     void updateTirette(std_msgs::Bool starting);
     void updateGear(std_msgs::Bool a_reverse_gear_activated);
-    bool digitalRead(int);
-    geometry_msgs::Pose updateCurrentPose(int32_t encoder1, int32_t encoder2);
+    void updateOdom(const nav_msgs::Odometry& odometry);
 
     bool reverseGear();
 
@@ -125,8 +116,8 @@ private:
     const float m_default_linear_speed
       = 0.5f; // Line speed to set when no positive valence strategy fires
     float m_target_orientation;
-    float m_linear_speed, m_angular_speed, m_linear_speed_cmd;
-    long m_encoder1, m_encoder2, m_last_encoder1, m_last_encoder2, m_elapsed;
+    float m_linear_speed, m_angular_speed, m_linear_speed_cmd, m_angular_speed_cmd;
+    //long  m_elapsed;
     float m_goal_output[NB_NEURONS] = { 0. };
     float m_obstacles_output[NB_NEURONS] = { 0. };
     float m_lidar_output[NB_NEURONS] = { 0. };
@@ -136,36 +127,18 @@ private:
     bool m_is_blue;
     ros::Publisher m_motors_cmd_pub;
     ros::Publisher m_motors_enable_pub;
-    ros::Publisher m_current_pose_pub;
-    ros::Publisher m_odom_pub;
     ros::Publisher m_chrono_pub;
-    ros::Subscriber m_encoders_sub;
     ros::Subscriber m_odometry_sub;
     ros::Subscriber m_goal_sub;
     ros::Subscriber m_lidar_sub;
     ros::Subscriber m_lidar_behind_sub;
     ros::Subscriber m_tirette_sub;
     ros::Subscriber m_reverse_gear_sub;
-    ros::Subscriber m_odom_light_sub;
-    tf::TransformBroadcaster m_odom_broadcaster;
-    float m_X;
-    float m_starting_X;
-    float m_Y;
-    float m_starting_Y;
-    float m_theta_zero;
-    float m_current_theta;
-    float m_last_theta;
-    int32_t m_starting_encoder1;
-    int32_t m_starting_encoder2;
-    bool m_encoders_initialized;
-    Position m_current_position;
-    PositionPlusAngle m_goal_position;
-    Position m_last_position;
-    Position m_starting_position;
+
+    PositionPlusAngle m_current_pose;
+    PositionPlusAngle m_goal_pose;
+
     float m_distance_to_goal;
-    float m_current_linear_speed;
-    float m_current_angular_speed;
-    ros::Time m_last_speed_update_time;
     bool m_orienting;
     bool m_reverse_gear_activated;
     float m_speed_inhibition_from_obstacle;
