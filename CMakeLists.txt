@@ -14,6 +14,7 @@ find_package(
              krabi_msgs
              geometry_msgs
              tf
+             tf2
              nav_msgs
              goal_strategy
              lidar_strategy)
@@ -27,12 +28,18 @@ catkin_package(
   geometry_msgs
   nav_msgs
   tf
+  tf2
   krabi_msgs
   goal_strategy
   lidar_strategy)
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-add_executable(main_strategy_node src/main_strategy_node.cpp src/helpers_broker.c src/core.cpp)
+add_executable(${PROJECT_NAME}_node src/main_strategy_node.cpp src/helpers_broker.c src/core.cpp)
+
+add_executable(odometry_node src/odometry_node.cpp src/odometry/lightOdometry.cpp)
+
 
 target_link_libraries(${PROJECT_NAME}_node ${catkin_LIBRARIES})
+target_link_libraries(odometry_node ${catkin_LIBRARIES})
+

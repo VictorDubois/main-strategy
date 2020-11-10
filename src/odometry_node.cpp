@@ -1,4 +1,3 @@
-#include "odometry/fullOdometry.h"
 #include "odometry/lightOdometry.h"
 
 #include "ros/ros.h"
@@ -11,19 +10,16 @@ int main(int argc, char* argv[])
     ros::init(argc, argv, "odometry_node");
     ros::NodeHandle nh;
     string odom_type;
-    nh.param<string>("odom_type", odom_type, "full");
-    if (!odom_type.compare("full"))
+    nh.param<string>("odom_type", odom_type, "light");
+    if (!odom_type.compare("light"))
     {
-        auto node = fullOdometry(nh);
-        node.run()
-    }
-    else if (!odom_type.compare("full"))
-    {
-        auto node = lightOdometry(nh);
-        node.run()
+        auto node = OdometryLightNode(nh);
+        ros::spin();
     }
     else
     {
         ROS_ERROR("Incompatible odom_type");
+        exit(1);
     }
+    return 0;
 }

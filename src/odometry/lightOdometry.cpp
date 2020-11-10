@@ -1,64 +1,83 @@
-void Core::updateLightOdom(krabi_msgs::odom_light motors_odom)
-{
-    // raw values send by the motor board, that are not in the correct frame
-    float temp_X = motors_odom.pose.position.x;
-    float temp_Y = motors_odom.pose.position.y;
-    float temp_theta = motors_odom.pose.orientation.z * 180 / M_PI;
+#include "odometry/lightOdometry.h"
 
-    if (!m_encoders_initialized)
-    {
-        std::cout << "initializing encoders" << std::endl;
-        if (!m_is_blue)
-        {
-            m_starting_X += temp_X;
-            m_starting_Y += temp_Y;
-        }
-        else
-        {
-            m_starting_X -= temp_X;
-            m_starting_Y -= temp_Y;
-        }
-        std::cout << "x = " << temp_X << ", Y = " << temp_Y << ", theta = " << temp_theta
-                  << "theta_zero = " << m_theta_zero << std::endl;
-        // theta_zero -= temp_theta;
-        m_last_position.setX(m_starting_X);
-        m_last_position.setX(m_starting_Y);
-        m_encoders_initialized = true;
+OdometryLightNode::OdometryLightNode(ros::NodeHandle& nh)
+  : m_nh(nh)
+{
+    bool is_blue;
+    nh.param<bool>("isBlue",is_blue, true);
+    if(is_blue){
+        resetOdometry(-1, 0, 0);
     }
-    if (!m_is_blue)
+    else{
+        resetOdometry(1, 0, M_PI);
+    }
+    m_odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
+    m_odom_light_sub = nh.subscribe("odom_light",10,&OdometryLightNode::updateLightOdom,this);
+}
+
+void OdometryLightNode::updateLightOdom(krabi_msgs::odom_light motors_odom)
+{
+    nav_msgs::Odometry odomsg;
+    odomsg.header.frame_id = "odom";
+    odomsg.header.stamp = ros::Time::now();
+    odomsg.child_frame_id = "base_link";
+
+    odomsg.pose.pose = motors_odom.pose;
+    for (unsigned int i = 0; i < 6 * 6; i++)
     {
-        // std::cout << ">>>>>>>>> m_is_blue, temp_X = " << temp_X << ", starting_X = " << starting_X
-        // << ", X = " << X << std::endl;
-        m_X = -temp_X + m_starting_X;
-        m_Y = -temp_Y + m_starting_Y;
+        odomsg.pose.covariance[i] = 0;
+    }
+
+    odomsg.pose.covariance[0 * 6 + 0] = 0.1; // x
+    odomsg.pose.covariance[1 * 6 + 1] = 0.1; // y
+    odomsg.pose.covariance[5 * 6 + 5] = 0.2; // rz
+
+    odomsg.pose.covariance[2 * 6 + 2] = 100; // z
+    odomsg.pose.covariance[3 * 6 + 3] = 100; // rx
+    odomsg.pose.covariance[4 * 6 + 4] = 100; // ry
+
+    for (unsigned int i = 0; i < 6 * 6; i++)
+    {
+        odomsg.twist.covariance[i] = 0;
+    }
+
+    odomsg.twist.twist = motors_odom.speed;
+    m_odom_pub.publish(odomsg);
+    publishTf(odomsg.pose.pose);
+}
+
+void OdometryLightNode::publishTf(const geometry_msgs::Pose& pose)
+{
+    // first, we'll publish the transform over tf
+    geometry_msgs::TransformStamped odom_trans;
+    odom_trans.header.stamp = ros::Time::now();
+    odom_trans.header.frame_id = "odom";
+    odom_trans.child_frame_id = "base_link";
+
+    odom_trans.transform.translation.x = pose.position.x;
+    odom_trans.transform.translation.y = pose.position.y;
+    odom_trans.transform.translation.z = pose.position.z;
+    odom_trans.transform.rotation = pose.orientation;
+
+    // send the transform
+    m_tf_broadcaster.sendTransform(odom_trans);
+}
+
+void OdometryLightNode::resetOdometry(float x, float y, float theta)
+{
+
+    ros::ServiceClient client = m_nh.serviceClient<krabi_msgs::SetOdom>("set_odom");
+    krabi_msgs::SetOdom srv;
+    srv.request.x = x;
+    srv.request.y = y;
+    srv.request.theta = theta;
+
+    if (client.call(srv))
+    {
+        ROS_INFO("Odometry calibrated");
     }
     else
     {
-        m_X = temp_X + m_starting_X;
-        m_Y = temp_Y + m_starting_Y;
+        ROS_ERROR("Failed to calibrate odometry");
     }
-
-    m_current_position = Position(m_X * 1000, m_Y * 1000, false);
-
-    m_current_theta = temp_theta + m_theta_zero;
-
-    geometry_msgs::Pose currentPose = motors_odom.pose;
-    currentPose.position.x = m_X;
-    currentPose.position.y = m_Y;
-
-    tf2::Quaternion orientation_quat;
-    orientation_quat.setRPY(0, 0, m_current_theta * M_PI / 180);
-    currentPose.orientation = tf2::toMsg(orientation_quat);
-
-    m_current_pose_pub.publish(currentPose);
-    updateCurrentSpeed();
-    // m_current_linear_speed = motors_odom.speed.linear.x;// not yet working: returns 0
-    // m_current_angular_speed = motors_odom.speed.angular.z;// not yet working: returns 0
-    sendOdometry(currentPose);
-
-    m_distance_to_goal = (sqrt((m_X - m_goal_position.getPosition().getX() / 1000.f)
-                               * (m_X - m_goal_position.getPosition().getX() / 1000.f)
-                             + (m_Y - m_goal_position.getPosition().getY() / 1000.f)
-                                 * (m_Y - m_goal_position.getPosition().getY() / 1000.f)));
-    std::cout << "distance to goal = " << m_distance_to_goal << std::endl;
 }
