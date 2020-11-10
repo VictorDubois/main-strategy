@@ -175,7 +175,7 @@ Core::Core()
     m_odometry_sub = n.subscribe("odom",1000, &Core::updateOdom, this);
     m_lidar_behind_sub
       = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidarBehind, this);
-    m_tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
+    m_tirette_sub = n.subscribe("tirette", 1, &Core::updateTirette, this);
     m_reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
     n.param<bool>("isBlue", m_is_blue, true);
@@ -219,6 +219,7 @@ void Core::updateOdom(const nav_msgs::Odometry& odometry){
     
     m_linear_speed = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y,0).length();
     m_angular_speed = odometry.twist.twist.angular.z;
+    m_distance_to_goal = sqrt(pow(odometry.pose.pose.position.x,2) + pow(odometry.pose.pose.position.y,2));
 }
 
 void Core::stopMotors()
@@ -389,27 +390,27 @@ Core::State Core::Loop()
 
         if (DISABLE_LINEAR_SPEED || m_orienting)
         {
-            m_linear_speed = 0;
+            m_linear_speed_cmd = 0;
         }
 
         if (DISABLE_ANGULAR_SPEED)
         {
-            m_angular_speed = 0;
+            m_angular_speed_cmd = 0;
         }
 
         // m_linear_speed = 0;
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         // m_linear_speed = MIN(m_linear_speed, m_linear_speed / abs(m_angular_speed));
-        if (m_angular_speed < -1 || m_angular_speed > 1)
+        if (m_angular_speed_cmd < -1 || m_angular_speed_cmd > 1)
         {
-            m_linear_speed = 0;
+            m_linear_speed_cmd = 0;
         }
         std::cout << "linear speed = " << m_linear_speed << ", m_orienting = " << m_orienting
                   << "speed inihib from obstacles = " << m_speed_inhibition_from_obstacle << " * "
                   << m_default_linear_speed << std::endl;
 
         // Set motors speed according to values computed before
-        setMotorsSpeed(m_linear_speed, m_angular_speed / 5.f, true, false);
+        setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd / 5.f, true, false);
     } // End of m_state == State::NORMAL
 
     publishRemainingTime();
