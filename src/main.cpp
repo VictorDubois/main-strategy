@@ -314,7 +314,7 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
 
 Core::Core()
 {
-    ros::NodeHandle n;
+    //ros::NodeHandle n;
     is_blue = false;
     last_speed_update_time = ros::Time::now();
     begin_match = ros::Time(0);
@@ -347,8 +347,11 @@ Core::Core()
     reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
     n.param<bool>("isBlue", is_blue, true);
-    n.param<float>("angular_speed_neuron", m_angular_speed_neuron, 207.f);
-    n.param<float>("angular_speed_gain_neuron", m_angular_speed_gain_neuron, 1.1f);
+    n.param<double>("angularspeedneuron", m_angular_speed_neuron, 207);
+    n.param<double>("angularspeedgainneuron", m_angular_speed_gain_neuron, 1.1);
+    std::cout << "angular_speed_neuron" << m_angular_speed_neuron << std::endl;
+    n.getParam("angularspeedneuron", m_angular_speed_neuron);
+    std::cout << "angular_speed_neuron" << m_angular_speed_neuron << std::endl;
 
     if (is_blue)
     {
@@ -657,6 +660,8 @@ int Core::Loop()
 
         // Compute attractive vectors from positive valence strategies
         // TODO: choose the POSITIVE VALENCE STRATEGY!
+    n.getParam("angularspeedneuron", m_angular_speed_neuron);
+    std::cout << "angular_speed_neuron" << m_angular_speed_neuron << std::endl;
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             goal_output[i]
@@ -738,7 +743,7 @@ int Core::Loop()
                   << default_linear_speed << std::endl;
 
         // Set motors speed according to values computed before
-        set_motors_speed(linear_speed, angular_speed / 5.f, true, false);
+        set_motors_speed(linear_speed, angular_speed / 2.f, true, false);
     } // End of state == NORMAL
 
     publish_remaining_time();

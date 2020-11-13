@@ -58,7 +58,7 @@ extern "C"
 #define DISABLE_ANGULAR_SPEED FALSE
 
 #define ENABLE_TIMEOUT_END_MATCH TRUE
-#define TIMEOUT_END_MATCH 99000 // in ms
+#define TIMEOUT_END_MATCH 99e5 // in ms
 
 #define TIRETTE_ENABLED TRUE
 #define PIN_TIRETTE 20
@@ -168,8 +168,8 @@ private:
     ros::Time last_speed_update_time;
     bool orienting;
     bool m_reverse_gear_activated;
-    float m_angular_speed_neuron;
-    float m_angular_speed_gain_neuron;
+    double m_angular_speed_neuron;
+    double m_angular_speed_gain_neuron;
 
     void stop_motors();
     void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
@@ -191,6 +191,7 @@ private:
     geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);
 
     bool reverseGear();
+    ros::NodeHandle n;
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
