@@ -347,6 +347,8 @@ Core::Core()
     reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
     n.param<bool>("isBlue", is_blue, true);
+    n.param<float>("angular_speed_neuron", m_angular_speed_neuron, 207.f);
+    n.param<float>("angular_speed_gain_neuron", m_angular_speed_gain_neuron, 1.1f);
 
     if (is_blue)
     {
@@ -658,7 +660,7 @@ int Core::Loop()
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             goal_output[i]
-              = target(207.f, 1.1f, fmod(360 + 180 - (target_orientation - current_theta), 360), i);
+              = target(m_angular_speed_neuron, m_angular_speed_gain_neuron, fmod(360 + 180 - (target_orientation - current_theta), 360), i);
         }
 
         std::cout << "relative_target_orientation: " << (target_orientation - current_theta)

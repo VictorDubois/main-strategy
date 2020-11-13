@@ -168,6 +168,8 @@ private:
     ros::Time last_speed_update_time;
     bool orienting;
     bool m_reverse_gear_activated;
+    float m_angular_speed_neuron;
+    float m_angular_speed_gain_neuron;
 
     void stop_motors();
     void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
