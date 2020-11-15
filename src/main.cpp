@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#define MAX_ALLOWED_ANGULAR_SPEED 0.2f
+#define MAX_ALLOWED_ANGULAR_SPEED 10.2f
 
 #include "../../lidar_strategy/include/lidarStrat.h"
 #define UPDATE_RATE 10
@@ -347,7 +347,7 @@ Core::Core()
     reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
     n.param<bool>("isBlue", is_blue, true);
-    n.param<double>("angularspeedneuron", m_angular_speed_neuron, 207);
+    n.param<double>("angularspeedneuron", m_angular_speed_neuron, 107);
     n.param<double>("angularspeedgainneuron", m_angular_speed_gain_neuron, 1.1);
     std::cout << "angular_speed_neuron" << m_angular_speed_neuron << std::endl;
     n.getParam("angularspeedneuron", m_angular_speed_neuron);
@@ -717,7 +717,10 @@ int Core::Loop()
 
         limit_angular_speed_cmd(angular_speed_cmd);
 
-        update_speed(FALSE, &angular_speed, angular_speed_cmd);
+        //update_speed(TRUE, &angular_speed, angular_speed_cmd);
+	//float PID_D = 0.1f;
+        angular_speed = angular_speed_cmd;// - current_angular_speed * PID_D;
+	//std::cout << "angular_speed_cmd = " << angular_speed_cmd << ", current_speed = " << current_angular_speed << ", angular_speed = " << angular_speed << std::endl;
         // update_speed(FALSE, &linear_speed, linear_speed_cmd);
         linear_speed = linear_speed_cmd;
 
@@ -743,7 +746,7 @@ int Core::Loop()
                   << default_linear_speed << std::endl;
 
         // Set motors speed according to values computed before
-        set_motors_speed(linear_speed, angular_speed / 2.f, true, false);
+        set_motors_speed(linear_speed, angular_speed / 4.f, true, false);
     } // End of state == NORMAL
 
     publish_remaining_time();
