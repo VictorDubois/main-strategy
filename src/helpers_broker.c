@@ -201,8 +201,10 @@ float apply_circular(float f(int), const int u, const int x)
 
 /*
  * Applies a gaussian function with given sigma and mu value, in x
+ * 
+ * The gaussian is wrapped between 0 and nb_steps
  */
-float gaussian(const float sigma, const float a, const float mu, const float x)
+float gaussian(const float sigma, const float scaling_factor, const float mu, const float x)
 {
     int new_x = x;
     unsigned int dist = abs(new_x - mu);
@@ -218,7 +220,7 @@ float gaussian(const float sigma, const float a, const float mu, const float x)
         dist = abs(new_x - mu);
     }
 
-    return a / (sigma * sqrt(2. * M_PI)) * exp(-pow((new_x - mu) / sigma, 2) / 2.0);
+    return scaling_factor / (sigma * sqrt(2. * M_PI)) * exp(-pow((new_x - mu) / sigma, 2) / 2.0);
 }
 
 /**

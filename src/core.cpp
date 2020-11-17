@@ -10,53 +10,43 @@
 
 #include <krabi_msgs/motors_cmd.h>
 
-
-float Core::vector_to_angle(geometry_msgs::Vector3 vector)
+void Core::updateCurrentPose()
 {
-    return atan2(vector.y, vector.x) * 180 / M_PI;
+    try
+    {
+        auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+        const auto& transform
+          = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
+        m_baselink_to_map = transformFromMsg(transform);
+        m_map_to_baselink = transformFromMsg(
+          m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
+        m_current_pose = Pose(transform);
+    }
+    catch (tf2::TransformException& ex)
+    {
+        ROS_WARN("%s", ex.what());
+    }
+
+    ROS_DEBUG_STREAM("updateCurrentPose: " << m_current_pose << std::endl);
+    ROS_DEBUG_STREAM("Transform matrix [baselink to map]: " << m_baselink_to_map);
 }
 
-float Core::vector_to_angle(geometry_msgs::Point vector)
+Angle Core::getAngleToGoal()
 {
-    return atan2(vector.y, vector.x) * 180 / M_PI;
-}
-
-float Core::vector_to_amplitude(geometry_msgs::Vector3 vector)
-{
-    return sqrt((vector.x * vector.x) + (vector.y * vector.y));
-}
-
-float Core::vector_to_amplitude(geometry_msgs::Point vector)
-{
-    return sqrt((vector.x * vector.x) + (vector.y * vector.y));
-}
-
-float Core::getAngleToGoal()
-{
-    // Convert absolute position to relative position
-    Position relative_m_goal_pose = m_goal_pose.getPosition() - m_current_pose.getPosition();
-    // Position relative_m_goal_pose = m_goal_pose - m_starting_position - m_current_pose.getPosition();
-
-    // Orient to goal
-    float relative_m_goal_pose_angle = relative_m_goal_pose.getAngle() * 180. / M_PI;
-    std::cout << "relative goal position = " << relative_m_goal_pose.getX() << ", "
-              << relative_m_goal_pose.getY() << std::endl;
-    std::cout << "m_target_orientation = " << relative_m_goal_pose_angle << std::endl;
-    return relative_m_goal_pose_angle;
+    return (m_goal_pose.getPosition()-m_current_pose.getPosition()).getAngle();
 }
 
 void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
 {
     m_goal_pose = Pose(goal_pose.pose);
-
-    // last_goal_max_speed = goal_out.max_speed;
+    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
 void Core::updateTirette(std_msgs::Bool starting)
 {
     if (starting.data && m_state == State::WAIT_TIRETTE)
     {
-        std::cout << "Go for launch!" << std::endl;
+        ROS_INFO_STREAM("Go for launch!");
         m_state = State::NORMAL;
 
         // Start counting the time
@@ -64,49 +54,38 @@ void Core::updateTirette(std_msgs::Bool starting)
     }
 }
 
-void Core::updateLidar(geometry_msgs::PoseStamped closest_obstacle)
+void Core::updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle, bool front)
 {
-    if (reverseGear())
+    if (front == !reverseGear())
     {
-        return;
+        addObstacle(Position(closest_obstacle->pose.position));
     }
-
-    addObstacle(Position(closest_obstacle.pose.position));
 }
 
 void Core::addObstacle(PolarPosition obstacle)
 {
     unsigned int closest_obstacle_id = angle_to_neuron_id(obstacle.getAngle());
-    // Compute intensity of obstacle
-    float obstacle_dangerouseness = 175. * obstacle.getDistance();
 
-    m_speed_inhibition_from_obstacle
-      = LidarStrat::speed_inhibition(obstacle.getDistance(), obstacle.getAngle(), 1);
+    Angle normalized_angle = !reverseGear()
+                               ? obstacle.getAngle()
+                               : AngleTools::wrapAngle(Angle(obstacle.getAngle() + M_PI));
+
+    float m_speed_inhibition_from_obstacle
+      = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
 
     if (m_speed_inhibition_from_obstacle < 0.2f)
     {
         m_speed_inhibition_from_obstacle = 0.f;
     }
 
-    std::cout << "Speed inhib from obstacle = " << m_speed_inhibition_from_obstacle << ". Obstacle @"
-              << obstacle << std::endl;
+    ROS_INFO_STREAM("Speed inhib from obstacle = " << m_speed_inhibition_from_obstacle
+                                                   << ". Obstacle @" << obstacle << std::endl);
 
-    // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
-    // Then apply gaussian function centered on the sensor's angle
     for (int j = 0; j < NB_NEURONS; j += 1)
     {
-        m_lidar_output[j] += -gaussian(
-          50., obstacle_dangerouseness, (fmod(360 + 180 + closest_obstacle_id, 360)), j);
+        m_lidar_output[j]
+          += -gaussian(50., m_speed_inhibition_from_obstacle, closest_obstacle_id, j);
     }
-}
-
-void Core::updateLidarBehind(geometry_msgs::PoseStamped closest_obstacle)
-{
-    if (!reverseGear())
-    {
-        return;
-    }
-    addObstacle(Position(closest_obstacle.pose.position));
 }
 
 void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
@@ -114,43 +93,36 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
     m_reverse_gear_activated = a_reverse_gear_activated.data;
 }
 
-Core::Core()
+Core::Core(ros::NodeHandle& nh)
+  : m_tf_listener(m_tf_buffer)
+  , m_nh(nh)
 {
-    ros::NodeHandle n;
-    m_is_blue = false;
     m_begin_match = ros::Time(0);
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
-    geometry_msgs::Twist last_lidar_max_speed;
-    last_lidar_max_speed.linear.x = 0;
-    last_lidar_max_speed.linear.y = 0;
-    last_lidar_max_speed.angular.z = 0;
-    geometry_msgs::Twist last_goal_max_speed;
-    last_goal_max_speed.linear.x = 0;
-    last_goal_max_speed.linear.y = 0;
-    last_goal_max_speed.angular.z = 0;
-    m_speed_inhibition_from_obstacle = 0;
-    m_motors_cmd_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 5);
-    m_motors_enable_pub = n.advertise<std_msgs::Bool>("enable_motor", 5);
-    m_chrono_pub = n.advertise<std_msgs::Duration>("remaining_time", 5);
-    m_goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
-    m_lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);
-    m_odometry_sub = n.subscribe("odom",1000, &Core::updateOdom, this);
-    m_lidar_behind_sub
-      = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidarBehind, this);
-    m_tirette_sub = n.subscribe("tirette", 1, &Core::updateTirette, this);
-    m_reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
-    n.param<bool>("isBlue", m_is_blue, true);
+    m_speed_inhibition_from_obstacle = 1;
+    m_reverse_gear_activated = false;
 
-    if (m_is_blue)
-    {
-        std::cout << "Is Blue !" << std::endl;
-    }
-    else
-    {
-        std::cout << "Not Blue :'(" << std::endl;
-    }
+    m_motors_cmd_pub =m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
+    m_motors_enable_pub =m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
+    m_chrono_pub =m_nh.advertise<std_msgs::Duration>("remaining_time", 5);
+    m_goal_sub =m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
+
+    m_lidar_sub =m_nh.subscribe<geometry_msgs::PoseStamped>(
+          "obstacle_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
+
+
+    m_lidar_behind_sub =m_nh.subscribe<geometry_msgs::PoseStamped>(
+      "obstacle_behind_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
+    m_tirette_sub =m_nh.subscribe("tirette", 1, &Core::updateTirette, this);
+    m_odometry_sub =m_nh.subscribe("odom", 1000, &Core::updateOdom, this);
+
+    m_reverse_gear_sub =m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
+
+   m_nh.param<bool>("isBlue", m_is_blue, true);
+
+    ROS_INFO_STREAM(m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
     m_goal_output[NB_NEURONS] = { 0. };
     m_obstacles_output[NB_NEURONS] = { 0. };
@@ -159,7 +131,7 @@ Core::Core()
     m_angular_landscape[NB_NEURONS] = { 0. };
     m_orienting = false;
 
-    printf("done! Proceeding.\nStarting IA.\n");
+    ROS_INFO_STREAM("Init done! Proceeding.\nStarting IA.\n");
 
     /**************************************
      *      Variable initialization       *
@@ -168,37 +140,29 @@ Core::Core()
     m_angular_speed = 0;
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
-
 }
 
-void Core::updateOdom(const nav_msgs::Odometry& odometry){
-    m_current_pose.setX(Distance(odometry.pose.pose.position.x));
-    m_current_pose.setY(Distance(odometry.pose.pose.position.y));
-    double roll, pitch, yaw;
-    auto quat = odometry.pose.pose.orientation;
-    tf::Quaternion q(quat.x, quat.y, quat.z, quat.w);
-    tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-    m_current_pose.setAngle(Angle(yaw));
-    
-    m_linear_speed = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y,0).length();
+void Core::updateOdom(const nav_msgs::Odometry& odometry)
+{
+    m_linear_speed
+      = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y, 0).length();
     m_angular_speed = odometry.twist.twist.angular.z;
-    m_distance_to_goal = sqrt(pow(odometry.pose.pose.position.x,2) + pow(odometry.pose.pose.position.y,2));
 }
 
 void Core::stopMotors()
 {
-    setMotorsSpeed(0, 0, false, false);
+    setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, false);
 }
 
-void Core::setMotorsSpeed(float linearSpeed, float angularSpeed)
+void Core::setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed)
 {
     setMotorsSpeed(linearSpeed, angularSpeed, true, false);
 }
 
-void Core::setMotorsSpeed(float linearSpeed,
-                            float angularSpeed,
-                            bool enable,
-                            bool /*resetEncoders*/)
+void Core::setMotorsSpeed(Vitesse linearSpeed,
+                          VitesseAngulaire angularSpeed,
+                          bool enable,
+                          bool /*resetEncoders*/)
 {
     geometry_msgs::Twist new_motor_cmd;
     new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
@@ -225,11 +189,11 @@ int Core::Setup()
     return 0;
 }
 
-void Core::landscapeFromAngleAndStrength(std::vector<float> landscape, float angle, float strength)
+void Core::landscapeFromAngleAndStrength(std::vector<float> landscape, Angle angle, float strength)
 {
     for (int i = 0; i < NB_NEURONS; i++)
     {
-        landscape[i] = cos(angle - i) * strength;
+        landscape[i] = cos(angle - AngleTools::deg2rad(AngleDeg(i))) * strength;
     }
 }
 
@@ -238,34 +202,31 @@ Core::~Core()
     // We broke out of the loop, stop everything
     stopMotors();
 
-    printf("Got out of the main loop, stopped everything.\n");
+    ROS_INFO_STREAM("Got out of the main loop, stopped everything.\n");
 }
 
 Core::State Core::Loop()
 {
     if ((m_state != State::WAIT_TIRETTE) && isTimeToStop())
     {
-        std::cout << "Time's up !" << std::endl;
+        ROS_INFO_STREAM("Time's up !");
         return m_state;
     }
 
     if (m_state == State::WAIT_TIRETTE)
     {
-        setMotorsSpeed(0, 0, false, false);
+        setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, false);
     }
     else if (m_state == State::NORMAL)
     {
-        // Get the orientation we need to follow to reach the goal
-        // TODO: assign priority integers to strategies, take the strategy that has the max of
-        // priority * strength
+        updateCurrentPose();
+        m_distance_to_goal = (m_goal_pose.getPosition() - m_current_pose.getPosition()).getNorme();
 
-        // computeTargetSpeedOrientation(orientation);
-
-        if (m_distance_to_goal >= 0.05f)
+        if (m_distance_to_goal >= Distance(0.05f))
         {
             m_orienting = false;
         }
-        if (m_distance_to_goal > 0.02f && !m_orienting)
+        if (m_distance_to_goal > Distance(0.02f) && !m_orienting)
         {
 
             // orient towards the goal's position
@@ -276,46 +237,38 @@ Core::State Core::Loop()
             m_orienting = true;
             // respect the goal's own orientation
             m_target_orientation = m_goal_pose.getAngle();
-            if (!m_is_blue)
-            {
-                m_target_orientation += 180; // seems to be needed since odom_light
-            }
-            std::cout << "########################################" << std::endl
-                      << "Positionned, m_orienting to " << m_goal_pose.getAngle() << std::endl
-                      << "########################################" << std::endl;
+
+            ROS_INFO_STREAM("########################################"
+                            << std::endl
+                            << "Positionned, m_orienting to " << m_goal_pose.getAngle() << std::endl
+                            << "########################################" << std::endl);
         }
 
         if (reverseGear() && !m_orienting)
         {
-            m_target_orientation += 180.f;
+            m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
         }
 
         // Inhibit linear speed if there are obstacles
 
         // Compute attractive vectors from positive valence strategies
         // TODO: choose the POSITIVE VALENCE STRATEGY!
+        auto delta_orientation
+          = AngleTools::wrapAngle(m_target_orientation - m_current_pose.getAngle());
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
-            m_goal_output[i]
-              = target(207.f, 1.1f, fmod(360 + 180 - (m_target_orientation - m_current_pose.getAngle()), 360), i);
+            m_goal_output[i] = target(207.f, 1.1f, angle_to_neuron_id(delta_orientation), i);
         }
 
-        std::cout << "relative_m_target_orientation: " << (m_target_orientation - m_current_pose.getAngle())
-                  << ", peak value: " << get_idx_of_max(m_goal_output, NB_NEURONS)
-                  << ", central value = " << m_goal_output[180];
+        ROS_INFO_STREAM("relative_target_orientation: "
+                        << delta_orientation
+                        << ", peak value: " << get_idx_of_max(m_goal_output, NB_NEURONS)
+                        << ", central value = " << m_goal_output[angle_to_neuron_id(Angle(0))]);
 
         // Sum positive and negative valence strategies
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
-            // Temporarily check if joystick is active (later: use weighted sum)
-            // if (s_joystick.output->strength == 0) {
             m_angular_landscape[i] = m_goal_output[i]; // + m_lidar_output[i];
-            /*}
-            else {
-                    printf("joystick is active\n");
-                    fflush(stdout);
-                    m_angular_landscape[i] = m_goal_output[i];
-            }*/
         }
 
         // And finally: differentiate the m_angular_landscape vector to get drive
@@ -323,33 +276,19 @@ Core::State Core::Loop()
 
         // Set linear speed according to the obstacles strategy & angular speed based on goal +
         // obstacles Robot's vision is now centered on 180 deg
-        float m_angular_speed_cmd
-          = -m_angular_speed_vector[180]; // - as positive is towards the left in ros, while the
-                                        // derivation is left to right
-        std::cout << ",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl;
-
-        // m_linear_speed_cmd = m_default_linear_speed;
+        m_angular_speed_cmd = VitesseAngulaire(-m_angular_speed_vector[angle_to_neuron_id(
+          Angle(0))]); // - as positive is towards the left in ros, while the
+                       // derivation is left to right
+        ROS_DEBUG_STREAM(",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
 
         limitLinearSpeedCmdByGoal();
 
-        // Do not be afraid of the lighthouse
-        if (m_current_pose.getPosition().getY() < 350)
-        {
-            m_speed_inhibition_from_obstacle = 1000;
-        }
-
-        // Do not be afraid of the manche a air
-        if (reverseGear() && m_current_pose.getPosition().getY() > 2000 - 350)
-        {
-            m_speed_inhibition_from_obstacle = 1000;
-        }
-
-        m_linear_speed_cmd
-          = std::min(m_linear_speed_cmd, m_default_linear_speed * m_speed_inhibition_from_obstacle);
+        m_linear_speed_cmd = std::min(
+          m_linear_speed_cmd, Vitesse(m_default_linear_speed * m_speed_inhibition_from_obstacle));
 
         limitAngularSpeedCmd(m_angular_speed_cmd);
 
-        update_speed(false, &m_angular_speed, m_angular_speed_cmd);
+        limitAcceleration();
 
         if (DISABLE_LINEAR_SPEED || m_orienting)
         {
@@ -361,16 +300,16 @@ Core::State Core::Loop()
             m_angular_speed_cmd = 0;
         }
 
-        // m_linear_speed = 0;
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         // m_linear_speed = MIN(m_linear_speed, m_linear_speed / abs(m_angular_speed));
-        if (m_angular_speed_cmd < -1 || m_angular_speed_cmd > 1)
+        if (abs(m_angular_speed_cmd) > 1)
         {
             m_linear_speed_cmd = 0;
         }
-        std::cout << "linear speed = " << m_linear_speed << ", m_orienting = " << m_orienting
-                  << "speed inihib from obstacles = " << m_speed_inhibition_from_obstacle << " * "
-                  << m_default_linear_speed << std::endl;
+        ROS_INFO_STREAM("linear speed = " << m_linear_speed << ", m_orienting = " << m_orienting
+                                          << "speed inihib from obstacles = "
+                                          << m_speed_inhibition_from_obstacle << " * "
+                                          << m_default_linear_speed << std::endl);
 
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd / 5.f, true, false);
@@ -379,6 +318,33 @@ Core::State Core::Loop()
     publishRemainingTime();
 
     return m_state;
+}
+
+template<typename velocity_t, typename acceleration_t>
+velocity_t limit_acceleration(velocity_t current_velocity,
+                              velocity_t cmd_velocity,
+                              acceleration_t max_acceleration,
+                              double dt)
+{
+    auto delta_vel = cmd_velocity - current_velocity;
+    int delta_vel_sign = (delta_vel > 0) ? 1 : ((delta_vel < 0) ? -1 : 0);
+    delta_vel = delta_vel_sign * max_acceleration * dt;
+    return velocity_t(current_velocity + delta_vel);
+}
+
+void Core::limitAcceleration()
+{
+    /**
+    ROS_DEBUG_STREAM("Limiting acceleration:");
+    ROS_DEBUG_STREAM("Before: linear_speed: " << m_linear_speed_cmd << "m/s , angular_speed: "
+                                              << m_angular_speed_cmd << "rad/s");
+    m_linear_speed_cmd = limit_acceleration(
+      m_linear_speed, m_linear_speed_cmd, Acceleration(0.025), 1. / float(UPDATE_RATE));
+    m_angular_speed_cmd = limit_acceleration(
+      m_angular_speed, m_angular_speed_cmd, AccelerationAngulaire(0.00025), 1. / float(UPDATE_RATE));
+    ROS_DEBUG_STREAM("After: linear_speed: " << m_linear_speed_cmd << "m/s , angular_speed: "
+                                             << m_angular_speed_cmd << "rad/s");
+                                             **/
 }
 
 void Core::publishRemainingTime()
@@ -410,18 +376,18 @@ bool Core::isTimeToStop()
     return false;
 }
 
-void Core::computeTargetSpeedOrientation(const unsigned int orientation)
+void Core::computeTargetSpeedOrientation()
 {
     /*if (s_joystick.output->strength == 1) {
             m_target_orientation = get_idx_of_max(s_joystick.output->neural_field, NB_NEURONS);
             m_linear_speed_cmd = s_joystick.output->speed_inhibition;
-            //printf("Target orientation from joystick: %d\n", m_target_orientation);
+            //ROS_INFO_STREAM("Target orientation from joystick: %d\n", m_target_orientation);
     } else if (s_goal.output->strength == 1) {
             m_target_orientation = get_idx_of_max(s_goal.output->neural_field, NB_NEURONS);
             //m_linear_speed_cmd = m_default_linear_speed;
             m_linear_speed_cmd = s_goal.output->speed_inhibition;
-            //printf("Linear speed command from goal: %d\n", m_linear_speed_cmd);
-            //printf("Target orientation from goal: %d\n", m_target_orientation);
+            //ROS_INFO_STREAM("Linear speed command from goal: %d\n", m_linear_speed_cmd);
+            //ROS_INFO_STREAM("Target orientation from goal: %d\n", m_target_orientation);
     } else {
             /*
              * If no positive valence strategy fires, set the target orientation to the robot's
@@ -433,7 +399,7 @@ void Core::computeTargetSpeedOrientation(const unsigned int orientation)
     //}
 }
 
-void Core::limitAngularSpeedCmd(float& m_angular_speed)
+void Core::limitAngularSpeedCmd(VitesseAngulaire& m_angular_speed)
 {
     // TODO: use the winning strategy with weights
     // TODO: restore speed limitations
@@ -444,55 +410,57 @@ void Core::limitAngularSpeedCmd(float& m_angular_speed)
     }*/
 
     // Cap angular speed, so that the robot doesn't turn TOO FAST on itself
-    std::max(m_angular_speed, -MAX_ALLOWED_ANGULAR_SPEED);
-    std::min(m_angular_speed, MAX_ALLOWED_ANGULAR_SPEED);
+    m_angular_speed = std::max(m_angular_speed, VitesseAngulaire(-MAX_ALLOWED_ANGULAR_SPEED));
+    m_angular_speed = std::min(m_angular_speed, VitesseAngulaire(MAX_ALLOWED_ANGULAR_SPEED));
 }
 
 void Core::limitLinearSpeedCmdByGoal()
 {
-    float max_acceleration = 0.15f; // m*s-2
-    float max_deceleration = 0.15f; // m*s-2
-    float new_speed_order = 0;      // m/s
+    Acceleration max_acceleration = Acceleration(0.15f); // m*s-2
+    Acceleration max_deceleration = Acceleration(0.15f); // m*s-2
+    Vitesse new_speed_order = Vitesse(0);                // m/s
 
-    float desired_final_speed = 0; // m*s-2
+    Vitesse desired_final_speed = Vitesse(0); // m*s-2
 
     float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
-    std::cout << "time to stop = " << time_to_stop << "s, ";
+    ROS_DEBUG_STREAM("time to stop = " << time_to_stop << "s, ");
 
-    float distance_to_stop = time_to_stop * (m_linear_speed - desired_final_speed) / 2;
-    std::cout << ", distance to stop = " << distance_to_stop << "m, ";
+    Distance distance_to_stop
+      = Distance(time_to_stop * (m_linear_speed - desired_final_speed) / 2.);
+    ROS_DEBUG_STREAM(", distance to stop = " << distance_to_stop << "m, ");
 
     // Compute extra time if accelerating
-    float average_extra_speed
-      = (2 * m_linear_speed + max_acceleration / 2 + max_deceleration / 2);
-    float extra_distance = average_extra_speed / UPDATE_RATE;
+    // TODO there appears to be a problem here
+    Vitesse average_extra_speed
+      = Vitesse((Acceleration(2 * m_linear_speed) + max_acceleration / 2. + max_deceleration / 2.));
+    Distance extra_distance = Distance(average_extra_speed / float(UPDATE_RATE));
 
     if (m_distance_to_goal < distance_to_stop)
     {
-        std::cout << "decelerate";
-        new_speed_order = m_linear_speed - max_deceleration / UPDATE_RATE;
+        ROS_DEBUG_STREAM("decelerate");
+        new_speed_order = m_linear_speed - max_deceleration / float(UPDATE_RATE);
     }
-    else if (m_distance_to_goal < m_linear_speed / UPDATE_RATE)
+    else if (m_distance_to_goal < m_linear_speed / float(UPDATE_RATE))
     {
-        std::cout << "EMERGENCY BRAKE";
+        ROS_DEBUG_STREAM("EMERGENCY BRAKE");
         new_speed_order = 0;
     }
     else if (m_distance_to_goal > distance_to_stop + extra_distance)
     {
-        std::cout << "accelerate";
-        new_speed_order = m_linear_speed + max_acceleration / UPDATE_RATE;
+        ROS_DEBUG_STREAM("accelerate");
+        new_speed_order = m_linear_speed + max_acceleration / float(UPDATE_RATE);
     }
     else
     {
-        std::cout << "cruise speed";
+        ROS_DEBUG_STREAM("cruise speed");
         new_speed_order = m_linear_speed;
     }
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
+    ROS_DEBUG_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl);
     m_linear_speed_cmd = new_speed_order;
-    std::cout << "new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl;
 }
 
-
-unsigned int angle_to_neuron_id(Angle a){
-     return (unsigned int)((AngleTools::wrapAngle(a) + M_PI)/(2*M_PI)*NB_NEURONS);
+unsigned int angle_to_neuron_id(Angle a)
+{
+    return (unsigned int)((AngleTools::wrapAngle(a) + M_PI) / (2 * M_PI) * NB_NEURONS);
 }

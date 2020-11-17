@@ -16,7 +16,8 @@ int main(int argc, char* argv[])
     ros::init(argc, argv, "mainStrat");
     ros::start();
     ros::Rate loop_rate(UPDATE_RATE);
-    Core my_core;
+    ros::NodeHandle nh;
+    Core my_core(nh);
     my_core.Setup();
 
     while (my_core.Loop()!=Core::State::EXIT && ros::ok())
