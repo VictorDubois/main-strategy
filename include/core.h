@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "krabilib/positionPlusAngle.h"
+#include "krabilib/pose.h"
 #include "constants.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/Pose.h"
@@ -30,6 +30,7 @@
 #define ENABLE_TIMEOUT_END_MATCH true
 #define TIMEOUT_END_MATCH 99000 // in ms
 
+unsigned int angle_to_neuron_id(Angle a);
 
 class Core
 {
@@ -94,7 +95,7 @@ private:
     void updateGoal(geometry_msgs::PoseStamped goal_pose);
     void updateLidar(geometry_msgs::PoseStamped closest_obstacle);
     void updateLidarBehind(geometry_msgs::PoseStamped closest_obstacle);
-    void addObstacle(float obstacle_distance, float closest_obstacle_angle);
+    void addObstacle(PolarPosition obstacle);
     void updateTirette(std_msgs::Bool starting);
     void updateGear(std_msgs::Bool a_reverse_gear_activated);
     void updateOdom(const nav_msgs::Odometry& odometry);
@@ -135,8 +136,8 @@ private:
     ros::Subscriber m_tirette_sub;
     ros::Subscriber m_reverse_gear_sub;
 
-    PositionPlusAngle m_current_pose;
-    PositionPlusAngle m_goal_pose;
+    Pose m_current_pose;
+    Pose m_goal_pose;
 
     float m_distance_to_goal;
     bool m_orienting;

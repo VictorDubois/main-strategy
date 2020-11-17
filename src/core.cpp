@@ -10,33 +10,6 @@
 
 #include <krabi_msgs/motors_cmd.h>
 
-/**
- * Convert a cartesian position to a polar one
- * @param posX the X position, in mm
- * @param posY the Y position, in mm
- * @param theta the angle, in degrees
- * @param posX the distance, in meters
- **/
-//#define DEBUG_cartToPolar
-void Core::cartToPolar(int posX, int posY, float& theta, float& distance)
-{
-    theta = ((180.f / M_PI) * atan2((float)posX, (float)posY));
-    distance = sqrt((float)(posX * posX + posY * posY));
-
-    // fix angular ambiguity
-    if (posY < 0)
-    {
-        theta += 180;
-    }
-
-#ifdef DEBUG_cartToPolar
-    std::cout << "posX = " << posX << "posY = " << posY << "theta = " << theta
-              << ", distance = " << distance << std::endl;
-    float posXafter = distance * cos(theta * M_PI / 180.f);
-    float posYafter = distance * sin(theta * M_PI / 180.f);
-    std::cout << "posXafter = " << posXafter << ", posYafter = " << posYafter << std::endl;
-#endif
-}
 
 float Core::vector_to_angle(geometry_msgs::Vector3 vector)
 {
@@ -74,7 +47,7 @@ float Core::getAngleToGoal()
 
 void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
 {
-    m_goal_pose = PositionPlusAngle(goal_pose.pose);
+    m_goal_pose = Pose(goal_pose.pose);
 
     // last_goal_max_speed = goal_out.max_speed;
 }
@@ -97,22 +70,18 @@ void Core::updateLidar(geometry_msgs::PoseStamped closest_obstacle)
     {
         return;
     }
-    // Compute repulsive vector from obstacles
-    float closest_obstacle_id = vector_to_angle(closest_obstacle.pose.position);
-    float closest_obstacle_angle = closest_obstacle_id + 180;
-    float obstacle_distance = vector_to_amplitude(closest_obstacle.pose.position);
 
-    addObstacle(obstacle_distance, closest_obstacle_angle);
+    addObstacle(Position(closest_obstacle.pose.position));
 }
 
-void Core::addObstacle(float obstacle_distance, float closest_obstacle_angle)
+void Core::addObstacle(PolarPosition obstacle)
 {
-    float closest_obstacle_id = closest_obstacle_angle - 180;
+    unsigned int closest_obstacle_id = angle_to_neuron_id(obstacle.getAngle());
     // Compute intensity of obstacle
-    float obstacle_dangerouseness = 175. * obstacle_distance;
+    float obstacle_dangerouseness = 175. * obstacle.getDistance();
 
     m_speed_inhibition_from_obstacle
-      = LidarStrat::speed_inhibition(obstacle_distance, closest_obstacle_angle, 1);
+      = LidarStrat::speed_inhibition(obstacle.getDistance(), obstacle.getAngle(), 1);
 
     if (m_speed_inhibition_from_obstacle < 0.2f)
     {
@@ -120,13 +89,12 @@ void Core::addObstacle(float obstacle_distance, float closest_obstacle_angle)
     }
 
     std::cout << "Speed inhib from obstacle = " << m_speed_inhibition_from_obstacle << ". Obstacle @"
-              << obstacle_distance << "m, " << closest_obstacle_angle << "°." << std::endl;
+              << obstacle << std::endl;
 
     // printf("closest_obstacle_id = %d, peakValue = %f\n", closest_obstacle_id, peakValue);
     // Then apply gaussian function centered on the sensor's angle
     for (int j = 0; j < NB_NEURONS; j += 1)
     {
-        // obstacles_output[j] += - gaussian(50., a, (360 + 180 - idx) % 360, j);
         m_lidar_output[j] += -gaussian(
           50., obstacle_dangerouseness, (fmod(360 + 180 + closest_obstacle_id, 360)), j);
     }
@@ -138,12 +106,7 @@ void Core::updateLidarBehind(geometry_msgs::PoseStamped closest_obstacle)
     {
         return;
     }
-    // Compute repulsive vector from obstacles
-    float closest_obstacle_id = vector_to_angle(closest_obstacle.pose.position);
-    float closest_obstacle_angle = closest_obstacle_id + 180;
-    float obstacle_distance = vector_to_amplitude(closest_obstacle.pose.position);
-
-    addObstacle(obstacle_distance, closest_obstacle_angle);
+    addObstacle(Position(closest_obstacle.pose.position));
 }
 
 void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
@@ -156,7 +119,7 @@ Core::Core()
     ros::NodeHandle n;
     m_is_blue = false;
     m_begin_match = ros::Time(0);
-    m_goal_pose = PositionPlusAngle();
+    m_goal_pose = Pose();
     m_distance_to_goal = 0;
     geometry_msgs::Twist last_lidar_max_speed;
     last_lidar_max_speed.linear.x = 0;
@@ -209,13 +172,13 @@ Core::Core()
 }
 
 void Core::updateOdom(const nav_msgs::Odometry& odometry){
-    m_current_pose.setX(odometry.pose.pose.position.x);
-    m_current_pose.setY(odometry.pose.pose.position.y);
+    m_current_pose.setX(Distance(odometry.pose.pose.position.x));
+    m_current_pose.setY(Distance(odometry.pose.pose.position.y));
     double roll, pitch, yaw;
     auto quat = odometry.pose.pose.orientation;
     tf::Quaternion q(quat.x, quat.y, quat.z, quat.w);
     tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-    m_current_pose.setAngle(yaw);
+    m_current_pose.setAngle(Angle(yaw));
     
     m_linear_speed = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y,0).length();
     m_angular_speed = odometry.twist.twist.angular.z;
@@ -527,4 +490,9 @@ void Core::limitLinearSpeedCmdByGoal()
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
     m_linear_speed_cmd = new_speed_order;
     std::cout << "new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl;
+}
+
+
+unsigned int angle_to_neuron_id(Angle a){
+     return (unsigned int)((AngleTools::wrapAngle(a) + M_PI)/(2*M_PI)*NB_NEURONS);
 }

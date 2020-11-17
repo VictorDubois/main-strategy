@@ -3,7 +3,7 @@
 #include <nav_msgs/Odometry.h>
 #include <krabi_msgs/SetOdom.h>
 #include <krabi_msgs/odom_light.h>
-#include <krabilib/positionPlusAngle.h>
+#include <krabilib/pose.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_datatypes.h>
 
