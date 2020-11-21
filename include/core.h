@@ -3,8 +3,8 @@
  *                  BROKER                   *
  **********************************************/
 #include "ros/ros.h"
-#include <tf2_ros/transform_listener.h>
 #include <tf/transform_listener.h>
+#include <tf2_ros/transform_listener.h>
 
 #include <utility>
 #include <vector>
@@ -13,16 +13,15 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3.h>
-#include <nav_msgs/Odometry.h>
 #include <krabi_msgs/motors.h>
 #include <krabi_msgs/odom_light.h>
+#include <krabi_msgs/strat_movement.h>
+#include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
 
-
+#include "constants.h"
 #include "helpers_broker.h"
 #include "krabilib/pose.h"
-#include "constants.h"
-
 
 // Should remove this and put it in a global, "constant.h" file for the whole project
 #define NB_NEURONS 360
@@ -57,6 +56,8 @@ public:
 private:
     void selectColor();
 
+    void updateStratMovement(krabi_msgs::strat_movement move);
+
     // Has the tirette been pulled?
     bool areWeGoForLaunch();
 
@@ -83,7 +84,8 @@ private:
                         bool resetEncoders);
     void setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed);
     void updateGoal(geometry_msgs::PoseStamped goal_pose);
-    void updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle, bool front);
+    void updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle,
+                     bool front);
     void addObstacle(PolarPosition obstacle);
     void updateTirette(std_msgs::Bool starting);
     void updateGear(std_msgs::Bool a_reverse_gear_activated);
@@ -91,6 +93,7 @@ private:
     void updateCurrentPose();
 
     bool reverseGear();
+    bool orienting();
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
@@ -118,9 +121,9 @@ private:
     ros::Time m_begin_match;
     Pose m_goal_pose;
     Distance m_distance_to_goal;
-    bool m_orienting;
     bool m_reverse_gear_activated;
     float m_speed_inhibition_from_obstacle;
+    krabi_msgs::strat_movement m_strat_movement_parameters;
 
     // ROS Params
     bool m_is_blue;
@@ -137,6 +140,7 @@ private:
     ros::Subscriber m_lidar_behind_sub;
     ros::Subscriber m_tirette_sub;
     ros::Subscriber m_reverse_gear_sub;
+    ros::Subscriber m_strat_movement_sub;
 
     // Transform
     tf2_ros::Buffer m_tf_buffer;
