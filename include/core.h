@@ -26,6 +26,7 @@ extern "C"
 //#include "../../krabi_msgs/motors.h"
 #include <krabi_msgs/motors.h>
 #include <krabi_msgs/odom_light.h>
+#include <krabi_msgs/strat_movement.h>
 #include <std_msgs/Bool.h>
 
 /*#include "ct_scan.h"
@@ -101,6 +102,8 @@ private:
     void update_encoders(long& encoder1, long& encoder2);
     void updateOdometry(nav_msgs::Odometry odometry);
 
+    void updateStratMovement(krabi_msgs::strat_movement move);
+
     // Has the tirette been pulled?
     bool are_we_go_for_launch();
 
@@ -147,6 +150,7 @@ private:
     ros::Subscriber tirette_sub;
     ros::Subscriber reverse_gear_sub;
     ros::Subscriber odom_light_sub;
+    ros::Subscriber strat_movement_sub;
     tf::TransformBroadcaster odom_broadcaster;
     float X;
     float starting_X;
@@ -166,8 +170,8 @@ private:
     float current_linear_speed;
     float current_angular_speed;
     ros::Time last_speed_update_time;
-    bool orienting;
     bool m_reverse_gear_activated;
+    krabi_msgs::strat_movement strat_movement_parameters;
 
     void stop_motors();
     void set_motors_speed(float linearSpeed, float angularSpeed, bool enable, bool resetEncoders);
@@ -189,6 +193,7 @@ private:
     geometry_msgs::Pose update_current_pose(int32_t encoder1, int32_t encoder2);
 
     bool reverseGear();
+    bool orienting();
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal

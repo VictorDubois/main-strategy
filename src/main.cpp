@@ -312,6 +312,12 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
     m_reverse_gear_activated = a_reverse_gear_activated.data;
 }
 
+void Core::updateStratMovement(krabi_msgs::strat_movement move)
+{
+    strat_movement_parameters = move;
+    goal_position = PositionPlusAngle(strat_movement_parameters.goal_pose);
+}
+
 Core::Core()
 {
     ros::NodeHandle n;
@@ -345,6 +351,7 @@ Core::Core()
       = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidarBehind, this);
     tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
     reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
+    strat_movement_sub = n.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
 
     n.param<bool>("isBlue", is_blue, true);
 
@@ -362,7 +369,6 @@ Core::Core()
     lidar_output[NB_NEURONS] = { 0. };
     angular_speed_vector[NB_NEURONS] = { 0. };
     angular_landscape[NB_NEURONS] = { 0. };
-    orienting = false;
 
     printf("done! Proceeding.\nStarting IA.\n");
 
@@ -420,7 +426,12 @@ void Core::set_motors_speed(float linearSpeed,
 
 bool Core::reverseGear()
 {
-    return m_reverse_gear_activated;
+    return strat_movement_parameters.reverse_gear == 1;
+}
+
+bool Core::orienting()
+{
+    return strat_movement_parameters.orient;
 }
 
 int Core::Setup()
@@ -564,7 +575,7 @@ void Core::limit_linear_speed_cmd_by_goal()
     float max_deceleration = 0.15f; // m*s-2
     float new_speed_order = 0;      // m/s
 
-    float desired_final_speed = 0; // m*s-2
+    float desired_final_speed = strat_movement_parameters.max_speed_at_arrival; // m*s-2
 
     float time_to_stop = (current_linear_speed - desired_final_speed) / max_deceleration;
     std::cout << "time to stop = " << time_to_stop << "s, ";
@@ -599,6 +610,9 @@ void Core::limit_linear_speed_cmd_by_goal()
     }
     // linear_speed_cmd = MIN(default_linear_speed, new_speed_order);
     linear_speed_cmd = new_speed_order;
+
+    linear_speed_cmd = MIN(linear_speed_cmd, strat_movement_parameters.max_speed.linear.x);
+
     std::cout << "new speed: " << new_speed_order << " => " << linear_speed_cmd << std::endl;
 }
 
@@ -622,19 +636,18 @@ int Core::Loop()
 
         // compute_target_speed_orientation(orientation);
 
-        if (distance_to_goal >= 0.05f)
+        if (!orienting())
         {
-            orienting = false;
-        }
-        if (distance_to_goal > 0.02f && !orienting)
-        {
-
             // orient towards the goal's position
             target_orientation = getAngleToGoal();
+
+            if (reverseGear())
+            {
+                target_orientation += 180.f;
+            }
         }
         else
         {
-            orienting = true;
             // respect the goal's own orientation
             target_orientation = goal_position.getAngle();
             if (!is_blue)
@@ -644,11 +657,6 @@ int Core::Loop()
             std::cout << "########################################" << std::endl
                       << "Positionned, orienting to " << goal_position.getAngle() << std::endl
                       << "########################################" << std::endl;
-        }
-
-        if (reverseGear() && !orienting)
-        {
-            target_orientation += 180.f;
         }
 
         // Inhibit linear speed if there are obstacles
@@ -714,7 +722,7 @@ int Core::Loop()
         // update_speed(FALSE, &linear_speed, linear_speed_cmd);
         linear_speed = linear_speed_cmd;
 
-        if (DISABLE_LINEAR_SPEED || orienting)
+        if (DISABLE_LINEAR_SPEED || orienting())
         {
             linear_speed = 0;
         }
@@ -731,7 +739,7 @@ int Core::Loop()
         {
             linear_speed = 0;
         }
-        std::cout << "linear speed = " << linear_speed << ", orienting = " << orienting
+        std::cout << "linear speed = " << linear_speed << ", orienting = " << orienting()
                   << "speed inihib from obstacles = " << speed_inhibition_from_obstacle << " * "
                   << default_linear_speed << std::endl;
 
@@ -809,4 +817,7 @@ void Core::limit_angular_speed_cmd(float& angular_speed)
     // Cap angular speed, so that the robot doesn't turn TOO FAST on itself
     MAX(angular_speed, -MAX_ALLOWED_ANGULAR_SPEED);
     MIN(angular_speed, MAX_ALLOWED_ANGULAR_SPEED);
+
+    MAX(angular_speed, -abs(strat_movement_parameters.max_speed.angular.z));
+    MIN(angular_speed, abs(strat_movement_parameters.max_speed.angular.z));
 }
