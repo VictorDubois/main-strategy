@@ -33,7 +33,7 @@ void Core::updateCurrentPose()
 
 Angle Core::getAngleToGoal()
 {
-    return (m_goal_pose.getPosition()-m_current_pose.getPosition()).getAngle();
+    return (m_goal_pose.getPosition() - m_current_pose.getPosition()).getAngle();
 }
 
 void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
@@ -54,7 +54,8 @@ void Core::updateTirette(std_msgs::Bool starting)
     }
 }
 
-void Core::updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle, bool front)
+void Core::updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle,
+                       bool front)
 {
     if (front == !reverseGear())
     {
@@ -68,7 +69,7 @@ void Core::addObstacle(PolarPosition obstacle)
 
     Angle normalized_angle = !reverseGear()
                                ? obstacle.getAngle()
-                               : AngleTools::wrapAngle(Angle(obstacle.getAngle()+ M_PI));
+                               : AngleTools::wrapAngle(Angle(obstacle.getAngle() + M_PI));
 
     float m_speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
@@ -93,6 +94,12 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
     m_reverse_gear_activated = a_reverse_gear_activated.data;
 }
 
+void Core::updateStratMovement(krabi_msgs::strat_movement move)
+{
+    m_strat_movement_parameters = move;
+    m_goal_pose = Pose(m_strat_movement_parameters.goal_pose);
+}
+
 Core::Core(ros::NodeHandle& nh)
   : m_tf_listener(m_tf_buffer)
   , m_nh(nh)
@@ -104,23 +111,22 @@ Core::Core(ros::NodeHandle& nh)
     m_speed_inhibition_from_obstacle = 1;
     m_reverse_gear_activated = false;
 
-    m_motors_cmd_pub =m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
-    m_motors_enable_pub =m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
-    m_chrono_pub =m_nh.advertise<std_msgs::Duration>("remaining_time", 5);
-    m_goal_sub =m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
+    m_motors_cmd_pub = m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
+    m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
+    m_chrono_pub = m_nh.advertise<std_msgs::Duration>("remaining_time", 5);
+    m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
-    m_lidar_sub =m_nh.subscribe<geometry_msgs::PoseStamped>(
-          "obstacle_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
+    m_lidar_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
+      "obstacle_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
 
-
-    m_lidar_behind_sub =m_nh.subscribe<geometry_msgs::PoseStamped>(
+    m_lidar_behind_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
       "obstacle_behind_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
-    m_tirette_sub =m_nh.subscribe("tirette", 1, &Core::updateTirette, this);
-    m_odometry_sub =m_nh.subscribe("odom", 1000, &Core::updateOdom, this);
+    m_tirette_sub = m_nh.subscribe("tirette", 1, &Core::updateTirette, this);
+    m_odometry_sub = m_nh.subscribe("odom", 1000, &Core::updateOdom, this);
+    m_strat_movement_sub = m_nh.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
+    m_reverse_gear_sub = m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
-    m_reverse_gear_sub =m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
-
-   m_nh.param<bool>("isBlue", m_is_blue, true);
+    m_nh.param<bool>("isBlue", m_is_blue, true);
 
     ROS_INFO_STREAM(m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
@@ -129,7 +135,6 @@ Core::Core(ros::NodeHandle& nh)
     m_lidar_output[NB_NEURONS] = { 0. };
     m_angular_speed_vector[NB_NEURONS] = { 0. };
     m_angular_landscape[NB_NEURONS] = { 0. };
-    m_orienting = false;
 
     ROS_INFO_STREAM("Init done! Proceeding.\nStarting IA.\n");
 
@@ -176,7 +181,12 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
 bool Core::reverseGear()
 {
-    return m_reverse_gear_activated;
+    return m_strat_movement_parameters.reverse_gear == 1;
+}
+
+bool Core::orienting()
+{
+    return m_strat_movement_parameters.orient;
 }
 
 int Core::Setup()
@@ -214,29 +224,24 @@ Core::State Core::Loop()
         updateCurrentPose();
         m_distance_to_goal = (m_goal_pose.getPosition() - m_current_pose.getPosition()).getNorme();
 
-        if (m_distance_to_goal >= Distance(0.05f))
+        if (!orienting())
         {
-            m_orienting = false;
-        }
-        if (m_distance_to_goal > Distance(0.02f) && !m_orienting)
-        {
-
             // orient towards the goal's position
             m_target_orientation = getAngleToGoal();
         }
         else
         {
-            m_orienting = true;
             // respect the goal's own orientation
             m_target_orientation = m_goal_pose.getAngle();
 
             ROS_DEBUG_STREAM("########################################"
-                            << std::endl
-                            << "Positionned, m_orienting to " << m_goal_pose.getAngle() << std::endl
-                            << "########################################" << std::endl);
+                             << std::endl
+                             << "Positionned, m_orienting to " << m_goal_pose.getAngle()
+                             << std::endl
+                             << "########################################" << std::endl);
         }
 
-        if (reverseGear() && !m_orienting)
+        if (reverseGear())
         {
             m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
         }
@@ -282,7 +287,7 @@ Core::State Core::Loop()
 
         limitAcceleration();
 
-        if (DISABLE_LINEAR_SPEED || m_orienting)
+        if (DISABLE_LINEAR_SPEED || orienting())
         {
             m_linear_speed_cmd = 0;
         }
@@ -294,15 +299,15 @@ Core::State Core::Loop()
 
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         // m_linear_speed = MIN(m_linear_speed, m_linear_speed / abs(m_angular_speed));
-        if (abs(m_angular_speed_cmd) > 0.8*MAX_ALLOWED_ANGULAR_SPEED)
+        if (abs(m_angular_speed_cmd) > 0.8 * MAX_ALLOWED_ANGULAR_SPEED)
         {
             m_linear_speed_cmd = 0;
             ROS_DEBUG_STREAM("Want to turn, stop going forward");
         }
-        ROS_DEBUG_STREAM("linear speed = " << m_linear_speed << ", m_orienting = " << m_orienting
-                                          << ", speed inihib from obstacles = "
-                                          << m_speed_inhibition_from_obstacle << " * "
-                                          << m_default_linear_speed << std::endl);
+        ROS_DEBUG_STREAM("linear speed = " << m_linear_speed << ", m_orienting = " << orienting()
+                                           << ", speed inihib from obstacles = "
+                                           << m_speed_inhibition_from_obstacle << " * "
+                                           << m_default_linear_speed << std::endl);
 
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd / 5.f, true, false);
@@ -334,8 +339,9 @@ void Core::limitAcceleration()
     m_linear_speed_cmd = limit_acceleration(
       m_linear_speed, m_linear_speed_cmd, Acceleration(0.025), 1. / float(UPDATE_RATE));
     m_angular_speed_cmd = limit_acceleration(
-      m_angular_speed, m_angular_speed_cmd, AccelerationAngulaire(0.00025), 1. / float(UPDATE_RATE));
-    ROS_DEBUG_STREAM("After: linear_speed: " << m_linear_speed_cmd << "m/s , angular_speed: "
+      m_angular_speed, m_angular_speed_cmd, AccelerationAngulaire(0.00025), 1. /
+    float(UPDATE_RATE)); ROS_DEBUG_STREAM("After: linear_speed: " << m_linear_speed_cmd << "m/s ,
+    angular_speed: "
                                              << m_angular_speed_cmd << "rad/s");
                                              **/
 }
@@ -405,6 +411,10 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& m_angular_speed)
     // Cap angular speed, so that the robot doesn't turn TOO FAST on itself
     m_angular_speed = std::max(m_angular_speed, VitesseAngulaire(-MAX_ALLOWED_ANGULAR_SPEED));
     m_angular_speed = std::min(m_angular_speed, VitesseAngulaire(MAX_ALLOWED_ANGULAR_SPEED));
+    m_angular_speed = std::max(m_angular_speed,
+                               VitesseAngulaire(-m_strat_movement_parameters.max_speed.angular.z));
+    m_angular_speed = std::min(m_angular_speed,
+                               VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z));
 }
 
 void Core::limitLinearSpeedCmdByGoal()
