@@ -342,15 +342,15 @@ Core::Core()
     current_pose_pub = n.advertise<geometry_msgs::Pose>("current_pose", 5);
     odom_pub = n.advertise<nav_msgs::Odometry>("odom", 5);
     chrono_pub = n.advertise<std_msgs::Duration>("remaining_time", 5);
-    encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
+    //encoders_sub = n.subscribe("encoders", 1000, &Core::updateCurrentPose, this);
     odom_light_sub = n.subscribe("odom_light", 5, &Core::updateLightOdom, this);
-    goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
+    //goal_sub = n.subscribe("goal_pose", 1000, &Core::updateGoal, this);
     odometry_sub = n.subscribe("odom_sub", 1000, &Core::updateOdometry, this);
     lidar_sub = n.subscribe("obstacle_pose_stamped", 1000, &Core::updateLidar, this);
     lidar_behind_sub
       = n.subscribe("obstacle_behind_pose_stamped", 1000, &Core::updateLidarBehind, this);
     tirette_sub = n.subscribe("tirette", 1000, &Core::updateTirette, this);
-    reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
+    //reverse_gear_sub = n.subscribe("reverseGear", 1000, &Core::updateGear, this);
     strat_movement_sub = n.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
 
     n.param<bool>("isBlue", is_blue, true);
@@ -578,6 +578,7 @@ void Core::limit_linear_speed_cmd_by_goal()
     float desired_final_speed = strat_movement_parameters.max_speed_at_arrival; // m*s-2
 
     float time_to_stop = (current_linear_speed - desired_final_speed) / max_deceleration;
+    time_to_stop = MAX(0, time_to_stop);
     std::cout << "time to stop = " << time_to_stop << "s, ";
 
     float distance_to_stop = time_to_stop * (current_linear_speed - desired_final_speed) / 2;
@@ -585,7 +586,7 @@ void Core::limit_linear_speed_cmd_by_goal()
 
     // Compute extra time if accelerating
     float average_extra_speed
-      = (2 * current_linear_speed + max_acceleration / 2 + max_deceleration / 2);
+      = 2 * current_linear_speed + (max_acceleration / 2 + max_deceleration / 2)/UPDATE_RATE;
     float extra_distance = average_extra_speed / UPDATE_RATE;
 
     if (distance_to_goal < distance_to_stop)
