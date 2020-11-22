@@ -82,7 +82,6 @@ private:
                         bool enable,
                         bool resetEncoders);
     void setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed);
-    void landscapeFromAngleAndStrength(std::vector<float> landscape, Angle angle, float strength);
     void updateGoal(geometry_msgs::PoseStamped goal_pose);
     void updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle, bool front);
     void addObstacle(PolarPosition obstacle);

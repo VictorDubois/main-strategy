@@ -68,7 +68,7 @@ void Core::addObstacle(PolarPosition obstacle)
 
     Angle normalized_angle = !reverseGear()
                                ? obstacle.getAngle()
-                               : AngleTools::wrapAngle(Angle(obstacle.getAngle() + M_PI));
+                               : AngleTools::wrapAngle(Angle(obstacle.getAngle()+ M_PI));
 
     float m_speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
@@ -189,14 +189,6 @@ int Core::Setup()
     return 0;
 }
 
-void Core::landscapeFromAngleAndStrength(std::vector<float> landscape, Angle angle, float strength)
-{
-    for (int i = 0; i < NB_NEURONS; i++)
-    {
-        landscape[i] = cos(angle - AngleTools::deg2rad(AngleDeg(i))) * strength;
-    }
-}
-
 Core::~Core()
 {
     // We broke out of the loop, stop everything
@@ -238,7 +230,7 @@ Core::State Core::Loop()
             // respect the goal's own orientation
             m_target_orientation = m_goal_pose.getAngle();
 
-            ROS_INFO_STREAM("########################################"
+            ROS_DEBUG_STREAM("########################################"
                             << std::endl
                             << "Positionned, m_orienting to " << m_goal_pose.getAngle() << std::endl
                             << "########################################" << std::endl);
@@ -254,7 +246,7 @@ Core::State Core::Loop()
         // Compute attractive vectors from positive valence strategies
         // TODO: choose the POSITIVE VALENCE STRATEGY!
         auto delta_orientation
-          = AngleTools::wrapAngle(m_target_orientation - m_current_pose.getAngle());
+          = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             m_goal_output[i] = target(207.f, 1.1f, angle_to_neuron_id(delta_orientation), i);
@@ -276,7 +268,7 @@ Core::State Core::Loop()
 
         // Set linear speed according to the obstacles strategy & angular speed based on goal +
         // obstacles Robot's vision is now centered on 180 deg
-        m_angular_speed_cmd = VitesseAngulaire(-m_angular_speed_vector[angle_to_neuron_id(
+        m_angular_speed_cmd = VitesseAngulaire(m_angular_speed_vector[angle_to_neuron_id(
           Angle(0))]); // - as positive is towards the left in ros, while the
                        // derivation is left to right
         ROS_DEBUG_STREAM(",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
@@ -302,12 +294,13 @@ Core::State Core::Loop()
 
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         // m_linear_speed = MIN(m_linear_speed, m_linear_speed / abs(m_angular_speed));
-        if (abs(m_angular_speed_cmd) > 1)
+        if (abs(m_angular_speed_cmd) > 0.8*MAX_ALLOWED_ANGULAR_SPEED)
         {
             m_linear_speed_cmd = 0;
+            ROS_DEBUG_STREAM("Want to turn, stop going forward");
         }
-        ROS_INFO_STREAM("linear speed = " << m_linear_speed << ", m_orienting = " << m_orienting
-                                          << "speed inihib from obstacles = "
+        ROS_DEBUG_STREAM("linear speed = " << m_linear_speed << ", m_orienting = " << m_orienting
+                                          << ", speed inihib from obstacles = "
                                           << m_speed_inhibition_from_obstacle << " * "
                                           << m_default_linear_speed << std::endl);
 
@@ -462,5 +455,5 @@ void Core::limitLinearSpeedCmdByGoal()
 
 unsigned int angle_to_neuron_id(Angle a)
 {
-    return (unsigned int)((AngleTools::wrapAngle(a) + M_PI) / (2 * M_PI) * NB_NEURONS);
+    return (unsigned int)(((AngleTools::wrapAngle(a) + M_PI) / (2 * M_PI)) * NB_NEURONS);
 }
