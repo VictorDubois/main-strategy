@@ -114,7 +114,7 @@ Core::Core(ros::NodeHandle& nh)
     m_motors_cmd_pub = m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("remaining_time", 5);
-    m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
+    // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
     m_lidar_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
       "obstacle_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
@@ -124,7 +124,7 @@ Core::Core(ros::NodeHandle& nh)
     m_tirette_sub = m_nh.subscribe("tirette", 1, &Core::updateTirette, this);
     m_odometry_sub = m_nh.subscribe("odom", 1000, &Core::updateOdom, this);
     m_strat_movement_sub = m_nh.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
-    m_reverse_gear_sub = m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
+    // m_reverse_gear_sub = m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
     m_nh.param<bool>("isBlue", m_is_blue, true);
 
@@ -426,6 +426,7 @@ void Core::limitLinearSpeedCmdByGoal()
     Vitesse desired_final_speed = Vitesse(0); // m*s-2
 
     float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
+    time_to_stop = std::max(0.f, time_to_stop);
     ROS_DEBUG_STREAM("time to stop = " << time_to_stop << "s, ");
 
     Distance distance_to_stop
@@ -433,9 +434,8 @@ void Core::limitLinearSpeedCmdByGoal()
     ROS_DEBUG_STREAM(", distance to stop = " << distance_to_stop << "m, ");
 
     // Compute extra time if accelerating
-    // TODO there appears to be a problem here
-    Vitesse average_extra_speed
-      = Vitesse((Acceleration(2 * m_linear_speed) + max_acceleration / 2. + max_deceleration / 2.));
+    Vitesse average_extra_speed = Vitesse(
+      2 * m_linear_speed + Vitesse((max_acceleration / 2. + max_deceleration / 2.) / UPDATE_RATE));
     Distance extra_distance = Distance(average_extra_speed / float(UPDATE_RATE));
 
     if (m_distance_to_goal < distance_to_stop)
