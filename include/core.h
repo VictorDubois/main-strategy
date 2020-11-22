@@ -104,6 +104,7 @@ private:
     void updateCurrentSpeed();
     void limitLinearSpeedCmdByGoal();
     void limitAcceleration();
+    void limitLinearSpeedByAngularSpeed(VitesseAngulaire angular_speed);
 
     // State of the broker loop
     State m_state = State::WAIT_TIRETTE;
