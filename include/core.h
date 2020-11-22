@@ -59,7 +59,7 @@ extern "C"
 #define DISABLE_ANGULAR_SPEED FALSE
 
 #define ENABLE_TIMEOUT_END_MATCH TRUE
-#define TIMEOUT_END_MATCH 99000 // in ms
+#define TIMEOUT_END_MATCH 99e3 // in ms
 
 #define TIRETTE_ENABLED TRUE
 #define PIN_TIRETTE 20
@@ -203,6 +203,7 @@ private:
 
     void update_current_speed();
     void limit_linear_speed_cmd_by_goal();
+    void limit_linear_speed_by_angular_speed(float angular_speed);
 
     float speed_inhibition_from_obstacle;
 

@@ -569,6 +569,7 @@ void Core::update_current_speed()
     last_speed_update_time = now;
 }
 
+// Limit linear speed, to match the desired speed when reaching the goal
 void Core::limit_linear_speed_cmd_by_goal()
 {
     float max_acceleration = 0.15f; // m*s-2
@@ -615,6 +616,17 @@ void Core::limit_linear_speed_cmd_by_goal()
     linear_speed_cmd = MIN(linear_speed_cmd, strat_movement_parameters.max_speed.linear.x);
 
     std::cout << "new speed: " << new_speed_order << " => " << linear_speed_cmd << std::endl;
+}
+
+// Modulate linear speed by angular speed: stop going forward when you want to turn
+void Core::limit_linear_speed_by_angular_speed(float a_angular_speed)
+{
+    float l_sigma_angular_speed = 0.1f; // rad/s
+    float l_scale = 1.f / 0.4f;         // So that gaussian(0) = 1
+    float linear_speed_limit
+      = default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
+
+    linear_speed = MIN(linear_speed, linear_speed_limit);
 }
 
 int Core::Loop()
@@ -736,10 +748,12 @@ int Core::Loop()
         // linear_speed = 0;
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         // linear_speed = MIN(linear_speed, linear_speed / abs(angular_speed));
-        if (angular_speed < -1 || angular_speed > 1)
+        /*if (angular_speed < -1 || angular_speed > 1)
         {
             linear_speed = 0;
-        }
+        }*/
+        limit_linear_speed_by_angular_speed(angular_speed);
+
         std::cout << "linear speed = " << linear_speed << ", orienting = " << orienting()
                   << "speed inihib from obstacles = " << speed_inhibition_from_obstacle << " * "
                   << default_linear_speed << std::endl;
