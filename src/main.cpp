@@ -207,6 +207,16 @@ Core::~Core()
     ROS_INFO_STREAM("Got out of the main loop, stopped everything.\n");
 }
 
+void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
+{
+    VitesseAngulaire l_sigma_angular_speed = VitesseAngulaire(0.1f); // rad/s
+    float l_scale = 1.f / 0.4f;                                      // So that gaussian(0) = 1
+    Vitesse linear_speed_limit
+      = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
+
+    m_linear_speed = std::min(m_linear_speed, linear_speed_limit);
+}
+
 Core::State Core::Loop()
 {
     if ((m_state != State::WAIT_TIRETTE) && isTimeToStop())
@@ -298,12 +308,8 @@ Core::State Core::Loop()
         }
 
         // Modulate linear speed by angular speed: stop going forward when you want to turn
-        // m_linear_speed = MIN(m_linear_speed, m_linear_speed / abs(m_angular_speed));
-        if (abs(m_angular_speed_cmd) > 0.8 * MAX_ALLOWED_ANGULAR_SPEED)
-        {
-            m_linear_speed_cmd = 0;
-            ROS_DEBUG_STREAM("Want to turn, stop going forward");
-        }
+        limitLinearSpeedByAngularSpeed(m_angular_speed);
+
         ROS_DEBUG_STREAM("linear speed = " << m_linear_speed << ", m_orienting = " << orienting()
                                            << ", speed inihib from obstacles = "
                                            << m_speed_inhibition_from_obstacle << " * "
@@ -417,6 +423,7 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& m_angular_speed)
                                VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z));
 }
 
+// Limit linear speed, to match the desired speed when reaching the goal
 void Core::limitLinearSpeedCmdByGoal()
 {
     Acceleration max_acceleration = Acceleration(0.15f); // m*s-2
