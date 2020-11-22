@@ -13,12 +13,12 @@ public:
     OdometryLightNode(ros::NodeHandle& nh);
 
 private:
-    void updateLightOdom(krabi_msgs::odom_light motors_odom);
+    void updateLightOdom(nav_msgs::Odometry motors_odom);
     void resetOdometry(float x, float y, float theta);
     void publishTf(const geometry_msgs::Pose& pose);
    
     tf::TransformBroadcaster m_tf_broadcaster;
-    ros::Subscriber m_odom_light_sub;
+    ros::Subscriber m_odom_sub;
     ros::Publisher m_odom_pub;
     ros::NodeHandle& m_nh;
 };

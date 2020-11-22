@@ -11,39 +11,12 @@ OdometryLightNode::OdometryLightNode(ros::NodeHandle& nh)
     else{
         resetOdometry(1, 0, M_PI);
     }
-    m_odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
-    m_odom_light_sub = nh.subscribe("odom_light",10,&OdometryLightNode::updateLightOdom,this);
+    m_odom_sub = nh.subscribe("odom",10,&OdometryLightNode::updateLightOdom,this);
 }
 
-void OdometryLightNode::updateLightOdom(krabi_msgs::odom_light motors_odom)
+void OdometryLightNode::updateLightOdom(nav_msgs::Odometry odommsg)
 {
-    nav_msgs::Odometry odomsg;
-    odomsg.header.frame_id = "odom";
-    odomsg.header.stamp = ros::Time::now();
-    odomsg.child_frame_id = "base_link";
-
-    odomsg.pose.pose = motors_odom.pose;
-    for (unsigned int i = 0; i < 6 * 6; i++)
-    {
-        odomsg.pose.covariance[i] = 0;
-    }
-
-    odomsg.pose.covariance[0 * 6 + 0] = 0.1; // x
-    odomsg.pose.covariance[1 * 6 + 1] = 0.1; // y
-    odomsg.pose.covariance[5 * 6 + 5] = 0.2; // rz
-
-    odomsg.pose.covariance[2 * 6 + 2] = 100; // z
-    odomsg.pose.covariance[3 * 6 + 3] = 100; // rx
-    odomsg.pose.covariance[4 * 6 + 4] = 100; // ry
-
-    for (unsigned int i = 0; i < 6 * 6; i++)
-    {
-        odomsg.twist.covariance[i] = 0;
-    }
-
-    odomsg.twist.twist = motors_odom.speed;
-    m_odom_pub.publish(odomsg);
-    publishTf(odomsg.pose.pose);
+    publishTf(odommsg.pose.pose);
 }
 
 void OdometryLightNode::publishTf(const geometry_msgs::Pose& pose)
