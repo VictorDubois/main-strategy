@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#define MAX_ALLOWED_ANGULAR_SPEED 0.2f
+#define MAX_ALLOWED_ANGULAR_SPEED 1.f
 
 #include "../../lidar_strategy/include/lidarStrat.h"
 #define UPDATE_RATE 10
@@ -625,6 +625,7 @@ void Core::limit_linear_speed_by_angular_speed(float a_angular_speed)
     float l_scale = 1.f / 0.4f;         // So that gaussian(0) = 1
     float linear_speed_limit
       = default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
+    std::cout << "limit linear by angular speed : " << linear_speed_limit << std::endl;
 
     linear_speed = MIN(linear_speed, linear_speed_limit);
 }
@@ -731,7 +732,8 @@ int Core::Loop()
 
         limit_angular_speed_cmd(angular_speed_cmd);
 
-        update_speed(FALSE, &angular_speed, angular_speed_cmd);
+        //update_speed(FALSE, &angular_speed, angular_speed_cmd);
+        angular_speed = angular_speed_cmd;
         // update_speed(FALSE, &linear_speed, linear_speed_cmd);
         linear_speed = linear_speed_cmd;
 
@@ -759,7 +761,10 @@ int Core::Loop()
                   << default_linear_speed << std::endl;
 
         // Set motors speed according to values computed before
-        set_motors_speed(linear_speed, angular_speed / 5.f, true, false);
+        set_motors_speed(linear_speed, angular_speed / 4.f, true, false);
+
+
+        std::cout << std::endl << std::endl;
     } // End of state == NORMAL
 
     publish_remaining_time();

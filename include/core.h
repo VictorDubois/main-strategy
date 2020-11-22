@@ -59,7 +59,7 @@ extern "C"
 #define DISABLE_ANGULAR_SPEED FALSE
 
 #define ENABLE_TIMEOUT_END_MATCH TRUE
-#define TIMEOUT_END_MATCH 99e3 // in ms
+#define TIMEOUT_END_MATCH 99e6 // in ms
 
 #define TIRETTE_ENABLED TRUE
 #define PIN_TIRETTE 20
@@ -126,7 +126,7 @@ private:
     void publish_remaining_time();
 
     const float default_linear_speed
-      = 0.5f; // Line speed to set when no positive valence strategy fires
+      = 0.5; // Line speed to set when no positive valence strategy fires
     float target_orientation;
     float linear_speed, angular_speed, linear_speed_cmd;
     long encoder1, encoder2, last_encoder1, last_encoder2, elapsed;
