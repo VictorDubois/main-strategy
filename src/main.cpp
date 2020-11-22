@@ -3,7 +3,7 @@
 #include <std_msgs/Duration.h>
 #include <stdexcept>
 
-#define MAX_ALLOWED_ANGULAR_SPEED 0.2f
+#define MAX_ALLOWED_ANGULAR_SPEED 1.f
 
 #include "lidarStrat.h"
 #define UPDATE_RATE 10
@@ -215,6 +215,7 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
     m_linear_speed = std::min(m_linear_speed, linear_speed_limit);
+    std::cout << "limit linear by angular speed : " << linear_speed_limit << std::endl;
 }
 
 Core::State Core::Loop()
@@ -296,6 +297,7 @@ Core::State Core::Loop()
         limitAngularSpeedCmd(m_angular_speed_cmd);
 
         limitAcceleration();
+        m_angular_speed = m_angular_speed_cmd;
 
         if (DISABLE_LINEAR_SPEED || orienting())
         {
@@ -316,7 +318,7 @@ Core::State Core::Loop()
                                            << m_default_linear_speed << std::endl);
 
         // Set motors speed according to values computed before
-        setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd / 5.f, true, false);
+        setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd / 4.f, true, false);
     } // End of m_state == State::NORMAL
 
     publishRemainingTime();
