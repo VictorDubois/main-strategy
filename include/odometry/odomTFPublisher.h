@@ -7,15 +7,15 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_datatypes.h>
 
-class OdometryLightNode
+class OdometryTFPublisher
 {
 public:
-    OdometryLightNode(ros::NodeHandle& nh);
+    OdometryTFPublisher(ros::NodeHandle& nh);
 
 private:
     void updateLightOdom(nav_msgs::Odometry motors_odom);
     void resetOdometry(float x, float y, float theta);
-    void publishTf(const geometry_msgs::Pose& pose);
+    void publishTf(const geometry_msgs::Pose& pose, const string& frame_id, const string& child_frame_id);
    
     tf::TransformBroadcaster m_tf_broadcaster;
     ros::Subscriber m_odom_sub;
