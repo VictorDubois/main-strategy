@@ -1,25 +1,23 @@
 #include "odometry/lightOdometry.h"
 
-OdometryLightNode::OdometryLightNode(ros::NodeHandle& nh)
+OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
 {
-    bool is_blue;
-    nh.param<bool>("isBlue",is_blue, true);
-    if(is_blue){
-        resetOdometry(-1, 0, 0);
-    }
-    else{
-        resetOdometry(1, 0, M_PI);
-    }
-    m_odom_sub = nh.subscribe("odom",10,&OdometryLightNode::updateLightOdom,this);
+    float init_x, init_y, init_theta;
+    nh.param<float>("init_pose/x",init_x, 0);
+    nh.param<float>("init_pose/y",init_x, 0);
+    nh.param<float>("init_pose/theta",init_x, 0);
+
+    resetOdometry(init_x, init_y, init_theta);
+    m_odom_sub = nh.subscribe("odom",10,&OdometryTFPublisher::updateLightOdom,this);
 }
 
-void OdometryLightNode::updateLightOdom(nav_msgs::Odometry odommsg)
+void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
 {
     publishTf(odommsg.pose.pose);
 }
 
-void OdometryLightNode::publishTf(const geometry_msgs::Pose& pose)
+void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose)
 {
     // first, we'll publish the transform over tf
     geometry_msgs::TransformStamped odom_trans;
@@ -36,7 +34,7 @@ void OdometryLightNode::publishTf(const geometry_msgs::Pose& pose)
     m_tf_broadcaster.sendTransform(odom_trans);
 }
 
-void OdometryLightNode::resetOdometry(float x, float y, float theta)
+void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
 {
 
     ros::ServiceClient client = m_nh.serviceClient<krabi_msgs::SetOdom>("set_odom");
