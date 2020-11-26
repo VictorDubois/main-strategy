@@ -97,7 +97,7 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
 void Core::updateStratMovement(krabi_msgs::strat_movement move)
 {
     m_strat_movement_parameters = move;
-    m_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
+    m_goal_pose = Pose(m_strat_movement_parameters.goal_pose);
     ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
