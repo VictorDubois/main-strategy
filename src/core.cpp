@@ -38,8 +38,8 @@ Angle Core::getAngleToGoal()
 
 void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
 {
-    m_goal_pose = Pose(goal_pose.pose);
-    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
+    // m_goal_pose = Pose(goal_pose.pose);
+    // ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
 void Core::updateTirette(std_msgs::Bool starting)
@@ -97,7 +97,8 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
 void Core::updateStratMovement(krabi_msgs::strat_movement move)
 {
     m_strat_movement_parameters = move;
-    m_goal_pose = Pose(m_strat_movement_parameters.goal_pose);
+    m_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
+    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
 Core::Core(ros::NodeHandle& nh)
@@ -214,7 +215,7 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
     Vitesse linear_speed_limit
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
-    m_linear_speed = std::min(m_linear_speed, linear_speed_limit);
+    m_linear_speed_cmd = std::min(m_linear_speed_cmd, linear_speed_limit);
     std::cout << "limit linear by angular speed : " << linear_speed_limit << std::endl;
 }
 
@@ -297,7 +298,6 @@ Core::State Core::Loop()
         limitAngularSpeedCmd(m_angular_speed_cmd);
 
         limitAcceleration();
-        m_angular_speed = m_angular_speed_cmd;
 
         if (DISABLE_LINEAR_SPEED || orienting())
         {
@@ -310,15 +310,17 @@ Core::State Core::Loop()
         }
 
         // Modulate linear speed by angular speed: stop going forward when you want to turn
-        limitLinearSpeedByAngularSpeed(m_angular_speed);
+        limitLinearSpeedByAngularSpeed(m_angular_speed_cmd);
 
-        ROS_DEBUG_STREAM("linear speed = " << m_linear_speed << ", m_orienting = " << orienting()
-                                           << ", speed inihib from obstacles = "
-                                           << m_speed_inhibition_from_obstacle << " * "
-                                           << m_default_linear_speed << std::endl);
+        ROS_DEBUG_STREAM("linear speed = "
+                         << m_linear_speed << ", m_orienting = " << orienting()
+                         << ", speed inihib from obstacles = " << m_speed_inhibition_from_obstacle
+                         << " * " << m_default_linear_speed
+                         << ", angular_speed_cmd = " << m_angular_speed_cmd
+                         << ", linear_speed_cmd = " << m_linear_speed_cmd << std::endl);
 
         // Set motors speed according to values computed before
-        setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd / 4.f, true, false);
+        setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
     } // End of m_state == State::NORMAL
 
     publishRemainingTime();
@@ -406,7 +408,7 @@ void Core::computeTargetSpeedOrientation()
     //}
 }
 
-void Core::limitAngularSpeedCmd(VitesseAngulaire& m_angular_speed)
+void Core::limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed_cmd)
 {
     // TODO: use the winning strategy with weights
     // TODO: restore speed limitations
@@ -417,12 +419,14 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& m_angular_speed)
     }*/
 
     // Cap angular speed, so that the robot doesn't turn TOO FAST on itself
-    m_angular_speed = std::max(m_angular_speed, VitesseAngulaire(-MAX_ALLOWED_ANGULAR_SPEED));
-    m_angular_speed = std::min(m_angular_speed, VitesseAngulaire(MAX_ALLOWED_ANGULAR_SPEED));
-    m_angular_speed = std::max(m_angular_speed,
-                               VitesseAngulaire(-m_strat_movement_parameters.max_speed.angular.z));
-    m_angular_speed = std::min(m_angular_speed,
-                               VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z));
+    a_angular_speed_cmd
+      = std::max(a_angular_speed_cmd, VitesseAngulaire(-MAX_ALLOWED_ANGULAR_SPEED));
+    a_angular_speed_cmd
+      = std::min(a_angular_speed_cmd, VitesseAngulaire(MAX_ALLOWED_ANGULAR_SPEED));
+    a_angular_speed_cmd = std::max(
+      a_angular_speed_cmd, VitesseAngulaire(-m_strat_movement_parameters.max_speed.angular.z));
+    a_angular_speed_cmd = std::min(
+      a_angular_speed_cmd, VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z));
 }
 
 // Limit linear speed, to match the desired speed when reaching the goal
