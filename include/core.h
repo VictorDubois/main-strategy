@@ -72,7 +72,7 @@ private:
     void computeTargetSpeedOrientation();
 
     // Enforce limits on angular speed: absolute max and obstacle inhibition
-    void limitAngularSpeedCmd(VitesseAngulaire& m_angular_speed);
+    void limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed);
 
     // Publish the time remaining on the match's clock
     void publishRemainingTime();
