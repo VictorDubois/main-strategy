@@ -15,7 +15,7 @@ public:
 private:
     void updateLightOdom(nav_msgs::Odometry motors_odom);
     void resetOdometry(float x, float y, float theta);
-    void publishTf(const geometry_msgs::Pose& pose, const string& frame_id, const string& child_frame_id);
+    void publishTf(const geometry_msgs::Pose& pose);
    
     tf::TransformBroadcaster m_tf_broadcaster;
     ros::Subscriber m_odom_sub;

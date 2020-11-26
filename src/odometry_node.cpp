@@ -1,4 +1,4 @@
-#include "odometry/lightOdometry.h"
+#include "odometry/odomTFPublisher.h"
 
 #include "ros/ros.h"
 #include <string>
@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
     nh.param<string>("odom_type", odom_type, "light");
     if (!odom_type.compare("light"))
     {
-        auto node = OdometryLightNode(nh);
+        auto node = OdometryTFPublisher(nh);
         ros::spin();
     }
     else

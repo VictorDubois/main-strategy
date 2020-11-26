@@ -1,4 +1,4 @@
-#include "odometry/lightOdometry.h"
+#include "odometry/odomTFPublisher.h"
 
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
