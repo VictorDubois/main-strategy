@@ -1,4 +1,4 @@
-#include "odometry/lightOdometry.h"
+#include "odometry/odomTFPublisher.h"
 
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
@@ -14,16 +14,16 @@ OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
 
 void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
 {
-    publishTf(odommsg.pose.pose);
+    publishTf(odommsg.pose.pose, "odom", "baselink");
 }
 
-void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose)
+void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose, const std::string& frame_id, const std::string& child_frame_id)
 {
     // first, we'll publish the transform over tf
     geometry_msgs::TransformStamped odom_trans;
     odom_trans.header.stamp = ros::Time::now();
-    odom_trans.header.frame_id = "odom";
-    odom_trans.child_frame_id = "base_link";
+    odom_trans.header.frame_id = frame_id;
+    odom_trans.child_frame_id = child_frame_id;
 
     odom_trans.transform.translation.x = pose.position.x;
     odom_trans.transform.translation.y = pose.position.y;
