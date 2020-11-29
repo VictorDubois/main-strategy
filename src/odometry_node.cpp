@@ -9,12 +9,18 @@ int main(int argc, char* argv[])
 {
     ros::init(argc, argv, "odometry_node");
     ros::NodeHandle nh;
+    ros::Rate rate(10);
     string odom_type;
     nh.param<string>("odom_type", odom_type, "tf_pub");
     if (!odom_type.compare("tf_pub"))
     {
         auto node = OdometryTFPublisher(nh);
-        ros::spin();
+	while(ros::ok())
+	{
+	    ros::spin();
+            rate.sleep();
+            node.resetOdometry();
+	}
     }
     else
     {

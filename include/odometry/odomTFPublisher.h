@@ -11,14 +11,17 @@ class OdometryTFPublisher
 {
 public:
     OdometryTFPublisher(ros::NodeHandle& nh);
+    void resetOdometry();
 
 private:
     void updateLightOdom(nav_msgs::Odometry motors_odom);
-    void resetOdometry(float x, float y, float theta);
     void publishTf(const geometry_msgs::Pose& pose, const std::string& frame_id, const std::string& child_frame_id);
    
     tf::TransformBroadcaster m_tf_broadcaster;
     ros::Subscriber m_odom_sub;
+    ros::Subscriber m_odom_sub_2;
     ros::Publisher m_odom_pub;
     ros::NodeHandle& m_nh;
+    bool odom_connected, odom_reset;
+    void resetOdometry(float x, float y, float theta);
 };
