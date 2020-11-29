@@ -4,20 +4,26 @@ OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
 {
     float init_x, init_y, init_theta;
-    nh.param<float>("init_pose/x",init_x, 0);
-    nh.param<float>("init_pose/y",init_x, 0);
-    nh.param<float>("init_pose/theta",init_x, 0);
+    nh.param<float>("init_pose/x", init_x, 0);
+    nh.param<float>("init_pose/y", init_x, 0);
+    nh.param<float>("init_pose/theta", init_x, 0);
 
     resetOdometry(init_x, init_y, init_theta);
-    m_odom_sub = nh.subscribe("odom",10,&OdometryTFPublisher::updateLightOdom,this);
+
+    auto odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+    m_odom_sub = nh.subscribe(odom_id, 10, &OdometryTFPublisher::updateLightOdom, this);
 }
 
 void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
 {
-    publishTf(odommsg.pose.pose, "odom", "baselink");
+    auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+    auto odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+    publishTf(odommsg.pose.pose, odom_id, base_link_id);
 }
 
-void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose, const std::string& frame_id, const std::string& child_frame_id)
+void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose,
+                                    const std::string& frame_id,
+                                    const std::string& child_frame_id)
 {
     // first, we'll publish the transform over tf
     geometry_msgs::TransformStamped odom_trans;
