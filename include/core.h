@@ -119,7 +119,7 @@ private:
     float m_lidar_output[NB_NEURONS] = { 0. };
     float m_angular_speed_vector[NB_NEURONS] = { 0. };
     float m_angular_landscape[NB_NEURONS] = { 0. };
-    ros::Time m_begin_match;
+    boost::optional<ros::Time> m_begin_match;
     Pose m_goal_pose;
     Distance m_distance_to_goal;
     bool m_reverse_gear_activated;

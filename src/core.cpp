@@ -105,7 +105,6 @@ Core::Core(ros::NodeHandle& nh)
   : m_tf_listener(m_tf_buffer)
   , m_nh(nh)
 {
-    m_begin_match = ros::Time(0);
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
 
@@ -114,7 +113,7 @@ Core::Core(ros::NodeHandle& nh)
 
     m_motors_cmd_pub = m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
-    m_chrono_pub = m_nh.advertise<std_msgs::Duration>("remaining_time", 5);
+    m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
     m_lidar_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
@@ -221,6 +220,8 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
 
 Core::State Core::Loop()
 {
+    publishRemainingTime();
+
     if ((m_state != State::WAIT_TIRETTE) && isTimeToStop())
     {
         ROS_INFO_STREAM("Time's up !");
@@ -323,8 +324,6 @@ Core::State Core::Loop()
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
     } // End of m_state == State::NORMAL
 
-    publishRemainingTime();
-
     return m_state;
 }
 
@@ -359,15 +358,12 @@ void Core::limitAcceleration()
 void Core::publishRemainingTime()
 {
     std_msgs::Duration remaining_time_msg;
+    remaining_time_msg.data = ros::Duration(TIMEOUT_END_MATCH / 1000);
 
-    if (m_begin_match.toSec() < 1)
+    if (m_begin_match)
     {
-        remaining_time_msg.data = ros::Duration(TIMEOUT_END_MATCH / 1000);
-    }
-    else
-    {
-        ros::Time end_of_match = ros::Time(m_begin_match.toSec() + TIMEOUT_END_MATCH / 1000);
-        remaining_time_msg.data = end_of_match - ros::Time::now();
+        auto remaining_time = ros::Duration(TIMEOUT_END_MATCH / 1000 - (ros::Time::now() - *m_begin_match).toSec());
+        remaining_time_msg.data = remaining_time;
     }
 
     m_chrono_pub.publish(remaining_time_msg);
@@ -377,7 +373,7 @@ bool Core::isTimeToStop()
 {
     // State::EXIT and stop robot if we reached the end of the match
     if (ENABLE_TIMEOUT_END_MATCH == TRUE
-        && (ros::Time::now() - m_begin_match).toSec() * 1000 > TIMEOUT_END_MATCH)
+        && (ros::Time::now() - *m_begin_match).toSec() * 1000 > TIMEOUT_END_MATCH)
     {
         m_state = State::EXIT;
         return true;
