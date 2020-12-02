@@ -15,12 +15,11 @@ void Core::updateCurrentPose()
     try
     {
         auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
-        auto map_id = tf::resolve(ros::this_node::getNamespace(), "map");
         const auto& transform
-          = m_tf_buffer.lookupTransform(map_id, base_link_id, ros::Time(0)).transform;
+          = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
         m_baselink_to_map = transformFromMsg(transform);
         m_map_to_baselink = transformFromMsg(
-          m_tf_buffer.lookupTransform(base_link_id, map_id, ros::Time(0)).transform);
+          m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
         m_current_pose = Pose(transform);
     }
     catch (tf2::TransformException& ex)
@@ -363,7 +362,8 @@ void Core::publishRemainingTime()
 
     if (m_begin_match)
     {
-        auto remaining_time = ros::Duration(TIMEOUT_END_MATCH / 1000 - (ros::Time::now() - *m_begin_match).toSec());
+        auto remaining_time
+          = ros::Duration(TIMEOUT_END_MATCH / 1000 - (ros::Time::now() - *m_begin_match).toSec());
         remaining_time_msg.data = remaining_time;
     }
 
