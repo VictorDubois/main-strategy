@@ -3,9 +3,7 @@
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh),m_odom_reset(false)
 {
-    auto odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
-    ROS_INFO_STREAM("Odometry TF publisher subscribed to "<<odom_id);
-    m_odom_sub = nh.subscribe(odom_id, 10, &OdometryTFPublisher::updateLightOdom, this);
+    m_odom_sub = nh.subscribe("odom", 10, &OdometryTFPublisher::updateLightOdom, this);
 }
 
 void OdometryTFPublisher::resetOdometry()
