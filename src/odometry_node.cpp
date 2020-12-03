@@ -15,12 +15,7 @@ int main(int argc, char* argv[])
     if (!odom_type.compare("tf_pub"))
     {
         auto node = OdometryTFPublisher(nh);
-	while(ros::ok())
-	{
-	    ros::spin();
-            rate.sleep();
-            node.resetOdometry();
-	}
+        ros::spin();
     }
     else
     {
