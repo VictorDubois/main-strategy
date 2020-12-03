@@ -71,7 +71,7 @@ void Core::addObstacle(PolarPosition obstacle)
                                ? obstacle.getAngle()
                                : AngleTools::wrapAngle(Angle(obstacle.getAngle() + M_PI));
 
-    float m_speed_inhibition_from_obstacle
+    m_speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
 
     if (m_speed_inhibition_from_obstacle < 0.2f)
@@ -120,7 +120,7 @@ Core::Core(ros::NodeHandle& nh)
       "obstacle_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
 
     m_lidar_behind_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
-      "obstacle_behind_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
+      "obstacle_behind_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, false));
     m_tirette_sub = m_nh.subscribe("tirette", 1, &Core::updateTirette, this);
     m_odometry_sub = m_nh.subscribe("odom", 1000, &Core::updateOdom, this);
     m_strat_movement_sub = m_nh.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
