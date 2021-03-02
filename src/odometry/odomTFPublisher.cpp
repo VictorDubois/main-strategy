@@ -61,6 +61,6 @@ void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
     }
     else
     {
-        ROS_ERROR("Failed to calibrate odometry");
+        ROS_INFO("Failed to calibrate odometry");
     }
 }
