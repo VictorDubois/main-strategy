@@ -14,6 +14,7 @@ void Core::updateCurrentPose()
 {
     try
     {
+
         auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
         const auto& transform
           = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
@@ -27,8 +28,9 @@ void Core::updateCurrentPose()
         ROS_WARN("%s", ex.what());
     }
 
-    //std::cout << "updateCurrentPose: " << m_current_pose << std::endl;//Raspi4 doesn't like <<transform
-    //std::cout << "Transform matrix [baselink to map]: " << m_baselink_to_map;//Raspi4 doesn't like <<transform
+    // std::cout << "updateCurrentPose: " << m_current_pose << std::endl;//Raspi4 doesn't like
+    // <<transform std::cout << "Transform matrix [baselink to map]: " << m_baselink_to_map;//Raspi4
+    // doesn't like <<transform
 }
 
 Angle Core::getAngleToGoal()
@@ -98,7 +100,7 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
 {
     m_strat_movement_parameters = move;
     m_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
-//    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
+    //    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
 Core::Core(ros::NodeHandle& nh)
@@ -289,7 +291,7 @@ Core::State Core::Loop()
         m_angular_speed_cmd = VitesseAngulaire(m_angular_speed_vector[angle_to_neuron_id(
           Angle(0))]); // - as positive is towards the left in ros, while the
                        // derivation is left to right
-        //ROS_DEBUG_STREAM(",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
+        // ROS_DEBUG_STREAM(",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
 
         limitLinearSpeedCmdByGoal();
 
@@ -437,11 +439,11 @@ void Core::limitLinearSpeedCmdByGoal()
 
     float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
     time_to_stop = std::max(0.f, time_to_stop);
-    //ROS_DEBUG_STREAM("time to stop = " << time_to_stop << "s, ");
+    // ROS_DEBUG_STREAM("time to stop = " << time_to_stop << "s, ");
 
     Distance distance_to_stop
       = Distance(time_to_stop * (m_linear_speed - desired_final_speed) / 2.);
-    //ROS_DEBUG_STREAM(", distance to stop = " << distance_to_stop << "m, ");
+    // ROS_DEBUG_STREAM(", distance to stop = " << distance_to_stop << "m, ");
 
     // Compute extra time if accelerating
     Vitesse average_extra_speed = Vitesse(
@@ -450,26 +452,27 @@ void Core::limitLinearSpeedCmdByGoal()
 
     if (m_distance_to_goal < distance_to_stop)
     {
-        //ROS_DEBUG_STREAM("decelerate");
+        // ROS_DEBUG_STREAM("decelerate");
         new_speed_order = m_linear_speed - max_deceleration / float(UPDATE_RATE);
     }
     else if (m_distance_to_goal < m_linear_speed / float(UPDATE_RATE))
     {
-        //ROS_DEBUG_STREAM("EMERGENCY BRAKE");
+        // ROS_DEBUG_STREAM("EMERGENCY BRAKE");
         new_speed_order = 0;
     }
     else if (m_distance_to_goal > distance_to_stop + extra_distance)
     {
-        //ROS_DEBUG_STREAM("accelerate");
+        // ROS_DEBUG_STREAM("accelerate");
         new_speed_order = m_linear_speed + max_acceleration / float(UPDATE_RATE);
     }
     else
     {
-        //ROS_DEBUG_STREAM("cruise speed");
+        // ROS_DEBUG_STREAM("cruise speed");
         new_speed_order = m_linear_speed;
     }
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
-    //ROS_DEBUG_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl);
+    // ROS_DEBUG_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd <<
+    // std::endl);
     m_linear_speed_cmd = new_speed_order;
 }
 
