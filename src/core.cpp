@@ -491,6 +491,10 @@ void Core::limitLinearSpeedCmdByGoal()
         // ROS_DEBUG_STREAM("cruise speed");
         new_speed_order = m_linear_speed;
     }
+    new_speed_order
+      = std::max(new_speed_order, Vitesse(-m_strat_movement_parameters.max_speed.linear.x));
+    new_speed_order
+      = std::min(new_speed_order, Vitesse(m_strat_movement_parameters.max_speed.linear.x));
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
     // ROS_DEBUG_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd <<
     // std::endl);
