@@ -9,6 +9,7 @@
 #define UPDATE_RATE 10
 
 #include <krabi_msgs/motors_cmd.h>
+#include <krabi_msgs/motors_parameters.h>
 
 void Core::updateCurrentPose()
 {
@@ -115,6 +116,7 @@ Core::Core(ros::NodeHandle& nh)
 
     m_motors_cmd_pub = m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
+    m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
@@ -179,6 +181,20 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     std_msgs::Bool new_enable_cmd;
     new_enable_cmd.data = enable;
     m_motors_enable_pub.publish(new_enable_cmd);
+
+    krabi_msgs::motors_parameters new_parameters;
+    new_parameters.max_current = 1;
+    new_parameters.max_current_left = 2;
+    new_parameters.max_current_right = 2;
+
+    if (recalage_bordure())
+    {
+        new_parameters.max_current = 1;
+        new_parameters.max_current_left = 0.4f;
+        new_parameters.max_current_right = 0.4f;
+    }
+
+    m_motors_parameters_pub.publish(new_parameters);
 }
 
 bool Core::reverseGear()
@@ -188,7 +204,12 @@ bool Core::reverseGear()
 
 bool Core::orienting()
 {
-    return m_strat_movement_parameters.orient;
+    return m_strat_movement_parameters.orient == 1;
+}
+
+bool Core::recalage_bordure()
+{
+    return m_strat_movement_parameters.orient == 2;
 }
 
 int Core::Setup()
@@ -307,7 +328,7 @@ Core::State Core::Loop()
             m_linear_speed_cmd = 0;
         }
 
-        if (DISABLE_ANGULAR_SPEED)
+        if (DISABLE_ANGULAR_SPEED || recalage_bordure())
         {
             m_angular_speed_cmd = 0;
         }

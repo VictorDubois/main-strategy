@@ -94,6 +94,7 @@ private:
 
     bool reverseGear();
     bool orienting();
+    bool recalage_bordure();
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
@@ -132,6 +133,7 @@ private:
     // Publisher
     ros::Publisher m_motors_cmd_pub;
     ros::Publisher m_motors_enable_pub;
+    ros::Publisher m_motors_parameters_pub;
     ros::Publisher m_chrono_pub;
 
     // Subscriber
