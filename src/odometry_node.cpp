@@ -12,9 +12,12 @@ int main(int argc, char* argv[])
     ros::Rate rate(10);
     string odom_type;
     nh.param<string>("odom_type", odom_type, "tf_pub");
+
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener tfListener(tfBuffer);
     if (!odom_type.compare("tf_pub"))
     {
-        auto node = OdometryTFPublisher(nh);
+        OdometryTFPublisher node(nh, &tfBuffer, &tfListener);
         ros::spin();
     }
     else
