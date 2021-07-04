@@ -225,6 +225,13 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
         new_parameters.max_current_right = 0.4f;
     }
 
+    if (clamp_mode())
+    {
+        new_parameters.max_current = 0.7f;
+        new_parameters.max_current_left = 2;
+        new_parameters.max_current_right = 2;
+    }
+
     m_motors_parameters_pub.publish(new_parameters);
 }
 
@@ -241,6 +248,11 @@ bool Core::orienting()
 bool Core::recalage_bordure()
 {
     return m_strat_movement_parameters.orient == 2;
+}
+
+bool Core::clamp_mode()
+{
+    return m_strat_movement_parameters.orient == 3;
 }
 
 int Core::Setup()

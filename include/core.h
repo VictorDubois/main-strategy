@@ -96,6 +96,7 @@ private:
     bool reverseGear();
     bool orienting();
     bool recalage_bordure();
+    bool clamp_mode();
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
