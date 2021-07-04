@@ -11,6 +11,11 @@
 #include <krabi_msgs/motors_cmd.h>
 #include <krabi_msgs/motors_parameters.h>
 
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_broadcaster.h>
+
 void Core::updateCurrentPose()
 {
     try
@@ -114,6 +119,9 @@ Core::Core(ros::NodeHandle& nh)
     m_speed_inhibition_from_obstacle = 1;
     m_reverse_gear_activated = false;
 
+    m_nh.param<bool>("isBlue", m_is_blue, true);
+    ROS_INFO_STREAM(m_is_blue ? "Is Blue !" : "Not Blue :'(");
+
     m_motors_cmd_pub = m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
     m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
@@ -130,9 +138,32 @@ Core::Core(ros::NodeHandle& nh)
     m_strat_movement_sub = m_nh.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
     // m_reverse_gear_sub = m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
-    m_nh.param<bool>("isBlue", m_is_blue, true);
-
-    ROS_INFO_STREAM(m_is_blue ? "Is Blue !" : "Not Blue :'(");
+    if (!m_is_blue)
+    {
+        m_arucos_sub[6] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/6", 5, boost::bind(&Core::updateAruco, this, _1, 6));
+        m_arucos_sub[7] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/7", 5, boost::bind(&Core::updateAruco, this, _1, 7));
+        m_arucos_sub[8] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/8", 5, boost::bind(&Core::updateAruco, this, _1, 8));
+        m_arucos_sub[9] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/9", 5, boost::bind(&Core::updateAruco, this, _1, 9));
+        m_arucos_sub[10] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/10", 5, boost::bind(&Core::updateAruco, this, _1, 10));
+    }
+    else
+    {
+        m_arucos_sub[1] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/1", 5, boost::bind(&Core::updateAruco, this, _1, 1));
+        m_arucos_sub[2] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/2", 5, boost::bind(&Core::updateAruco, this, _1, 2));
+        m_arucos_sub[3] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/3", 5, boost::bind(&Core::updateAruco, this, _1, 3));
+        m_arucos_sub[4] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/4", 5, boost::bind(&Core::updateAruco, this, _1, 4));
+        m_arucos_sub[5] = nh.subscribe<geometry_msgs::PoseStamped>(
+          "/pose_robots/5", 5, boost::bind(&Core::updateAruco, this, _1, 5));
+    }
 
     m_goal_output[NB_NEURONS] = { 0. };
     m_obstacles_output[NB_NEURONS] = { 0. };
@@ -233,7 +264,8 @@ Core::~Core()
 void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
 {
     VitesseAngulaire l_sigma_angular_speed = VitesseAngulaire(0.1f); // rad/s
-    float l_scale = 1.f / 0.4f;                                      // So that gaussian(0) = 1
+    float l_scale = 1.f / l_sigma_angular_speed;                     // 0.4f;
+    // So that gaussian(0) = 1
     Vitesse linear_speed_limit
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
@@ -504,4 +536,71 @@ void Core::limitLinearSpeedCmdByGoal()
 unsigned int angle_to_neuron_id(Angle a)
 {
     return (unsigned int)(((AngleTools::wrapAngle(a) + M_PI) / (2 * M_PI)) * NB_NEURONS);
+}
+
+void Core::publishTf(const geometry_msgs::Pose& pose,
+                     const std::string& frame_id,
+                     const std::string& child_frame_id)
+{
+    // first, we'll publish the transform over tf
+    geometry_msgs::TransformStamped odom_trans;
+    odom_trans.header.stamp = ros::Time::now();
+    odom_trans.header.frame_id = frame_id;
+    odom_trans.child_frame_id = child_frame_id;
+
+    odom_trans.transform.translation.x = pose.position.x;
+    odom_trans.transform.translation.y = pose.position.y;
+    odom_trans.transform.translation.z = pose.position.z;
+    odom_trans.transform.rotation = pose.orientation;
+
+    // send the transform
+    m_tf_broadcaster.sendTransform(odom_trans);
+}
+
+void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> arucoPose, int id)
+{
+    m_arucos[id] = *arucoPose;
+
+    publishTf(arucoPose->pose, "/aruco", "/aruco_raw_pose");
+    auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+    auto deltaOdom = m_tf_buffer.lookupTransform(base_link_id,
+                                                 arucoPose->header.stamp,
+                                                 base_link_id,
+                                                 ros::Time::now(),
+                                                 "map",
+                                                 ros::Duration(1.0));
+
+    ROS_INFO_STREAM("ego_aruco_received. Movement since: x = "
+                    << deltaOdom.transform.translation.x
+                    << ", y = " << deltaOdom.transform.translation.y
+                    << ", QuatW = " << deltaOdom.transform.rotation.w
+                    << ", QuatX = " << deltaOdom.transform.rotation.x
+                    << ", QuatY = " << deltaOdom.transform.rotation.y
+                    << ", QuatZ = " << deltaOdom.transform.rotation.z << std::endl);
+    auto corrected_pose = arucoPose->pose;
+    tf2::Quaternion quat_tf_odom;
+    tf2::fromMsg(deltaOdom.transform.rotation, quat_tf_odom);
+    double roll, pitch, yaw_odom;
+    tf2::Matrix3x3(quat_tf_odom).getRPY(roll, pitch, yaw_odom);
+
+    corrected_pose.position.x = arucoPose->pose.position.x
+                                + deltaOdom.transform.translation.x * cos(yaw_odom)
+                                - deltaOdom.transform.translation.y * sin(yaw_odom);
+    corrected_pose.position.y = arucoPose->pose.position.y
+                                + deltaOdom.transform.translation.x * sin(yaw_odom)
+                                + deltaOdom.transform.translation.y * cos(yaw_odom);
+
+    tf2::Quaternion quat_tf_aruco;
+    tf2::fromMsg(arucoPose->pose.orientation, quat_tf_aruco);
+
+    tf2::Quaternion quat_tf_corrected;
+
+    quat_tf_corrected = quat_tf_odom * quat_tf_aruco;
+    quat_tf_corrected.normalize();
+    corrected_pose.orientation = tf2::toMsg(quat_tf_corrected);
+
+    ROS_INFO_STREAM("corrected position: x = " << corrected_pose.position.x << ", y = "
+                                               << corrected_pose.position.y << std::endl);
+
+    publishTf(corrected_pose, "/aruco", "/corrected_odom");
 }

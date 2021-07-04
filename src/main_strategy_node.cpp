@@ -10,7 +10,6 @@
 
 #include <krabi_msgs/motors_cmd.h>
 
-
 int main(int argc, char* argv[])
 {
     ros::init(argc, argv, "mainStrat");
@@ -20,10 +19,9 @@ int main(int argc, char* argv[])
     Core my_core(nh);
     my_core.Setup();
 
-    while (my_core.Loop()!=Core::State::EXIT && ros::ok())
+    while (my_core.Loop() != Core::State::EXIT && ros::ok())
     {
         loop_rate.sleep();
         ros::spinOnce();
     }
-
 }

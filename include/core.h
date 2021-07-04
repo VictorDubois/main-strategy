@@ -3,6 +3,7 @@
  *                  BROKER                   *
  **********************************************/
 #include "ros/ros.h"
+#include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -148,9 +149,18 @@ private:
     // Transform
     tf2_ros::Buffer m_tf_buffer;
     tf2_ros::TransformListener m_tf_listener;
+    tf::TransformBroadcaster m_tf_broadcaster;
     Transform m_map_to_baselink;
     Transform m_baselink_to_map;
     Pose m_current_pose;
 
     ros::NodeHandle m_nh;
+
+    // Arcuo
+    void updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> arucoPose, int id);
+    void publishTf(const geometry_msgs::Pose& pose,
+                   const std::string& frame_id,
+                   const std::string& child_frame_id);
+    std::map<int, ros::Subscriber> m_arucos_sub;
+    std::array<geometry_msgs::PoseStamped, 10> m_arucos;
 };
