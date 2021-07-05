@@ -498,19 +498,19 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed_cmd)
 // Limit linear speed, to match the desired speed when reaching the goal
 void Core::limitLinearSpeedCmdByGoal()
 {
-    Acceleration max_acceleration = Acceleration(0.15f); // m*s-2
-    Acceleration max_deceleration = Acceleration(0.15f); // m*s-2
+    Acceleration max_acceleration = Acceleration(0.65f); // m*s-2
+    Acceleration max_deceleration = Acceleration(0.65f); // m*s-2
     Vitesse new_speed_order = Vitesse(0);                // m/s
 
-    Vitesse desired_final_speed = Vitesse(0); // m*s-2
+    Vitesse desired_final_speed = Vitesse(m_strat_movement_parameters.max_speed_at_arrival); // m*s-2
 
     float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
     time_to_stop = std::max(0.f, time_to_stop);
-    // ROS_DEBUG_STREAM("time to stop = " << time_to_stop << "s, ");
+    ROS_INFO_STREAM("time to stop = " << time_to_stop << "s, ");
 
     Distance distance_to_stop
       = Distance(time_to_stop * (m_linear_speed - desired_final_speed) / 2.);
-    // ROS_DEBUG_STREAM(", distance to stop = " << distance_to_stop << "m, ");
+    ROS_INFO_STREAM(", distance to stop = " << distance_to_stop << "m, ");
 
     // Compute extra time if accelerating
     Vitesse average_extra_speed = Vitesse(
@@ -519,22 +519,22 @@ void Core::limitLinearSpeedCmdByGoal()
 
     if (m_distance_to_goal < distance_to_stop)
     {
-        // ROS_DEBUG_STREAM("decelerate");
+        ROS_INFO_STREAM("decelerate");
         new_speed_order = m_linear_speed - max_deceleration / float(UPDATE_RATE);
     }
     else if (m_distance_to_goal < m_linear_speed / float(UPDATE_RATE))
     {
-        // ROS_DEBUG_STREAM("EMERGENCY BRAKE");
+        ROS_INFO_STREAM("EMERGENCY BRAKE");
         new_speed_order = 0;
     }
     else if (m_distance_to_goal > distance_to_stop + extra_distance)
     {
-        // ROS_DEBUG_STREAM("accelerate");
+        ROS_INFO_STREAM("accelerate");
         new_speed_order = m_linear_speed + max_acceleration / float(UPDATE_RATE);
     }
     else
     {
-        // ROS_DEBUG_STREAM("cruise speed");
+        ROS_INFO_STREAM("cruise speed");
         new_speed_order = m_linear_speed;
     }
     new_speed_order
@@ -542,8 +542,8 @@ void Core::limitLinearSpeedCmdByGoal()
     new_speed_order
       = std::min(new_speed_order, Vitesse(m_strat_movement_parameters.max_speed.linear.x));
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
-    // ROS_DEBUG_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd <<
-    // std::endl);
+    ROS_INFO_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd <<
+    std::endl);
     m_linear_speed_cmd = new_speed_order;
 }
 
