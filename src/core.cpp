@@ -282,7 +282,7 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
     m_linear_speed_cmd = std::min(m_linear_speed_cmd, linear_speed_limit);
-    std::cout << "limit linear by angular speed : " << linear_speed_limit << std::endl;
+    ROS_INFO_STREAM("limit linear by angular speed : " << linear_speed_limit << std::endl);
 }
 
 Core::State Core::Loop()
@@ -370,22 +370,24 @@ Core::State Core::Loop()
         if (DISABLE_LINEAR_SPEED || orienting())
         {
             m_linear_speed_cmd = 0;
+            ROS_INFO_STREAM("linear speed disabled");
         }
 
         if (DISABLE_ANGULAR_SPEED || recalage_bordure())
         {
             m_angular_speed_cmd = 0;
+            ROS_INFO_STREAM("angular speed disabled");
         }
 
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         limitLinearSpeedByAngularSpeed(m_angular_speed_cmd);
 
-        /*ROS_DEBUG_STREAM("linear speed = "
-                         << m_linear_speed << ", m_orienting = " << orienting()
-                         << ", speed inihib from obstacles = " << m_speed_inhibition_from_obstacle
-                         << " * " << m_default_linear_speed
-                         << ", angular_speed_cmd = " << m_angular_speed_cmd
-                         << ", linear_speed_cmd = " << m_linear_speed_cmd << std::endl);*/
+        ROS_INFO_STREAM("linear speed = "
+                        << m_linear_speed << ", m_orienting = " << orienting()
+                        << ", speed inihib from obstacles = " << m_speed_inhibition_from_obstacle
+                        << " * " << m_default_linear_speed
+                        << ", angular_speed_cmd = " << m_angular_speed_cmd
+                        << ", linear_speed_cmd = " << m_linear_speed_cmd << std::endl);
 
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
