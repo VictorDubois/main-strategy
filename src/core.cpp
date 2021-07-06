@@ -23,10 +23,10 @@ void Core::updateCurrentPose()
 
         auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
         const auto& transform
-          = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
+          = m_tf_buffer->lookupTransform("map", base_link_id, ros::Time(0)).transform;
         m_baselink_to_map = transformFromMsg(transform);
         m_map_to_baselink = transformFromMsg(
-          m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
+          m_tf_buffer->lookupTransform(base_link_id, "map", ros::Time(0)).transform);
         m_current_pose = Pose(transform);
         computeArucoCorrectedOdom();
     }
@@ -110,10 +110,13 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
     //    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
-Core::Core(ros::NodeHandle& nh)
-  : m_tf_listener(m_tf_buffer)
+// Core::Core(ros::NodeHandle& nh, )
+Core::Core(ros::NodeHandle& nh, tf2_ros::Buffer* buff, tf2_ros::TransformListener* list)
+
+  : m_tf_listener(list)
   , m_nh(nh)
 {
+    // tf2_ros::TransformListener m_tf_listener;
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
 
@@ -181,19 +184,6 @@ Core::Core(ros::NodeHandle& nh)
     m_angular_speed = 0;
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
-
-    geometry_msgs::Pose init_base_link = geometry_msgs::Pose();
-    init_base_link.position.x = 0;
-    init_base_link.position.y = 0;
-    init_base_link.position.z = 0;
-    init_base_link.orientation.x = 0;
-    init_base_link.orientation.y = 0;
-    init_base_link.orientation.z = 0;
-    init_base_link.orientation.w = 1;
-    auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "odom");
-    auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
-
-    publishTf(init_base_link, aruco_raw_pose_id, base_link_id);
 }
 
 void Core::updateOdom(const nav_msgs::Odometry& odometry)
@@ -613,15 +603,15 @@ void Core::computeArucoCorrectedOdom()
     auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
 
     geometry_msgs::TransformStamped arucoPose
-      = m_tf_buffer.lookupTransform(odom_id, aruco_raw_pose_id, ros::Time(0), ros::Duration(1.0));
+      = m_tf_buffer->lookupTransform(odom_id, aruco_raw_pose_id, ros::Time(0), ros::Duration(1.0));
 
     auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
-    auto deltaOdom = m_tf_buffer.lookupTransform(base_link_id,
-                                                 arucoPose.header.stamp,
-                                                 base_link_id,
-                                                 ros::Time::now(),
-                                                 "map",
-                                                 ros::Duration(1.0));
+    auto deltaOdom = m_tf_buffer->lookupTransform(base_link_id,
+                                                  arucoPose.header.stamp,
+                                                  base_link_id,
+                                                  ros::Time::now(),
+                                                  "map",
+                                                  ros::Duration(1.0));
 
     ROS_INFO_STREAM("ego_aruco_received. Movement since: x = "
                     << deltaOdom.transform.translation.x

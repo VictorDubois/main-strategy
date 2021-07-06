@@ -27,6 +27,30 @@ void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
     auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
     auto odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
     publishTf(odommsg.pose.pose, odom_id, base_link_id);
+
+    initRawAruco();
+}
+
+void OdometryTFPublisher::initRawAruco()
+{
+    if (m_raw_aruco_init_done)
+    {
+        return;
+    }
+    m_raw_aruco_init_done = true;
+
+    geometry_msgs::Pose init_raw_aruco_odom = geometry_msgs::Pose();
+    init_raw_aruco_odom.position.x = 0;
+    init_raw_aruco_odom.position.y = 0;
+    init_raw_aruco_odom.position.z = 0;
+    init_raw_aruco_odom.orientation.x = 0;
+    init_raw_aruco_odom.orientation.y = 0;
+    init_raw_aruco_odom.orientation.z = 0;
+    init_raw_aruco_odom.orientation.w = 1;
+    auto odom_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+    auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
+
+    publishTf(init_raw_aruco_odom, aruco_raw_pose_id, odom_id);
 }
 
 void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose,
