@@ -49,7 +49,8 @@ public:
         NORMAL
     };
 
-    Core(ros::NodeHandle& nh, tf2_ros::Buffer* buff, tf2_ros::TransformListener* list);
+    // Core(ros::NodeHandle& nh, tf2_ros::Buffer* buff, tf2_ros::TransformListener* list);
+    Core(ros::NodeHandle& nh);
     ~Core();
     int Setup();
     State Loop();
@@ -148,8 +149,8 @@ private:
     ros::Subscriber m_strat_movement_sub;
 
     // Transform
-    tf2_ros::Buffer* m_tf_buffer;
-    tf2_ros::TransformListener* m_tf_listener;
+    tf2_ros::Buffer m_tf_buffer;
+    tf2_ros::TransformListener m_tf_listener;
     tf::TransformBroadcaster m_tf_broadcaster;
     Transform m_map_to_baselink;
     Transform m_baselink_to_map;
