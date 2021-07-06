@@ -159,9 +159,14 @@ private:
 
     // Arcuo
     void updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> arucoPose, int id);
+    void computeArucoCorrectedOdom();
     void publishTf(const geometry_msgs::Pose& pose,
                    const std::string& frame_id,
                    const std::string& child_frame_id);
+    void publishTf(const geometry_msgs::Pose& pose,
+                   const std::string& frame_id,
+                   const std::string& child_frame_id,
+                   ros::Time a_time);
     std::map<int, ros::Subscriber> m_arucos_sub;
     std::array<geometry_msgs::PoseStamped, 10> m_arucos;
 };

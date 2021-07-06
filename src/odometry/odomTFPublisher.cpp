@@ -1,7 +1,8 @@
 #include "odometry/odomTFPublisher.h"
 
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
-  : m_nh(nh),m_odom_reset(false)
+  : m_nh(nh)
+  , m_odom_reset(false)
 {
     m_odom_sub = nh.subscribe("odom", 10, &OdometryTFPublisher::updateLightOdom, this);
 }
@@ -18,7 +19,8 @@ void OdometryTFPublisher::resetOdometry()
 
 void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
 {
-    if(!m_odom_reset){
+    if (!m_odom_reset)
+    {
         resetOdometry();
         return;
     }

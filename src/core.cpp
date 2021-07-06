@@ -28,6 +28,7 @@ void Core::updateCurrentPose()
         m_map_to_baselink = transformFromMsg(
           m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
         m_current_pose = Pose(transform);
+        computeArucoCorrectedOdom();
     }
     catch (tf2::TransformException& ex)
     {
@@ -180,6 +181,19 @@ Core::Core(ros::NodeHandle& nh)
     m_angular_speed = 0;
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
+
+    geometry_msgs::Pose init_base_link = geometry_msgs::Pose();
+    init_base_link.position.x = 0;
+    init_base_link.position.y = 0;
+    init_base_link.position.z = 0;
+    init_base_link.orientation.x = 0;
+    init_base_link.orientation.y = 0;
+    init_base_link.orientation.z = 0;
+    init_base_link.orientation.w = 1;
+    auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+    auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
+
+    publishTf(init_base_link, aruco_raw_pose_id, base_link_id);
 }
 
 void Core::updateOdom(const nav_msgs::Odometry& odometry)
@@ -562,29 +576,48 @@ void Core::publishTf(const geometry_msgs::Pose& pose,
                      const std::string& frame_id,
                      const std::string& child_frame_id)
 {
-    // first, we'll publish the transform over tf
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.stamp = ros::Time::now();
-    odom_trans.header.frame_id = frame_id;
-    odom_trans.child_frame_id = child_frame_id;
+    publishTf(pose, frame_id, child_frame_id, ros::Time::now());
+}
 
-    odom_trans.transform.translation.x = pose.position.x;
-    odom_trans.transform.translation.y = pose.position.y;
-    odom_trans.transform.translation.z = pose.position.z;
-    odom_trans.transform.rotation = pose.orientation;
+void Core::publishTf(const geometry_msgs::Pose& pose,
+                     const std::string& frame_id,
+                     const std::string& child_frame_id,
+                     ros::Time a_time)
+{
+    // first, we'll publish the transform over tf
+    geometry_msgs::TransformStamped transform;
+    transform.header.stamp = a_time;
+    transform.header.frame_id = frame_id;
+    transform.child_frame_id = child_frame_id;
+
+    transform.transform.translation.x = pose.position.x;
+    transform.transform.translation.y = pose.position.y;
+    transform.transform.translation.z = pose.position.z;
+    transform.transform.rotation = pose.orientation;
 
     // send the transform
-    m_tf_broadcaster.sendTransform(odom_trans);
+    m_tf_broadcaster.sendTransform(transform);
 }
 
 void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> arucoPose, int id)
 {
-    m_arucos[id] = *arucoPose;
+    m_arucos[0] = *arucoPose;
 
-    publishTf(arucoPose->pose, "/aruco", "/aruco_raw_pose");
+    auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
+    publishTf(arucoPose->pose, "/aruco", aruco_raw_pose_id, arucoPose->header.stamp);
+}
+
+void Core::computeArucoCorrectedOdom()
+{
+    auto odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+    auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
+
+    geometry_msgs::TransformStamped arucoPose
+      = m_tf_buffer.lookupTransform(odom_id, aruco_raw_pose_id, ros::Time(0), ros::Duration(1.0));
+
     auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
     auto deltaOdom = m_tf_buffer.lookupTransform(base_link_id,
-                                                 arucoPose->header.stamp,
+                                                 arucoPose.header.stamp,
                                                  base_link_id,
                                                  ros::Time::now(),
                                                  "map",
@@ -597,21 +630,21 @@ void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> aruco
                     << ", QuatX = " << deltaOdom.transform.rotation.x
                     << ", QuatY = " << deltaOdom.transform.rotation.y
                     << ", QuatZ = " << deltaOdom.transform.rotation.z << std::endl);
-    auto corrected_pose = arucoPose->pose;
+    auto corrected_pose = geometry_msgs::Pose();
     tf2::Quaternion quat_tf_odom;
     tf2::fromMsg(deltaOdom.transform.rotation, quat_tf_odom);
     double roll, pitch, yaw_odom;
     tf2::Matrix3x3(quat_tf_odom).getRPY(roll, pitch, yaw_odom);
 
-    corrected_pose.position.x = arucoPose->pose.position.x
+    corrected_pose.position.x = arucoPose.transform.translation.x
                                 + deltaOdom.transform.translation.x * cos(yaw_odom)
                                 - deltaOdom.transform.translation.y * sin(yaw_odom);
-    corrected_pose.position.y = arucoPose->pose.position.y
+    corrected_pose.position.y = arucoPose.transform.translation.y
                                 + deltaOdom.transform.translation.x * sin(yaw_odom)
                                 + deltaOdom.transform.translation.y * cos(yaw_odom);
 
     tf2::Quaternion quat_tf_aruco;
-    tf2::fromMsg(arucoPose->pose.orientation, quat_tf_aruco);
+    tf2::fromMsg(arucoPose.transform.rotation, quat_tf_aruco);
 
     tf2::Quaternion quat_tf_corrected;
 
@@ -622,5 +655,7 @@ void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> aruco
     ROS_INFO_STREAM("corrected position: x = " << corrected_pose.position.x << ", y = "
                                                << corrected_pose.position.y << std::endl);
 
-    publishTf(corrected_pose, "/aruco", "/corrected_odom");
+    publishTf(corrected_pose, odom_id, "/corrected_odom");
+
+    // m_current_pose = corrected_pose;
 }
