@@ -503,7 +503,7 @@ void Core::limitLinearSpeedCmdByGoal()
     if (m_strat_movement_parameters.max_speed_at_arrival > 0.01f)
     {
         max_acceleration = Acceleration(0.65f); // m*s-2
-        max_deceleration = Acceleration(0.65f); // m*s-2
+        max_deceleration = Acceleration(0.45f); // m*s-2
     }
 
     Vitesse new_speed_order = Vitesse(0); // m/s
