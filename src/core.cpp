@@ -227,7 +227,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     if (clamp_mode())
     {
-        new_parameters.max_current = 0.7f;
+        new_parameters.max_current = 0.9f;
         new_parameters.max_current_left = 2;
         new_parameters.max_current_right = 2;
     }
