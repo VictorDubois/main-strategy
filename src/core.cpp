@@ -21,13 +21,15 @@ void Core::updateCurrentPose()
     try
     {
 
-        auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+        /*auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
         const auto& transform
           = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
         m_baselink_to_map = transformFromMsg(transform);
         m_map_to_baselink = transformFromMsg(
           m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
-        m_current_pose = Pose(transform);
+        m_current_pose = Pose(transform);*/
+
+        correctOdom();
     }
     catch (tf2::TransformException& ex)
     {
@@ -112,6 +114,7 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
 Core::Core(ros::NodeHandle& nh)
   : m_tf_listener(m_tf_buffer)
   , m_nh(nh)
+  , m_aruco_init(false)
 {
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
@@ -579,16 +582,34 @@ void Core::publishTf(const geometry_msgs::Pose& pose,
 
 void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> arucoPose, int id)
 {
-    m_arucos[id] = *arucoPose;
+    m_arucos[0] = *arucoPose;
 
+    m_aruco_init = true;
     publishTf(arucoPose->pose, "/aruco", "/aruco_raw_pose");
+}
+
+void Core::correctOdom()
+{
     auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+
+    const auto& transform
+      = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
+    m_current_pose = Pose(transform);
+    if (!m_aruco_init)
+    {
+        /*const auto& transform
+          = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
+        m_current_pose = Pose(transform);*/
+        return;
+    }
+    geometry_msgs::PoseStamped* arucoPose = &m_arucos[0];
+
     auto deltaOdom = m_tf_buffer.lookupTransform(base_link_id,
                                                  arucoPose->header.stamp,
                                                  base_link_id,
                                                  ros::Time::now(),
                                                  "map",
-                                                 ros::Duration(1.0));
+                                                 ros::Duration(0.02));
 
     ROS_INFO_STREAM("ego_aruco_received. Movement since: x = "
                     << deltaOdom.transform.translation.x

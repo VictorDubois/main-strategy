@@ -164,4 +164,7 @@ private:
                    const std::string& child_frame_id);
     std::map<int, ros::Subscriber> m_arucos_sub;
     std::array<geometry_msgs::PoseStamped, 10> m_arucos;
+
+    void correctOdom();
+    bool m_aruco_init;
 };
