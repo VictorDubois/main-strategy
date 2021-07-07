@@ -3,6 +3,7 @@
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
   , m_odom_reset(false)
+  , m_raw_aruco_init_done(false)
 {
     m_odom_sub = nh.subscribe("odom", 10, &OdometryTFPublisher::updateLightOdom, this);
 }
@@ -33,24 +34,36 @@ void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
 
 void OdometryTFPublisher::initRawAruco()
 {
-    if (m_raw_aruco_init_done)
+    /*if (m_raw_aruco_init_done)
     {
         return;
+    }*/
+
+    try
+    {
+        ROS_WARN("Trying to init raw aruco");
+
+        geometry_msgs::Pose init_raw_aruco_odom = geometry_msgs::Pose();
+        init_raw_aruco_odom.position.x = 0;
+        init_raw_aruco_odom.position.y = 0;
+        init_raw_aruco_odom.position.z = 0;
+        init_raw_aruco_odom.orientation.x = 0;
+        init_raw_aruco_odom.orientation.y = 0;
+        init_raw_aruco_odom.orientation.z = 0;
+        init_raw_aruco_odom.orientation.w = 1;
+        auto odom_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+        auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
+
+        publishTf(init_raw_aruco_odom, aruco_raw_pose_id, odom_id);
+
+        m_raw_aruco_init_done = true;
+
+        ROS_WARN("RAW ARUCO INIT DONE!!!");
     }
-    m_raw_aruco_init_done = true;
-
-    geometry_msgs::Pose init_raw_aruco_odom = geometry_msgs::Pose();
-    init_raw_aruco_odom.position.x = 0;
-    init_raw_aruco_odom.position.y = 0;
-    init_raw_aruco_odom.position.z = 0;
-    init_raw_aruco_odom.orientation.x = 0;
-    init_raw_aruco_odom.orientation.y = 0;
-    init_raw_aruco_odom.orientation.z = 0;
-    init_raw_aruco_odom.orientation.w = 1;
-    auto odom_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
-    auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
-
-    publishTf(init_raw_aruco_odom, aruco_raw_pose_id, odom_id);
+    catch (tf2::TransformException& ex)
+    {
+        ROS_WARN("FAIL during aruco_raw_pose_init: %s", ex.what());
+    }
 }
 
 void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose,

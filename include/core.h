@@ -170,4 +170,6 @@ private:
                    ros::Time a_time);
     std::map<int, ros::Subscriber> m_arucos_sub;
     std::array<geometry_msgs::PoseStamped, 10> m_arucos;
+    bool m_raw_aruco_init_done;
+    void initRawAruco();
 };

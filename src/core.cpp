@@ -28,6 +28,9 @@ void Core::updateCurrentPose()
         m_map_to_baselink = transformFromMsg(
           m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
         m_current_pose = Pose(transform);
+
+        initRawAruco();
+
         try
         {
             computeArucoCorrectedOdom();
@@ -123,6 +126,7 @@ Core::Core(ros::NodeHandle& nh)
   //: m_tf_listener(list)
   : m_tf_listener(m_tf_buffer)
   , m_nh(nh)
+  , m_raw_aruco_init_done(false)
 {
     // tf2_ros::TransformListener m_tf_listener;
     m_goal_pose = Pose();
@@ -656,4 +660,38 @@ void Core::computeArucoCorrectedOdom()
     publishTf(corrected_pose, odom_id, "/corrected_odom");
 
     // m_current_pose = corrected_pose;
+}
+
+void Core::initRawAruco()
+{
+    if (m_raw_aruco_init_done)
+    {
+        return;
+    }
+
+    try
+    {
+        ROS_WARN("Trying to init raw aruco");
+
+        geometry_msgs::Pose init_raw_aruco_odom = geometry_msgs::Pose();
+        init_raw_aruco_odom.position.x = 0;
+        init_raw_aruco_odom.position.y = 0;
+        init_raw_aruco_odom.position.z = 0;
+        init_raw_aruco_odom.orientation.x = 0;
+        init_raw_aruco_odom.orientation.y = 0;
+        init_raw_aruco_odom.orientation.z = 0;
+        init_raw_aruco_odom.orientation.w = 1;
+        auto odom_id = tf::resolve(ros::this_node::getNamespace(), "aruco");
+        auto aruco_raw_pose_id = tf::resolve(ros::this_node::getNamespace(), "aruco_raw_pose");
+
+        publishTf(init_raw_aruco_odom, aruco_raw_pose_id, odom_id);
+
+        m_raw_aruco_init_done = true;
+
+        ROS_WARN("RAW ARUCO INIT DONE!!!");
+    }
+    catch (tf2::TransformException& ex)
+    {
+        ROS_WARN("FAIL during aruco_raw_pose_init: %s", ex.what());
+    }
 }
