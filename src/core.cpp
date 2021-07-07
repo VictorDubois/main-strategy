@@ -621,18 +621,19 @@ void Core::correctOdom()
     auto corrected_pose = arucoPose->pose;
     tf2::Quaternion quat_tf_odom;
     tf2::fromMsg(deltaOdom.transform.rotation, quat_tf_odom);
-    double roll, pitch, yaw_odom;
+    double roll, pitch, yaw_odom, yaw_aruco;
     tf2::Matrix3x3(quat_tf_odom).getRPY(roll, pitch, yaw_odom);
-
-    corrected_pose.position.x = arucoPose->pose.position.x
-                                + deltaOdom.transform.translation.x * cos(yaw_odom)
-                                - deltaOdom.transform.translation.y * sin(yaw_odom);
-    corrected_pose.position.y = arucoPose->pose.position.y
-                                + deltaOdom.transform.translation.x * sin(yaw_odom)
-                                + deltaOdom.transform.translation.y * cos(yaw_odom);
 
     tf2::Quaternion quat_tf_aruco;
     tf2::fromMsg(arucoPose->pose.orientation, quat_tf_aruco);
+    tf2::Matrix3x3(quat_tf_aruco).getRPY(roll, pitch, yaw_aruco);
+
+    corrected_pose.position.x = arucoPose->pose.position.x
+                                + deltaOdom.transform.translation.x * cos(yaw_aruco)
+                                - deltaOdom.transform.translation.y * sin(yaw_aruco);
+    corrected_pose.position.y = arucoPose->pose.position.y
+                                + deltaOdom.transform.translation.x * sin(yaw_aruco)
+                                + deltaOdom.transform.translation.y * cos(yaw_aruco);
 
     tf2::Quaternion quat_tf_corrected;
 
