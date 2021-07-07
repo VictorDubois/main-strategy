@@ -18,9 +18,10 @@
 
 void Core::updateCurrentPose()
 {
+
     try
     {
-
+        auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
         /*auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
         const auto& transform
           = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
@@ -30,6 +31,32 @@ void Core::updateCurrentPose()
         m_current_pose = Pose(transform);*/
 
         correctOdom();
+
+        auto odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+        auto corrected_base_link_id
+          = tf::resolve(ros::this_node::getNamespace(), "corrected_base_link");
+        auto corrected_base_link_in_odom = m_tf_buffer.lookupTransform(
+          corrected_base_link_id, "map", ros::Time(0), ros::Duration(0.02));
+
+        ROS_INFO_STREAM("corrected_base_link: x = "
+                        << corrected_base_link_in_odom.transform.translation.x
+                        << ", y = " << corrected_base_link_in_odom.transform.translation.y
+                        << ", QuatW = " << corrected_base_link_in_odom.transform.rotation.w
+                        << ", QuatX = " << corrected_base_link_in_odom.transform.rotation.x
+                        << ", QuatY = " << corrected_base_link_in_odom.transform.rotation.y
+                        << ", QuatZ = " << corrected_base_link_in_odom.transform.rotation.z
+                        << std::endl);
+
+        auto base_link_in_odom
+          = m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0), ros::Duration(0.02));
+
+        ROS_INFO_STREAM("base_link: x = " << base_link_in_odom.transform.translation.x
+                                          << ", y = " << base_link_in_odom.transform.translation.y
+                                          << ", QuatW = " << base_link_in_odom.transform.rotation.w
+                                          << ", QuatX = " << base_link_in_odom.transform.rotation.x
+                                          << ", QuatY = " << base_link_in_odom.transform.rotation.y
+                                          << ", QuatZ = " << base_link_in_odom.transform.rotation.z
+                                          << std::endl);
     }
     catch (tf2::TransformException& ex)
     {
@@ -591,15 +618,12 @@ void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> aruco
 void Core::correctOdom()
 {
     auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
-
     const auto& transform
       = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
     m_current_pose = Pose(transform);
     if (!m_aruco_init)
     {
-        /*const auto& transform
-          = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
-        m_current_pose = Pose(transform);*/
+
         return;
     }
     geometry_msgs::PoseStamped* arucoPose = &m_arucos[0];
@@ -644,5 +668,7 @@ void Core::correctOdom()
     ROS_INFO_STREAM("corrected position: x = " << corrected_pose.position.x << ", y = "
                                                << corrected_pose.position.y << std::endl);
 
-    publishTf(corrected_pose, "/aruco", "/corrected_odom");
+    auto corrected_base_link_id
+      = tf::resolve(ros::this_node::getNamespace(), "corrected_base_link");
+    publishTf(corrected_pose, "/aruco", corrected_base_link_id);
 }
