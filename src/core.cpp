@@ -245,6 +245,11 @@ bool Core::orienting()
     return m_strat_movement_parameters.orient == 1;
 }
 
+bool Core::stop_angular()
+{
+    return m_strat_movement_parameters.orient == 4;
+}
+
 bool Core::recalage_bordure()
 {
     return m_strat_movement_parameters.orient == 2;
@@ -373,7 +378,7 @@ Core::State Core::Loop()
             ROS_INFO_STREAM("linear speed disabled");
         }
 
-        if (DISABLE_ANGULAR_SPEED || recalage_bordure())
+        if (DISABLE_ANGULAR_SPEED || recalage_bordure() || stop_angular())
         {
             m_angular_speed_cmd = 0;
             ROS_INFO_STREAM("angular speed disabled");
