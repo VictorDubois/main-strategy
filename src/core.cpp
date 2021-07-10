@@ -220,16 +220,16 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     if (recalage_bordure())
     {
-        new_parameters.max_current = 1;
+        new_parameters.max_current = 2.5f;
         new_parameters.max_current_left = 0.4f;
         new_parameters.max_current_right = 0.4f;
     }
 
     if (clamp_mode())
     {
-        new_parameters.max_current = 0.9f;
-        new_parameters.max_current_left = 2;
-        new_parameters.max_current_right = 2;
+        new_parameters.max_current = 2.1f;
+        new_parameters.max_current_left = 3;
+        new_parameters.max_current_right = 3;
     }
 
     m_motors_parameters_pub.publish(new_parameters);
@@ -378,7 +378,7 @@ Core::State Core::Loop()
             ROS_INFO_STREAM("linear speed disabled");
         }
 
-        if (DISABLE_ANGULAR_SPEED || recalage_bordure() || stop_angular())
+        if (DISABLE_ANGULAR_SPEED || stop_angular())
         {
             m_angular_speed_cmd = 0;
             ROS_INFO_STREAM("angular speed disabled");
