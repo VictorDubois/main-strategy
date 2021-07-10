@@ -220,7 +220,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     if (recalage_bordure())
     {
-        new_parameters.max_current = 1;
+        new_parameters.max_current = 3;
         new_parameters.max_current_left = 0.4f;
         new_parameters.max_current_right = 0.4f;
     }
