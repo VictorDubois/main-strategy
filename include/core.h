@@ -17,6 +17,7 @@
 #include <krabi_msgs/motors.h>
 #include <krabi_msgs/odom_light.h>
 #include <krabi_msgs/strat_movement.h>
+#include <krabi_msgs/motors_distance_asserv.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
 
@@ -125,6 +126,7 @@ private:
     float m_angular_landscape[NB_NEURONS] = { 0. };
     boost::optional<ros::Time> m_begin_match;
     Pose m_goal_pose;
+    geometry_msgs::PoseStamped m_goal_pose_stamped;
     Distance m_distance_to_goal;
     bool m_reverse_gear_activated;
     float m_speed_inhibition_from_obstacle;
@@ -138,6 +140,7 @@ private:
     ros::Publisher m_motors_enable_pub;
     ros::Publisher m_motors_parameters_pub;
     ros::Publisher m_chrono_pub;
+    ros::Publisher m_distance_asserv_pub;
 
     // Subscriber
     ros::Subscriber m_odometry_sub;

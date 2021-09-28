@@ -106,6 +106,7 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
 {
     m_strat_movement_parameters = move;
     m_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
+    m_goal_pose_stamped = m_strat_movement_parameters.goal_pose;
     //    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
@@ -126,6 +127,7 @@ Core::Core(ros::NodeHandle& nh)
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
     m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
+    m_distance_asserv_pub = m_nh.advertise<krabi_msgs::motors_distance_asserv>("motors_distance_asserv", 5);
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
     m_lidar_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
@@ -208,6 +210,17 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
     new_motor_cmd.angular.z = angularSpeed;
 
+    const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+    const auto l_map_id = tf::resolve(ros::this_node::getNamespace(), "/map");
+    geometry_msgs::TransformStamped l_map_to_odom = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
+    geometry_msgs::PoseStamped l_goal_pose_in_odom;
+    tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
+
+    krabi_msgs::motors_distance_asserv l_distance_asserv_msg;
+    l_distance_asserv_msg.use_distance_asserv = true;
+    l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
+    l_distance_asserv_msg.max_speed_at_arrival = m_strat_movement_parameters.max_speed_at_arrival;
+    m_distance_asserv_pub.publish(l_distance_asserv_msg);
     m_motors_cmd_pub.publish(new_motor_cmd);
     std_msgs::Bool new_enable_cmd;
     new_enable_cmd.data = enable;
