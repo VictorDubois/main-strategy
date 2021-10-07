@@ -210,15 +210,27 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
     new_motor_cmd.angular.z = angularSpeed;
 
-    const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
-    const auto l_map_id = tf::resolve(ros::this_node::getNamespace(), "/map");
-    geometry_msgs::TransformStamped l_map_to_odom = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
-    geometry_msgs::PoseStamped l_goal_pose_in_odom;
-    tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
-
     krabi_msgs::motors_distance_asserv l_distance_asserv_msg;
     l_distance_asserv_msg.use_distance_asserv = true;
-    l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
+    l_distance_asserv_msg.goal_pose = geometry_msgs::PoseStamped();
+
+    const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+    const auto l_map_id = tf::resolve(ros::this_node::getNamespace(), "/map");
+
+    try {
+        geometry_msgs::TransformStamped l_map_to_odom = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
+        geometry_msgs::PoseStamped l_goal_pose_in_odom;
+        tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
+        l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
+        //ROS_WARN_STREAM("goal in map : " << m_goal_pose_stamped.pose.position.x << ", " << m_goal_pose_stamped.pose.position.y);
+        //ROS_WARN_STREAM("goal in odom : " << l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
+    }
+    catch (tf2::LookupException)
+    {
+        ROS_WARN("Unable to find a transform from /map to odom, disabling distance asserv");
+        l_distance_asserv_msg.use_distance_asserv = false;
+    }
+
     l_distance_asserv_msg.max_speed_at_arrival = m_strat_movement_parameters.max_speed_at_arrival;
     m_distance_asserv_pub.publish(l_distance_asserv_msg);
     m_motors_cmd_pub.publish(new_motor_cmd);
