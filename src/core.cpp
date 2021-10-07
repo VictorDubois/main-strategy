@@ -3,7 +3,7 @@
 #include <std_msgs/Duration.h>
 #include <stdexcept>
 
-#define MAX_ALLOWED_ANGULAR_SPEED 1.f
+#define MAX_ALLOWED_ANGULAR_SPEED 2.f // rad/s
 
 #include "lidarStrat.h"
 #define UPDATE_RATE 10
