@@ -3,7 +3,8 @@
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh),m_odom_reset(false)
 {
-    m_odom_sub = nh.subscribe("odom", 10, &OdometryTFPublisher::updateLightOdom, this);
+    m_odom_sub = nh.subscribe("odom_light", 10, &OdometryTFPublisher::updateLightOdom, this);
+    m_odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
 }
 
 void OdometryTFPublisher::resetOdometry()
@@ -16,7 +17,20 @@ void OdometryTFPublisher::resetOdometry()
     resetOdometry(init_x, init_y, init_theta);
 }
 
-void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
+/**
+ * @brief OdometryTFPublisher::publishOdom publish a full-fledged odom message. It takes too long for rosserial to publish it directly
+ * @param odom_light_msg the partial message published by rosserial
+ */
+void OdometryTFPublisher::publishOdom(krabi_msgs::odom_light odom_light_msg)
+{
+    nav_msgs::Odometry odom_msg = nav_msgs::Odometry();
+    odom_msg.pose.pose = odom_light_msg.pose;
+    odom_msg.twist.twist = odom_light_msg.speed;
+    odom_msg.header.stamp = odom_light_msg.header.stamp;
+    m_odom_pub.publish(odom_msg);
+}
+
+void OdometryTFPublisher::updateLightOdom(krabi_msgs::odom_light odommsg)
 {
     if(!m_odom_reset){
         resetOdometry();
@@ -24,7 +38,8 @@ void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
     }
     auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
     auto odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
-    publishTf(odommsg.pose.pose, odom_id, base_link_id);
+    publishTf(odommsg.pose, odom_id, base_link_id);
+    publishOdom(odommsg);
 }
 
 void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose,
