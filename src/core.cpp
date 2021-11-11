@@ -127,7 +127,8 @@ Core::Core(ros::NodeHandle& nh)
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
     m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
-    m_distance_asserv_pub = m_nh.advertise<krabi_msgs::motors_distance_asserv>("motors_distance_asserv", 5);
+    m_distance_asserv_pub
+      = m_nh.advertise<krabi_msgs::motors_distance_asserv>("motors_distance_asserv", 5);
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
     m_lidar_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
@@ -201,6 +202,26 @@ void Core::setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed)
     setMotorsSpeed(linearSpeed, angularSpeed, true, false);
 }
 
+double Core::getReach(const std::string& end_point_frame_id)
+{
+    try
+    {
+        auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+        const geometry_msgs::Transform& transform
+          = m_tf_buffer.lookupTransform(end_point_frame_id, base_link_id, ros::Time(0)).transform;
+
+        return static_cast<double>(sqrt(transform.translation.x * transform.translation.x
+                                        + transform.translation.y * transform.translation.y
+                                        + transform.translation.z * transform.translation.z));
+    }
+    catch (tf2::TransformException& ex)
+    {
+        ROS_WARN("Error while getting reach: %s", ex.what());
+
+        return Distance(0);
+    }
+}
+
 void Core::setMotorsSpeed(Vitesse linearSpeed,
                           VitesseAngulaire angularSpeed,
                           bool enable,
@@ -217,13 +238,16 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
     const auto l_map_id = tf::resolve(ros::this_node::getNamespace(), "/map");
 
-    try {
-        geometry_msgs::TransformStamped l_map_to_odom = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
+    try
+    {
+        geometry_msgs::TransformStamped l_map_to_odom
+          = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
         geometry_msgs::PoseStamped l_goal_pose_in_odom;
         tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
         l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
-        //ROS_WARN_STREAM("goal in map : " << m_goal_pose_stamped.pose.position.x << ", " << m_goal_pose_stamped.pose.position.y);
-        //ROS_WARN_STREAM("goal in odom : " << l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
+        // ROS_WARN_STREAM("goal in map : " << m_goal_pose_stamped.pose.position.x << ", " <<
+        // m_goal_pose_stamped.pose.position.y); ROS_WARN_STREAM("goal in odom : " <<
+        // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
     }
     catch (tf2::LookupException)
     {
@@ -232,6 +256,9 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     }
 
     l_distance_asserv_msg.max_speed_at_arrival = m_strat_movement_parameters.max_speed_at_arrival;
+
+    l_distance_asserv_msg.reach = getReach(m_strat_movement_parameters.endpoint_frame_id);
+
     m_distance_asserv_pub.publish(l_distance_asserv_msg);
     m_motors_cmd_pub.publish(new_motor_cmd);
     std_msgs::Bool new_enable_cmd;
@@ -554,17 +581,20 @@ void Core::limitLinearSpeedCmdByGoal()
       2 * m_linear_speed + Vitesse((max_acceleration / 2. + max_deceleration / 2.) / UPDATE_RATE));
     Distance extra_distance = Distance(average_extra_speed / float(UPDATE_RATE));
 
-    if (m_distance_to_goal < distance_to_stop)
+    Distance l_distance_to_goal
+      = Distance(m_distance_to_goal - getReach(m_strat_movement_parameters.endpoint_frame_id));
+
+    if (l_distance_to_goal < distance_to_stop)
     {
         ROS_INFO_STREAM("decelerate");
         new_speed_order = m_linear_speed - max_deceleration / float(UPDATE_RATE);
     }
-    else if (m_distance_to_goal < m_linear_speed / float(UPDATE_RATE))
+    else if (l_distance_to_goal < m_linear_speed / float(UPDATE_RATE))
     {
         ROS_INFO_STREAM("EMERGENCY BRAKE");
         new_speed_order = 0;
     }
-    else if (m_distance_to_goal > distance_to_stop + extra_distance)
+    else if (l_distance_to_goal > distance_to_stop + extra_distance)
     {
         ROS_INFO_STREAM("accelerate");
         new_speed_order = m_linear_speed + max_acceleration / float(UPDATE_RATE);

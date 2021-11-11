@@ -15,9 +15,9 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3.h>
 #include <krabi_msgs/motors.h>
+#include <krabi_msgs/motors_distance_asserv.h>
 #include <krabi_msgs/odom_light.h>
 #include <krabi_msgs/strat_movement.h>
-#include <krabi_msgs/motors_distance_asserv.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
 
@@ -99,6 +99,8 @@ private:
     bool recalage_bordure();
     bool clamp_mode();
     bool stop_angular();
+
+    double getReach(const std::string& end_point_frame_id);
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
