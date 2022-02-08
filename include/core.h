@@ -141,6 +141,7 @@ private:
     ros::Publisher m_motors_cmd_pub;
     ros::Publisher m_motors_enable_pub;
     ros::Publisher m_motors_parameters_pub;
+    ros::Publisher m_motors_pwm_pub;
     ros::Publisher m_chrono_pub;
     ros::Publisher m_distance_asserv_pub;
 

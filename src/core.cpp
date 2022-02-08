@@ -126,6 +126,8 @@ Core::Core(ros::NodeHandle& nh)
     m_motors_cmd_pub = m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
     m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
+    m_motors_pwm_pub = m_nh.advertise<krabi_msgs::motors_cmd>("motors_cmd", 5);
+
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
       = m_nh.advertise<krabi_msgs::motors_distance_asserv>("motors_distance_asserv", 5);
@@ -265,16 +267,24 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_enable_cmd.data = enable;
     m_motors_enable_pub.publish(new_enable_cmd);
 
+    krabi_msgs::motors_cmd new_motors_pwm_cmd;
     krabi_msgs::motors_parameters new_parameters;
     new_parameters.max_current = 0.5f;
     new_parameters.max_current_left = 2;
     new_parameters.max_current_right = 2;
+    new_motors_pwm_cmd.enable_motors = true;
+    new_motors_pwm_cmd.override_PWM = false;
+    new_motors_pwm_cmd.reset_encoders = false;
 
     if (recalage_bordure())
     {
         new_parameters.max_current = 2.5f;
         new_parameters.max_current_left = 0.4f;
         new_parameters.max_current_right = 0.4f;
+        new_motors_pwm_cmd.enable_motors = true;
+        new_motors_pwm_cmd.override_PWM = true;
+        new_motors_pwm_cmd.PWM_override_left = 20;
+        new_motors_pwm_cmd.PWM_override_right = 20;
     }
 
     if (clamp_mode())
@@ -285,6 +295,8 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     }
 
     m_motors_parameters_pub.publish(new_parameters);
+
+    m_motors_pwm_pub.publish(new_motors_pwm_cmd);
 }
 
 bool Core::reverseGear()
