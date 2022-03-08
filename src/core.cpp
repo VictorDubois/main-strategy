@@ -285,6 +285,11 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
         new_motors_pwm_cmd.override_PWM = true;
         new_motors_pwm_cmd.PWM_override_left = 20;
         new_motors_pwm_cmd.PWM_override_right = 20;
+        if (reverseGear())
+        {
+            new_motors_pwm_cmd.PWM_override_left = -new_motors_pwm_cmd.PWM_override_left;
+            new_motors_pwm_cmd.PWM_override_right = -new_motors_pwm_cmd.PWM_override_right;
+        }
     }
 
     if (clamp_mode())
