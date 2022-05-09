@@ -99,7 +99,7 @@ void Core::addObstacle(PolarPosition obstacle)
 
 void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
 {
-    m_reverse_gear_activated = a_reverse_gear_activated.data;
+    m_reverse_gear_activated = a_reverse_gear_activated.data == 1;
 }
 
 void Core::updateStratMovement(krabi_msgs::strat_movement move)
