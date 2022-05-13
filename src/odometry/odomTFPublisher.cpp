@@ -1,9 +1,12 @@
 #include "odometry/odomTFPublisher.h"
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
-  : m_nh(nh),m_odom_reset(false)
+  : m_nh(nh)
+  , m_odom_reset(false)
 {
     m_odom_sub = nh.subscribe("odom", 10, &OdometryTFPublisher::updateLightOdom, this);
+    m_init_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("initial_pose", 5, true);
 }
 
 void OdometryTFPublisher::resetOdometry()
@@ -13,12 +16,26 @@ void OdometryTFPublisher::resetOdometry()
     m_nh.param<float>("init_pose/y", init_y, 0);
     m_nh.param<float>("init_pose/theta", init_theta, 0);
 
+    geometry_msgs::PoseStamped init_pose_msg = geometry_msgs::PoseStamped();
+    init_pose_msg.pose.position.x = init_x;
+    init_pose_msg.pose.position.y = init_y;
+    init_pose_msg.pose.position.z = 0;
+    tf2::Quaternion quat_tf_orientation;
+    quat_tf_orientation.setRPY(0, 0, init_theta);
+    quat_tf_orientation.normalize();
+    geometry_msgs::Quaternion quat_msg;
+    quat_msg = tf2::toMsg(quat_tf_orientation);
+    init_pose_msg.pose.orientation = quat_msg;
+
+    m_init_pose_pub.publish(init_pose_msg);
+
     resetOdometry(init_x, init_y, init_theta);
 }
 
 void OdometryTFPublisher::updateLightOdom(nav_msgs::Odometry odommsg)
 {
-    if(!m_odom_reset){
+    if (!m_odom_reset)
+    {
         resetOdometry();
         return;
     }
