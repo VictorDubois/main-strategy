@@ -43,6 +43,8 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::odom_light odom_light_msg)
     odom_msg.pose.pose = odom_light_msg.pose;
     odom_msg.twist.twist = odom_light_msg.speed;
     odom_msg.header.stamp = odom_light_msg.header.stamp;
+    odom_msg.header.frame_id = "/krabby/odom";
+    odom_msg.child_frame_id = "/krabby/base_link";
     m_odom_pub.publish(odom_msg);
 }
 
