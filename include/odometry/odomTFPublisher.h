@@ -14,7 +14,9 @@ public:
     OdometryTFPublisher(ros::NodeHandle& nh);
 
 private:
-    void updateLightOdom(nav_msgs::Odometry motors_odom);
+    void updateLightOdom(krabi_msgs::odom_light odommsg);
+    void publishOdom(krabi_msgs::odom_light odommsg);
+
     void publishTf(const geometry_msgs::Pose& pose,
                    const std::string& frame_id,
                    const std::string& child_frame_id);
@@ -22,6 +24,7 @@ private:
     tf::TransformBroadcaster m_tf_broadcaster;
     ros::Subscriber m_odom_sub;
     ros::Publisher m_init_pose_pub;
+    ros::Publisher m_odom_pub;
     ros::NodeHandle& m_nh;
     bool m_odom_reset;
     void resetOdometry(float x, float y, float theta);
