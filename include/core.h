@@ -54,6 +54,7 @@ public:
     ~Core();
     int Setup();
     State Loop();
+    bool isOver();
 
 private:
     void selectColor();
