@@ -3,7 +3,7 @@
 #include <std_msgs/Duration.h>
 #include <stdexcept>
 
-#define MAX_ALLOWED_ANGULAR_SPEED 2.f // rad/s
+#define MAX_ALLOWED_ANGULAR_SPEED 1.f // rad/s
 
 #include "lidarStrat.h"
 #define UPDATE_RATE 10
@@ -212,6 +212,10 @@ void Core::setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed)
 
 double Core::getReach(const std::string& end_point_frame_id)
 {
+    if (end_point_frame_id == "")
+    {
+        return Distance(0);
+    }
     try
     {
         auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
