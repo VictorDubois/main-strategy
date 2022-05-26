@@ -288,7 +288,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     if (recalage_bordure())
     {
-        new_parameters.max_current = 2.5f;
+        new_parameters.max_current = 3.5f;
         new_parameters.max_current_left = 0.8f;
         new_parameters.max_current_right = 0.8f;
         new_motors_pwm_cmd.enable_motors = true;
