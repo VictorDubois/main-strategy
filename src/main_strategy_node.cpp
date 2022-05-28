@@ -23,5 +23,6 @@ int main(int argc, char* argv[])
     {
         loop_rate.sleep();
         ros::spinOnce();
+        my_core.Loop();
     }
 }

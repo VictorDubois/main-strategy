@@ -192,7 +192,7 @@ void Core::updateOdom(const nav_msgs::Odometry& odometry)
     m_linear_speed
       = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y, 0).length();
     m_angular_speed = odometry.twist.twist.angular.z;
-    Loop();
+    //Loop();
 }
 
 bool Core::isOver()
