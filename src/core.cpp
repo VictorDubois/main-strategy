@@ -285,7 +285,9 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motors_pwm_cmd.enable_motors = true;
     new_motors_pwm_cmd.reset_encoders = resetEncoders;
     new_motors_pwm_cmd.override_PWM = false;
-    new_motors_pwm_cmd.reset_encoders = false;
+    new_motors_pwm_cmd.PWM_override_left = 0;
+    new_motors_pwm_cmd.PWM_override_right = 0;
+
 
     if (recalage_bordure())
     {
