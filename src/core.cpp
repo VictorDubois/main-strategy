@@ -283,7 +283,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_parameters.max_current_left = 2;
     new_parameters.max_current_right = 2;
     new_motors_pwm_cmd.enable_motors = true;
-    new_motors_pwm_cmd.reset_encoders = reset_encoders;
+    new_motors_pwm_cmd.reset_encoders = resetEncoders;
     new_motors_pwm_cmd.override_PWM = false;
     new_motors_pwm_cmd.reset_encoders = false;
 
