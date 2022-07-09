@@ -248,10 +248,13 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     l_distance_asserv_msg.goal_pose = geometry_msgs::PoseStamped();
 
     const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
-    const auto l_map_id = tf::resolve(ros::this_node::getNamespace(), "/map");
+    const auto l_map_id = tf::resolve(ros::this_node::getNamespace(), "map");
 
     try
     {
+        if(m_tf_buffer.canTransform(l_map_id, l_odom_id, ros::Time(10)))
+	{
+		
         geometry_msgs::TransformStamped l_map_to_odom
           = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
         geometry_msgs::PoseStamped l_goal_pose_in_odom;
@@ -260,10 +263,15 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
         // ROS_WARN_STREAM("goal in map : " << m_goal_pose_stamped.pose.position.x << ", " <<
         // m_goal_pose_stamped.pose.position.y); ROS_WARN_STREAM("goal in odom : " <<
         // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
+	}
+	else {
+        	ROS_WARN("CanTransform said: Unable to find a transform from map to odom, disabling distance asserv");
+        	l_distance_asserv_msg.use_distance_asserv = false;
+	}
     }
     catch (tf2::LookupException)
     {
-        ROS_WARN("Unable to find a transform from /map to odom, disabling distance asserv");
+        ROS_WARN("Unable to find a transform from map to odom, disabling distance asserv");
         l_distance_asserv_msg.use_distance_asserv = false;
     }
 
@@ -282,7 +290,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_parameters.max_current = 0.5f;
     new_parameters.max_current_left = 2;
     new_parameters.max_current_right = 2;
-    new_motors_pwm_cmd.enable_motors = true;
+    new_motors_pwm_cmd.enable_motors = enable;
     new_motors_pwm_cmd.reset_encoders = resetEncoders;
     new_motors_pwm_cmd.override_PWM = false;
     new_motors_pwm_cmd.PWM_override_left = 0;
@@ -294,7 +302,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
         new_parameters.max_current = 2.5f;
         new_parameters.max_current_left = 0.4f;
         new_parameters.max_current_right = 0.4f;
-        new_motors_pwm_cmd.enable_motors = true;
+        new_motors_pwm_cmd.enable_motors = enable;
         new_motors_pwm_cmd.override_PWM = true;
         new_motors_pwm_cmd.PWM_override_left = 20;
         new_motors_pwm_cmd.PWM_override_right = 20;
