@@ -5,7 +5,7 @@ OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
   , m_odom_reset(false)
 {
-    m_init_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("initial_pose", 5, true);
+    m_init_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("initialpose", 5, true);
     m_odom_sub = nh.subscribe("odom_light", 10, &OdometryTFPublisher::updateLightOdom, this);
     m_odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
 }
