@@ -5,7 +5,7 @@ OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
   , m_odom_reset(false)
 {
-    m_init_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("initial_pose", 5, true);
+    m_init_pose_pub = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 5, true);
     m_odom_sub = nh.subscribe("odom_light", 10, &OdometryTFPublisher::updateLightOdom, this);
     m_odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
 }
@@ -17,16 +17,20 @@ void OdometryTFPublisher::resetOdometry()
     m_nh.param<float>("init_pose/y", init_y, 0);
     m_nh.param<float>("init_pose/theta", init_theta, 0);
 
-    geometry_msgs::PoseStamped init_pose_msg = geometry_msgs::PoseStamped();
-    init_pose_msg.pose.position.x = init_x;
-    init_pose_msg.pose.position.y = init_y;
-    init_pose_msg.pose.position.z = 0;
+    geometry_msgs::PoseWithCovarianceStamped init_pose_msg = geometry_msgs::PoseWithCovarianceStamped();
+    init_pose_msg.pose.pose.position.x = init_x;
+    init_pose_msg.pose.pose.position.y = init_y;
+    init_pose_msg.pose.pose.position.z = 0;
+    init_pose_msg.pose.covariance = {1, 1, 0, // X
+                                     1, 1, 0, // Y
+                                     0, 0, 0, // Z
+                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};//rotations 
     tf2::Quaternion quat_tf_orientation;
     quat_tf_orientation.setRPY(0, 0, init_theta);
     quat_tf_orientation.normalize();
     geometry_msgs::Quaternion quat_msg;
     quat_msg = tf2::toMsg(quat_tf_orientation);
-    init_pose_msg.pose.orientation = quat_msg;
+    init_pose_msg.pose.pose.orientation = quat_msg;
 
     m_init_pose_pub.publish(init_pose_msg);
 
