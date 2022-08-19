@@ -13,24 +13,32 @@ OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
 void OdometryTFPublisher::resetOdometry()
 {
     float init_x, init_y, init_theta;
-    m_nh.param<float>("init_pose/x", init_x, 0);
-    m_nh.param<float>("init_pose/y", init_y, 0);
-    m_nh.param<float>("init_pose/theta", init_theta, 0);
+    m_nh.param<float>("/init_pose/x", init_x, 0);
+    m_nh.param<float>("/init_pose/y", init_y, 0);
+    m_nh.param<float>("/init_pose/theta", init_theta, 0);
 
     geometry_msgs::PoseWithCovarianceStamped init_pose_msg = geometry_msgs::PoseWithCovarianceStamped();
     init_pose_msg.pose.pose.position.x = init_x;
     init_pose_msg.pose.pose.position.y = init_y;
     init_pose_msg.pose.pose.position.z = 0;
-    init_pose_msg.pose.covariance = {1, 1, 0, // X
-                                     1, 1, 0, // Y
-                                     0, 0, 0, // Z
-                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};//rotations 
+    init_pose_msg.pose.covariance = {0, 0, 0,
+                                     0, 0, 0,
+                                     0, 0, 0,
+                                     0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                                     0, 0, 0, 0, 0, 0, 0, 0, 0};
+    init_pose_msg.pose.covariance[0] = 0.1f;// X covariance
+    init_pose_msg.pose.covariance[7] = 0.1f;// Y covariance
+    init_pose_msg.pose.covariance[35] = 0.2;// Rz covariance
     tf2::Quaternion quat_tf_orientation;
     quat_tf_orientation.setRPY(0, 0, init_theta);
     quat_tf_orientation.normalize();
     geometry_msgs::Quaternion quat_msg;
     quat_msg = tf2::toMsg(quat_tf_orientation);
     init_pose_msg.pose.pose.orientation = quat_msg;
+
+    init_pose_msg.header.frame_id = "map";
+    init_pose_msg.header.stamp = ros::Time::now();
 
     m_init_pose_pub.publish(init_pose_msg);
 
