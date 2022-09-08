@@ -248,11 +248,12 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     l_distance_asserv_msg.goal_pose = geometry_msgs::PoseStamped();
 
     const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
-    const auto l_map_id = tf::resolve(ros::this_node::getNamespace(), "map");
+    const auto l_map_id = "map";
 
+    std::string l_error_message = "no error";
     try
     {
-        if(m_tf_buffer.canTransform(l_map_id, l_odom_id, ros::Time(10)))
+        if(m_tf_buffer.canTransform(l_map_id, l_odom_id, ros::Time(0), &l_error_message))
 	{
 		
         geometry_msgs::TransformStamped l_map_to_odom
@@ -265,7 +266,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
         // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
 	}
 	else {
-        	ROS_WARN("CanTransform said: Unable to find a transform from map to odom, disabling distance asserv");
+        	ROS_WARN_STREAM("CanTransform said: Unable to find a transform from " << l_map_id << " to " <<  l_odom_id << " (=map to odom), disabling distance asserv: " << l_error_message);
         	l_distance_asserv_msg.use_distance_asserv = false;
 	}
     }

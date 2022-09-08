@@ -2,6 +2,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <krabi_msgs/SetOdom.h>
 #include <krabi_msgs/odom_light.h>
+#include <krabi_msgs/odom_lighter.h>
 #include <krabilib/pose.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
@@ -15,7 +16,9 @@ public:
 
 private:
     void updateLightOdom(krabi_msgs::odom_light odommsg);
+    void updateLighterOdom(krabi_msgs::odom_lighter odommsg);
     void publishOdom(krabi_msgs::odom_light odommsg);
+    void publishOdom(krabi_msgs::odom_lighter odommsg, geometry_msgs::Pose odompose);
 
     void publishTf(const geometry_msgs::Pose& pose,
                    const std::string& frame_id,
@@ -23,6 +26,7 @@ private:
 
     tf::TransformBroadcaster m_tf_broadcaster;
     ros::Subscriber m_odom_sub;
+    ros::Subscriber m_odom_lighter_sub;
     ros::Publisher m_init_pose_pub;
     ros::Publisher m_odom_pub;
     ros::NodeHandle& m_nh;
