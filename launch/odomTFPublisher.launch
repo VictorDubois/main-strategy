@@ -8,6 +8,6 @@
     <param name="init_pose/theta" value="$(arg init_pose/theta)" />
 
     
-  <node name="main_strategy_node" pkg="main_strategy" type="odometry_node" ns="krabby" />
+  <node name="odom_tf_node" pkg="main_strategy" type="odometry_node" ns="krabby" />
 </launch>
 
