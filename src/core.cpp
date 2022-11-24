@@ -3,7 +3,7 @@
 #include <std_msgs/Duration.h>
 #include <stdexcept>
 
-#define MAX_ALLOWED_ANGULAR_SPEED 1.f // rad/s
+#define MAX_ALLOWED_ANGULAR_SPEED 5.f // rad/s
 
 #include "lidarStrat.h"
 #define UPDATE_RATE 10
@@ -192,7 +192,7 @@ void Core::updateOdom(const nav_msgs::Odometry& odometry)
     m_linear_speed
       = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y, 0).length();
     m_angular_speed = odometry.twist.twist.angular.z;
-    //Loop();
+    // Loop();
 }
 
 bool Core::isOver()
@@ -253,22 +253,25 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     std::string l_error_message = "no error";
     try
     {
-        if(m_tf_buffer.canTransform(l_map_id, l_odom_id, ros::Time(0), &l_error_message))
-	{
-		
-        geometry_msgs::TransformStamped l_map_to_odom
-          = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
-        geometry_msgs::PoseStamped l_goal_pose_in_odom;
-        tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
-        l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
-        // ROS_WARN_STREAM("goal in map : " << m_goal_pose_stamped.pose.position.x << ", " <<
-        // m_goal_pose_stamped.pose.position.y); ROS_WARN_STREAM("goal in odom : " <<
-        // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
-	}
-	else {
-        	ROS_WARN_STREAM("CanTransform said: Unable to find a transform from " << l_map_id << " to " <<  l_odom_id << " (=map to odom), disabling distance asserv: " << l_error_message);
-        	l_distance_asserv_msg.use_distance_asserv = false;
-	}
+        if (m_tf_buffer.canTransform(l_map_id, l_odom_id, ros::Time(0), &l_error_message))
+        {
+
+            geometry_msgs::TransformStamped l_map_to_odom
+              = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
+            geometry_msgs::PoseStamped l_goal_pose_in_odom;
+            tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
+            l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
+            // ROS_WARN_STREAM("goal in map : " << m_goal_pose_stamped.pose.position.x << ", " <<
+            // m_goal_pose_stamped.pose.position.y); ROS_WARN_STREAM("goal in odom : " <<
+            // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
+        }
+        else
+        {
+            ROS_WARN_STREAM("CanTransform said: Unable to find a transform from "
+                            << l_map_id << " to " << l_odom_id
+                            << " (=map to odom), disabling distance asserv: " << l_error_message);
+            l_distance_asserv_msg.use_distance_asserv = false;
+        }
     }
     catch (tf2::LookupException)
     {
@@ -288,7 +291,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     krabi_msgs::motors_cmd new_motors_pwm_cmd;
     krabi_msgs::motors_parameters new_parameters;
-    new_parameters.max_current = 0.5f;
+    new_parameters.max_current = 1.f;
     new_parameters.max_current_left = 2;
     new_parameters.max_current_right = 2;
     new_motors_pwm_cmd.enable_motors = enable;
@@ -296,7 +299,6 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motors_pwm_cmd.override_PWM = false;
     new_motors_pwm_cmd.PWM_override_left = 0;
     new_motors_pwm_cmd.PWM_override_right = 0;
-
 
     if (recalage_bordure())
     {

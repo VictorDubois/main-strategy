@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#define MAX_ALLOWED_ANGULAR_SPEED 0.2f
+#define MAX_ALLOWED_ANGULAR_SPEED 5.0f
 
 #include "lidarStrat.h"
 
