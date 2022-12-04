@@ -16,6 +16,11 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_broadcaster.h>
 
+#ifdef PLOT_NEURONS
+#include "matplotlib-cpp/matplotlibcpp.h"
+namespace plt = matplotlibcpp;
+#endif
+
 void Core::updateCurrentPose()
 {
     try
@@ -82,7 +87,7 @@ void Core::addObstacle(PolarPosition obstacle)
     m_speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
 
-    if (m_speed_inhibition_from_obstacle < 0.2f)
+    if (m_speed_inhibition_from_obstacle < 0.1f)
     {
         m_speed_inhibition_from_obstacle = 0.f;
     }
@@ -90,10 +95,19 @@ void Core::addObstacle(PolarPosition obstacle)
     /*ROS_INFO_STREAM("Speed inhib from obstacle = " << m_speed_inhibition_from_obstacle
                                                    << ". Obstacle @" << obstacle << std::endl);*/
 
+    float obstacle_distance_clean = obstacle.getDistance();
+    if (obstacle_distance_clean < 0.01f)
+    {
+        obstacle_distance_clean = 0.01f;
+    }
+
+    float averaving_factor = 0.8f;
     for (int j = 0; j < NB_NEURONS; j += 1)
     {
         m_lidar_output[j]
-          += -gaussian(50., m_speed_inhibition_from_obstacle, closest_obstacle_id, j);
+          = averaving_factor * m_lidar_output[j]
+            - (1 - averaving_factor)
+                * gaussian(50., 10 / obstacle_distance_clean, closest_obstacle_id, j);
     }
 }
 
@@ -114,6 +128,7 @@ Core::Core(ros::NodeHandle& nh)
   : m_tf_listener(m_tf_buffer)
   , m_nh(nh)
 {
+
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
 
@@ -141,6 +156,9 @@ Core::Core(ros::NodeHandle& nh)
     m_tirette_sub = m_nh.subscribe("tirette", 1, &Core::updateTirette, this);
     m_odometry_sub = m_nh.subscribe("odom", 1000, &Core::updateOdom, this);
     m_strat_movement_sub = m_nh.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
+
+    m_running = std::thread(&Core::plotAll, this);
+
     // m_reverse_gear_sub = m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
 
     if (!m_is_blue)
@@ -383,6 +401,34 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
     ROS_INFO_STREAM("limit linear by angular speed : " << linear_speed_limit << std::endl);
 }
 
+void Core::plotAll()
+{
+    while (m_state != State::EXIT)
+    {
+        std::vector<float> l_angular_landscape;
+        std::vector<float> l_goal_output;
+        std::vector<float> l_lidar_output;
+        for (int i = 0; i < NB_NEURONS; i += 1)
+        {
+            l_angular_landscape.push_back(m_angular_landscape[i]);
+            l_goal_output.push_back(m_goal_output[i]);
+            l_lidar_output.push_back(m_lidar_output[i]);
+        }
+
+#ifdef PLOT_NEURONS
+        plt::clf();
+        plt::plot(l_angular_landscape);
+        plt::plot(l_goal_output);
+        plt::plot(l_lidar_output);
+        plt::draw();
+        plt::pause(0.1);
+#endif
+    }
+#ifdef PLOT_NEURONS
+    plt::close();
+#endif
+}
+
 Core::State Core::Loop()
 {
     publishRemainingTime();
@@ -438,12 +484,14 @@ Core::State Core::Loop()
         /*ROS_INFO_STREAM("relative_target_orientation: "
                         << delta_orientation
                         << ", peak value: " << get_idx_of_max(m_goal_output, NB_NEURONS)
-                        << ", central value = " << m_goal_output[angle_to_neuron_id(Angle(0))]);*/
+                        << ", central value = " <<
+           m_goal_output[angle_to_neuron_id(Angle(0))]);*/
 
         // Sum positive and negative valence strategies
+
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
-            m_angular_landscape[i] = m_goal_output[i]; // + m_lidar_output[i];
+            m_angular_landscape[i] = m_goal_output[i] + m_lidar_output[i];
         }
 
         // And finally: differentiate the m_angular_landscape vector to get drive
@@ -516,8 +564,8 @@ void Core::limitAcceleration()
       m_linear_speed, m_linear_speed_cmd, Acceleration(0.025), 1. / float(UPDATE_RATE));
     m_angular_speed_cmd = limit_acceleration(
       m_angular_speed, m_angular_speed_cmd, AccelerationAngulaire(0.00025), 1. /
-    float(UPDATE_RATE)); ROS_DEBUG_STREAM("After: linear_speed: " << m_linear_speed_cmd << "m/s ,
-    angular_speed: "
+    float(UPDATE_RATE)); ROS_DEBUG_STREAM("After: linear_speed: " << m_linear_speed_cmd << "m/s
+    , angular_speed: "
                                              << m_angular_speed_cmd << "rad/s");
                                              **/
 }

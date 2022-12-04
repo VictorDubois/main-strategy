@@ -7,6 +7,7 @@
 #include <tf/transform_listener.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -113,6 +114,9 @@ private:
     void limitLinearSpeedCmdByGoal();
     void limitAcceleration();
     void limitLinearSpeedByAngularSpeed(VitesseAngulaire angular_speed);
+
+    void plotAll();
+    std::thread m_running;
 
     // State of the broker loop
     State m_state = State::WAIT_TIRETTE;
