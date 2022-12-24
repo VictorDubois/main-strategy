@@ -87,7 +87,7 @@ void Core::addObstacle(PolarPosition obstacle)
     m_speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
 
-    if (m_speed_inhibition_from_obstacle < 0.1f)
+    if (m_speed_inhibition_from_obstacle < 0.2f)
     {
         m_speed_inhibition_from_obstacle = 0.f;
     }
@@ -491,7 +491,8 @@ Core::State Core::Loop()
 
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
-            m_angular_landscape[i] = m_goal_output[i] + m_lidar_output[i];
+            m_angular_landscape[i] = m_goal_output[i];
+            //      +m_lidar_output[i];
         }
 
         // And finally: differentiate the m_angular_landscape vector to get drive
