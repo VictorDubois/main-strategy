@@ -2,10 +2,12 @@
     <arg name="init_pose/x" default="0.0"/>
     <arg name="init_pose/y" default="0.0"/>
     <arg name="init_pose/theta" default="0.0"/>
+    <arg name="publish_tf_odom" default="true"/>
 
     <param name="init_pose/x" value="$(arg init_pose/x)" />
     <param name="init_pose/y" value="$(arg init_pose/y)" />
     <param name="init_pose/theta" value="$(arg init_pose/theta)" />
+    <param name="publish_tf_odom" value="$(arg publish_tf_odom)" />
 
     
   <node name="odom_tf_node" pkg="main_strategy" type="odometry_node" ns="krabby" />

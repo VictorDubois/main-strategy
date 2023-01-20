@@ -1,14 +1,15 @@
 #include "odometry/odomTFPublisher.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
-
 OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
   : m_nh(nh)
   , m_odom_reset(false)
 {
-    m_init_pose_pub = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 5, true);
+    m_init_pose_pub
+      = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 5, true);
     m_odom_sub = nh.subscribe("odom_light", 10, &OdometryTFPublisher::updateLightOdom, this);
-    m_odom_lighter_sub = nh.subscribe("odom_lighter", 10, &OdometryTFPublisher::updateLighterOdom, this);
+    m_odom_lighter_sub
+      = nh.subscribe("odom_lighter", 10, &OdometryTFPublisher::updateLighterOdom, this);
     m_odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
 }
 
@@ -19,19 +20,16 @@ void OdometryTFPublisher::resetOdometry()
     m_nh.param<float>("/init_pose/y", init_y, 0);
     m_nh.param<float>("/init_pose/theta", init_theta, 0);
 
-    geometry_msgs::PoseWithCovarianceStamped init_pose_msg = geometry_msgs::PoseWithCovarianceStamped();
+    geometry_msgs::PoseWithCovarianceStamped init_pose_msg
+      = geometry_msgs::PoseWithCovarianceStamped();
     init_pose_msg.pose.pose.position.x = init_x;
     init_pose_msg.pose.pose.position.y = init_y;
     init_pose_msg.pose.pose.position.z = 0;
-    init_pose_msg.pose.covariance = {0, 0, 0,
-                                     0, 0, 0,
-                                     0, 0, 0,
-                                     0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                     0, 0, 0, 0, 0, 0, 0, 0, 0, 
-                                     0, 0, 0, 0, 0, 0, 0, 0, 0};
-    init_pose_msg.pose.covariance[0] = 0.1f;// X covariance
-    init_pose_msg.pose.covariance[7] = 0.1f;// Y covariance
-    init_pose_msg.pose.covariance[35] = 0.2;// Rz covariance
+    init_pose_msg.pose.covariance = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    init_pose_msg.pose.covariance[0] = 0.1f; // X covariance
+    init_pose_msg.pose.covariance[7] = 0.1f; // Y covariance
+    init_pose_msg.pose.covariance[35] = 0.2; // Rz covariance
     tf2::Quaternion quat_tf_orientation;
     quat_tf_orientation.setRPY(0, 0, init_theta);
     quat_tf_orientation.normalize();
@@ -48,7 +46,8 @@ void OdometryTFPublisher::resetOdometry()
 }
 
 /**
- * @brief OdometryTFPublisher::publishOdom publish a full-fledged odom message. It takes too long for rosserial to publish it directly
+ * @brief OdometryTFPublisher::publishOdom publish a full-fledged odom message. It takes too long
+ * for rosserial to publish it directly
  * @param odom_light_msg the partial message published by rosserial
  */
 void OdometryTFPublisher::publishOdom(krabi_msgs::odom_light odom_light_msg)
@@ -63,10 +62,12 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::odom_light odom_light_msg)
 }
 
 /**
- * @brief OdometryTFPublisher::publishOdom publish a full-fledged odom message. It takes too long for rosserial to publish it directly
+ * @brief OdometryTFPublisher::publishOdom publish a full-fledged odom message. It takes too long
+ * for rosserial to publish it directly
  * @param odom_lighter_msg the partial message published by rosserial (even lighter than odom_light)
  */
-void OdometryTFPublisher::publishOdom(krabi_msgs::odom_lighter odom_lighter_msg, geometry_msgs::Pose pose)
+void OdometryTFPublisher::publishOdom(krabi_msgs::odom_lighter odom_lighter_msg,
+                                      geometry_msgs::Pose pose)
 {
     nav_msgs::Odometry odom_msg = nav_msgs::Odometry();
     odom_msg.twist.twist.linear.x = odom_lighter_msg.speedVx;
@@ -113,6 +114,13 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::Pose& pose,
                                     const std::string& frame_id,
                                     const std::string& child_frame_id)
 {
+    bool publish_tf_odom;
+    m_nh.param<bool>("/publish_tf_odom", publish_tf_odom, true);
+    if (!publish_tf_odom)
+    {
+        return;
+    }
+
     // first, we'll publish the transform over tf
     geometry_msgs::TransformStamped odom_trans;
     odom_trans.header.stamp = ros::Time::now();
