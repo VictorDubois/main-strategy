@@ -70,6 +70,7 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::odom_lighter odom_lighter_msg,
                                       geometry_msgs::Pose pose)
 {
     nav_msgs::Odometry odom_msg = nav_msgs::Odometry();
+    odom_msg.pose.pose = pose;
     odom_msg.twist.twist.linear.x = odom_lighter_msg.speedVx;
     odom_msg.twist.twist.angular.z = odom_lighter_msg.speedWz;
     odom_msg.header.stamp = odom_lighter_msg.header.stamp;
@@ -103,6 +104,7 @@ void OdometryTFPublisher::updateLighterOdom(krabi_msgs::odom_lighter odom_lighte
     geometry_msgs::Pose odom_pose;
     odom_pose.position.x = odom_lighter_msg.poseX;
     odom_pose.position.y = odom_lighter_msg.poseY;
+    odom_pose.position.z = 0;
     tf2::Quaternion odom_orientation_quat;
     odom_orientation_quat.setRPY(0, 0, odom_lighter_msg.angleRz);
     odom_pose.orientation = tf2::toMsg(odom_orientation_quat);
