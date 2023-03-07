@@ -58,6 +58,12 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::odom_light odom_light_msg)
     odom_msg.header.stamp = odom_light_msg.header.stamp;
     odom_msg.header.frame_id = "krabby/odom";
     odom_msg.child_frame_id = "krabby/base_link";
+
+    odom_msg.pose.covariance = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    odom_msg.pose.covariance[0] = 0.03f; // X covariance
+    odom_msg.pose.covariance[7] = 0.03f; // Y covariance
+    odom_msg.pose.covariance[35] = 0.1f; // Rz covariance
     m_odom_pub.publish(odom_msg);
 }
 
@@ -76,6 +82,13 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::odom_lighter odom_lighter_msg,
     odom_msg.header.stamp = odom_lighter_msg.header.stamp;
     odom_msg.header.frame_id = "krabby/odom";
     odom_msg.child_frame_id = "krabby/base_link";
+
+    odom_msg.pose.covariance = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    odom_msg.pose.covariance[0] = 0.03f; // X covariance
+    odom_msg.pose.covariance[7] = 0.03f; // Y covariance
+    odom_msg.pose.covariance[35] = 0.1f; // Rz covariance
+
     m_odom_pub.publish(odom_msg);
 }
 
