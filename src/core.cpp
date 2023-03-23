@@ -405,6 +405,7 @@ void Core::plotAll()
 {
     while (m_state != State::EXIT)
     {
+	usleep(100000);
         std::vector<float> l_angular_landscape;
         std::vector<float> l_goal_output;
         std::vector<float> l_lidar_output;

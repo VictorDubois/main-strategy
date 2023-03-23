@@ -35,7 +35,7 @@ catkin_package(
 
 include_directories(include ${catkin_INCLUDE_DIRS})
 
-set(PLOT_NEURONS TRUE)
+set(PLOT_NEURONS FALSE)
 
 if(PLOT_NEURONS)
   include_directories(include "/usr/include/python3.8")
