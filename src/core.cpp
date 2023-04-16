@@ -104,10 +104,13 @@ void Core::addObstacle(PolarPosition obstacle)
     float averaving_factor = 0.8f;
     for (int j = 0; j < NB_NEURONS; j += 1)
     {
+        float l_sigma = 30; // °  
+        float l_strength = 10.0 / obstacle_distance_clean; 
+
         m_lidar_output[j]
           = averaving_factor * m_lidar_output[j]
             - (1 - averaving_factor)
-                * gaussian(50., 10 / obstacle_distance_clean, closest_obstacle_id, j);
+                * gaussian(l_sigma, l_strength, closest_obstacle_id, j);
     }
 }
 
@@ -142,6 +145,7 @@ Core::Core(ros::NodeHandle& nh)
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
     m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
     m_motors_pwm_pub = m_nh.advertise<krabi_msgs::motors_cmd>("motors_cmd", 5);
+    m_debug_pub = m_nh.advertise<krabi_msgs::main_debug>("main_debug", 5);
 
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
@@ -307,6 +311,17 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_enable_cmd.data = enable;
     m_motors_enable_pub.publish(new_enable_cmd);
 
+
+    krabi_msgs::main_debug l_main_debug_msg;
+    l_main_debug_msg.header.stamp = ros::Time::now();
+    l_main_debug_msg.cmd_vel = new_motor_cmd;
+    l_main_debug_msg.target_pose = l_distance_asserv_msg.goal_pose;
+    tf2::Quaternion myQuaternion;
+    myQuaternion.setRPY( 0, 0, m_target_orientation );
+    myQuaternion.normalize();
+    tf2::convert(l_main_debug_msg.target_pose.pose.orientation, myQuaternion);
+    m_debug_pub.publish(l_main_debug_msg);
+
     krabi_msgs::motors_cmd new_motors_pwm_cmd;
     krabi_msgs::motors_parameters new_parameters;
     new_parameters.max_current = 1.f;
@@ -451,8 +466,15 @@ Core::State Core::Loop()
 
         if (!orienting())
         {
-            // orient towards the goal's position
-            m_target_orientation = getAngleToGoal();
+            Distance l_too_close_threshold = Distance(0.02f);
+            if (m_distance_to_goal < l_too_close_threshold)
+            {
+                m_target_orientation = m_current_pose.getAngle();
+            }
+            else{
+                // orient towards the goal's position
+                m_target_orientation = getAngleToGoal();
+            }
         }
         else
         {
@@ -493,7 +515,7 @@ Core::State Core::Loop()
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             m_angular_landscape[i] = m_goal_output[i];
-            //      +m_lidar_output[i];
+                  //+m_lidar_output[i];
         }
 
         // And finally: differentiate the m_angular_landscape vector to get drive
@@ -539,6 +561,8 @@ Core::State Core::Loop()
 
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
+
+        
     } // End of m_state == State::NORMAL
 
     return m_state;
