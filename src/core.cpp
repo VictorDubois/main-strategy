@@ -145,7 +145,7 @@ Core::Core(ros::NodeHandle& nh)
     m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
     m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
     m_motors_pwm_pub = m_nh.advertise<krabi_msgs::motors_cmd>("motors_cmd", 5);
-    m_debug_pub = m_nh.advertise<krabi_msgs::main_debug>("main_debug", 5);
+    m_target_orientation_pub = m_nh.advertise<geometry_msgs::PoseStamped>("target_orientation", 5);
 
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
@@ -312,15 +312,17 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     m_motors_enable_pub.publish(new_enable_cmd);
 
 
-    krabi_msgs::main_debug l_main_debug_msg;
-    l_main_debug_msg.header.stamp = ros::Time::now();
-    l_main_debug_msg.cmd_vel = new_motor_cmd;
-    l_main_debug_msg.target_pose = l_distance_asserv_msg.goal_pose;
+    geometry_msgs::PoseStamped l_target_orientation_msg;
+    //l_target_orientation_msg.header.stamp = ros::Time::now();
+    l_target_orientation_msg.header.frame_id = "/map";
+    l_target_orientation_msg.pose = m_current_pose;
+    //l_distance_asserv_msg.goal_pose.pose;
     tf2::Quaternion myQuaternion;
     myQuaternion.setRPY( 0, 0, m_target_orientation );
     myQuaternion.normalize();
-    tf2::convert(l_main_debug_msg.target_pose.pose.orientation, myQuaternion);
-    m_debug_pub.publish(l_main_debug_msg);
+    //tf2::convert(l_target_orientation_msg.pose.orientation, myQuaternion);
+    l_target_orientation_msg.pose.orientation = tf2::toMsg(myQuaternion);
+    m_target_orientation_pub.publish(l_target_orientation_msg);
 
     krabi_msgs::motors_cmd new_motors_pwm_cmd;
     krabi_msgs::motors_parameters new_parameters;

@@ -19,7 +19,6 @@
 #include <krabi_msgs/motors_distance_asserv.h>
 #include <krabi_msgs/odom_light.h>
 #include <krabi_msgs/strat_movement.h>
-#include <krabi_msgs/main_debug.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
 
@@ -150,7 +149,7 @@ private:
     ros::Publisher m_motors_pwm_pub;
     ros::Publisher m_chrono_pub;
     ros::Publisher m_distance_asserv_pub;
-    ros::Publisher m_debug_pub;
+    ros::Publisher m_target_orientation_pub;
 
     // Subscriber
     ros::Subscriber m_odometry_sub;
