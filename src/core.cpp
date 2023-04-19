@@ -468,14 +468,15 @@ Core::State Core::Loop()
 
         if (!orienting())
         {
-            Distance l_too_close_threshold = Distance(0.02f);
-            if (m_distance_to_goal < l_too_close_threshold)
+            Distance l_too_close_threshold = Distance(0.1f);
+            // orient towards the goal's position
+            m_target_orientation = getAngleToGoal();
+            auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+
+            // Manage position overshoots: do not turn around if the position has been overshoot by 5mm!
+            if (m_distance_to_goal < l_too_close_threshold && abs(l_delta_orientation) > M_PI/2)
             {
-                m_target_orientation = m_current_pose.getAngle();
-            }
-            else{
-                // orient towards the goal's position
-                m_target_orientation = getAngleToGoal();
+                m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
             }
         }
         else
@@ -501,6 +502,7 @@ Core::State Core::Loop()
         // TODO: choose the POSITIVE VALENCE STRATEGY!
         auto delta_orientation
           = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             m_goal_output[i] = target(207.f, 1.1f, angle_to_neuron_id(delta_orientation), i);
