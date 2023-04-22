@@ -485,16 +485,37 @@ Core::State Core::Loop()
 
         if (!orienting())
         {
-            Distance l_too_close_threshold = Distance(0.1f);
             // orient towards the goal's position
             m_target_orientation = getAngleToGoal();
-            auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+
+            // update the goal to 0 when reaching a goal => doesn't do much, is overridden quickly :/
+            // Remaining issue: 90° turns => more than 90° margin? => ça a l'air de marcher :) => en fait, il reste des sauts de moins de 3/4 PI => done mais désactivé
+            // @todo, check if very close to target + orientation jump (from the previous iteration) => done, mais juste en arrêtant le robot. Pas compatible avec un asserv en position
+            // reacting to a goal update? => reserve the new strat_mvnt for the next iteration + limit speed right away. Currently it is possible to lack the synchronisation with reverse gear, for instance. Done
 
             // Manage position overshoots: do not turn around if the position has been overshoot by 5mm!
-            if (m_distance_to_goal < l_too_close_threshold && abs(l_delta_orientation) > M_PI/2)
+            Distance l_too_close_threshold = Distance(0.1f);
+            /*auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+
+            if (m_distance_to_goal < l_too_close_threshold && ((abs(l_delta_orientation) > 3.f*M_PI/4.f) != reverseGear()))
             {
                 m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
+            }*/
+
+            auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_previous_angle_to_goal);
+            auto l_delta_position = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
+
+            if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01) && (abs(l_delta_orientation) > M_PI/2.f))
+            {
+                //m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
+                //setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
+                stopMotors();
+                return m_state;
             }
+
+            m_previous_angle_to_goal = getAngleToGoal();
+            m_previous_goal_pose = m_goal_pose;
+            
         }
         else
         {
@@ -512,6 +533,8 @@ Core::State Core::Loop()
         {
             m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
         }
+
+        
 
         // Inhibit linear speed if there are obstacles
 
