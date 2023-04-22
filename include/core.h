@@ -177,4 +177,12 @@ private:
                    const std::string& child_frame_id);
     std::map<int, ros::Subscriber> m_arucos_sub;
     std::array<geometry_msgs::PoseStamped, 10> m_arucos;
+
+    // Buffer
+    krabi_msgs::strat_movement m_buffer_strat_movement_parameters;
+    Pose m_buffer_goal_pose;
+    geometry_msgs::PoseStamped m_buffer_goal_pose_stamped;
+    Angle m_previous_angle_to_goal;
+    Pose m_previous_goal_pose;
+
 };

@@ -121,9 +121,20 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
 
 void Core::updateStratMovement(krabi_msgs::strat_movement move)
 {
-    m_strat_movement_parameters = move;
-    m_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
-    m_goal_pose_stamped = m_strat_movement_parameters.goal_pose;
+    m_buffer_strat_movement_parameters = move;
+    m_buffer_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
+    m_buffer_goal_pose_stamped = m_strat_movement_parameters.goal_pose;
+
+    if((m_buffer_strat_movement_parameters.max_speed.linear.x == 0 && m_strat_movement_parameters.max_speed.linear.x != 0) ||
+        (m_buffer_strat_movement_parameters.max_speed.angular.z == 0 && m_strat_movement_parameters.max_speed.angular.z != 0) ||
+        m_buffer_strat_movement_parameters.goal_pose.pose != m_strat_movement_parameters.goal_pose.pose ||
+        m_buffer_strat_movement_parameters.orient != m_strat_movement_parameters.orient ||
+        m_buffer_strat_movement_parameters.reverse_gear != m_strat_movement_parameters.reverse_gear)
+    {
+        stopMotors();
+        m_strat_movement_parameters.max_speed.angular.z = 0;
+        m_strat_movement_parameters.max_speed.linear.x = 0;
+    }
     //    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
@@ -131,6 +142,8 @@ Core::Core(ros::NodeHandle& nh)
   : m_tf_listener(m_tf_buffer)
   , m_nh(nh)
 {
+    m_previous_angle_to_goal = Angle (0);
+    m_previous_goal_pose = Pose();
 
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
@@ -322,6 +335,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     myQuaternion.normalize();
     //tf2::convert(l_target_orientation_msg.pose.orientation, myQuaternion);
     l_target_orientation_msg.pose.orientation = tf2::toMsg(myQuaternion);
+    l_target_orientation_msg.header.stamp = ros::Time::now();
     m_target_orientation_pub.publish(l_target_orientation_msg);
 
     krabi_msgs::motors_cmd new_motors_pwm_cmd;
@@ -449,6 +463,9 @@ void Core::plotAll()
 
 Core::State Core::Loop()
 {
+    m_strat_movement_parameters = m_buffer_strat_movement_parameters;
+    m_goal_pose = m_buffer_goal_pose;
+    m_goal_pose_stamped = m_buffer_goal_pose_stamped;
     publishRemainingTime();
 
     if ((m_state != State::WAIT_TIRETTE) && isTimeToStop())
