@@ -495,6 +495,7 @@ Core::State Core::Loop()
 
             // Manage position overshoots: do not turn around if the position has been overshoot by 5mm!
             Distance l_too_close_threshold = Distance(0.1f);
+            Distance l_reach_goal_dist = Distance(0.02f);
             /*auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
 
             if (m_distance_to_goal < l_too_close_threshold && ((abs(l_delta_orientation) > 3.f*M_PI/4.f) != reverseGear()))
@@ -506,6 +507,7 @@ Core::State Core::Loop()
             auto l_delta_position = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
 
             if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01) && (abs(l_delta_orientation) > M_PI/2.f))
+            if (m_distance_to_goal < l_too_close_threshold )
             {
                 //m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
                 //setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
