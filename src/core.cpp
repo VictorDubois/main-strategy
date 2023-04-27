@@ -506,11 +506,12 @@ Core::State Core::Loop()
             auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_previous_angle_to_goal);
             auto l_delta_position = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
 
-            if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01) && (abs(l_delta_orientation) > M_PI/2.f))
-            if (m_distance_to_goal < l_too_close_threshold )
+            //if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01) && (abs(l_delta_orientation) > M_PI/2.f))
+            if (m_distance_to_goal < l_reach_goal_dist )
             {
                 //m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
                 //setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
+                m_target_orientation = m_current_pose.getAngle();
                 stopMotors();
                 return m_state;
             }
