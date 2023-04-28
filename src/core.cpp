@@ -125,6 +125,11 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
     m_buffer_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
     m_buffer_goal_pose_stamped = m_strat_movement_parameters.goal_pose;
 
+    m_strat_movement_parameters = m_buffer_strat_movement_parameters;
+    m_goal_pose = m_buffer_goal_pose;
+    m_goal_pose_stamped = m_buffer_goal_pose_stamped;
+    return;
+
     if((m_buffer_strat_movement_parameters.max_speed.linear.x == 0 && m_strat_movement_parameters.max_speed.linear.x != 0) ||
         (m_buffer_strat_movement_parameters.max_speed.angular.z == 0 && m_strat_movement_parameters.max_speed.angular.z != 0) ||
         m_buffer_strat_movement_parameters.goal_pose.pose != m_strat_movement_parameters.goal_pose.pose ||
