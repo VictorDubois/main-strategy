@@ -16,6 +16,7 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3.h>
 #include <krabi_msgs/motors.h>
+#include <krabi_msgs/speed_limitations.h>
 #include <krabi_msgs/motors_distance_asserv.h>
 #include <krabi_msgs/odom_light.h>
 #include <krabi_msgs/strat_movement.h>
@@ -138,6 +139,7 @@ private:
     bool m_reverse_gear_activated;
     float m_speed_inhibition_from_obstacle;
     krabi_msgs::strat_movement m_strat_movement_parameters;
+    krabi_msgs::speed_limitations m_speed_limitations;
 
     // ROS Params
     bool m_is_blue;
@@ -150,6 +152,7 @@ private:
     ros::Publisher m_chrono_pub;
     ros::Publisher m_distance_asserv_pub;
     ros::Publisher m_target_orientation_pub;
+    ros::Publisher m_speed_limitations_pub;
 
     // Subscriber
     ros::Subscriber m_odometry_sub;
@@ -184,5 +187,6 @@ private:
     geometry_msgs::PoseStamped m_buffer_goal_pose_stamped;
     Angle m_previous_angle_to_goal;
     Pose m_previous_goal_pose;
+    Vitesse m_previous_speed_cmd_by_goal;
 
 };

@@ -164,6 +164,7 @@ Core::Core(ros::NodeHandle& nh)
     m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
     m_motors_pwm_pub = m_nh.advertise<krabi_msgs::motors_cmd>("motors_cmd", 5);
     m_target_orientation_pub = m_nh.advertise<geometry_msgs::PoseStamped>("target_orientation", 5);
+    m_speed_limitations_pub = m_nh.advertise<krabi_msgs::speed_limitations>("speed_limitations", 5);
 
     m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
@@ -225,6 +226,18 @@ Core::Core(ros::NodeHandle& nh)
     m_angular_speed = 0;
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
+
+    m_speed_limitations.angular_limit_by_disable_angular = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.angular_limit_by_strat_mvnt = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.angular_limit_by_MAX_allowed = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.angular_cmd_by_neurons = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.linear_limit_by_angular_speed_cmd = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_obstacles = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_strat_mvnt = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_goal = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_disable_linear = m_default_linear_speed;
+
+    m_previous_speed_cmd_by_goal = Vitesse(0);
 }
 
 void Core::updateOdom(const nav_msgs::Odometry& odometry)
@@ -233,6 +246,11 @@ void Core::updateOdom(const nav_msgs::Odometry& odometry)
       = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y, 0).length();
     m_angular_speed = odometry.twist.twist.angular.z;
     // Loop();
+
+    /*m_speed_limitations.current_angular = m_angular_speed;
+    m_speed_limitations.current_linear = m_linear_speed;
+    m_speed_limitations.header.stamp = odometry.header.stamp;
+    m_speed_limitations_pub.publish(m_speed_limitations);*/
 }
 
 bool Core::isOver()
@@ -433,6 +451,8 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
     Vitesse linear_speed_limit
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
+    m_speed_limitations.linear_limit_by_angular_speed_cmd = std::min(linear_speed_limit, m_default_linear_speed);
+
     m_linear_speed_cmd = std::min(m_linear_speed_cmd, linear_speed_limit);
     ROS_INFO_STREAM("limit linear by angular speed : " << linear_speed_limit << std::endl);
 }
@@ -468,6 +488,16 @@ void Core::plotAll()
 
 Core::State Core::Loop()
 {
+    m_speed_limitations.angular_limit_by_disable_angular = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.angular_limit_by_strat_mvnt = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.angular_limit_by_MAX_allowed = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.angular_cmd_by_neurons = MAX_ALLOWED_ANGULAR_SPEED;
+    m_speed_limitations.linear_limit_by_angular_speed_cmd = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_obstacles = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_strat_mvnt = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_goal = m_default_linear_speed;
+    m_speed_limitations.linear_limit_by_disable_linear = m_default_linear_speed;
+
     m_strat_movement_parameters = m_buffer_strat_movement_parameters;
     m_goal_pose = m_buffer_goal_pose;
     m_goal_pose_stamped = m_buffer_goal_pose_stamped;
@@ -579,24 +609,29 @@ Core::State Core::Loop()
           Angle(0))]); // - as positive is towards the left in ros, while the
                        // derivation is left to right
         // ROS_DEBUG_STREAM(",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
-
+        m_speed_limitations.angular_cmd_by_neurons = m_angular_speed_cmd;
         limitLinearSpeedCmdByGoal();
 
         m_linear_speed_cmd = std::min(
           m_linear_speed_cmd, Vitesse(m_default_linear_speed * m_speed_inhibition_from_obstacle));
+        m_speed_limitations.linear_limit_by_obstacles = m_default_linear_speed * m_speed_inhibition_from_obstacle;
 
         limitAngularSpeedCmd(m_angular_speed_cmd);
 
         limitAcceleration();
 
+        m_speed_limitations.linear_limit_by_disable_linear = m_default_linear_speed;
         if (DISABLE_LINEAR_SPEED || orienting())
         {
+            m_speed_limitations.linear_limit_by_disable_linear = 0;
             m_linear_speed_cmd = 0;
             ROS_INFO_STREAM("linear speed disabled");
         }
 
+        m_speed_limitations.angular_limit_by_disable_angular = MAX_ALLOWED_ANGULAR_SPEED;
         if (DISABLE_ANGULAR_SPEED || stop_angular())
         {
+            m_speed_limitations.angular_limit_by_disable_angular = 0;
             m_angular_speed_cmd = 0;
             ROS_INFO_STREAM("angular speed disabled");
         }
@@ -616,6 +651,10 @@ Core::State Core::Loop()
 
         
     } // End of m_state == State::NORMAL
+    m_speed_limitations.current_angular = m_angular_speed;
+    m_speed_limitations.current_linear = m_linear_speed;
+    m_speed_limitations.header.stamp = ros::Time::now();
+    m_speed_limitations_pub.publish(m_speed_limitations);
 
     return m_state;
 }
@@ -717,6 +756,9 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed_cmd)
       a_angular_speed_cmd, VitesseAngulaire(-m_strat_movement_parameters.max_speed.angular.z));
     a_angular_speed_cmd = std::min(
       a_angular_speed_cmd, VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z));
+
+    m_speed_limitations.angular_limit_by_strat_mvnt = m_strat_movement_parameters.max_speed.angular.z;
+    m_speed_limitations.angular_limit_by_MAX_allowed = MAX_ALLOWED_ANGULAR_SPEED;
 }
 
 // Limit linear speed, to match the desired speed when reaching the goal
@@ -771,13 +813,21 @@ void Core::limitLinearSpeedCmdByGoal()
         ROS_INFO_STREAM("cruise speed");
         new_speed_order = m_linear_speed;
     }
+
+    m_speed_limitations.linear_limit_by_goal = new_speed_order;
+
     new_speed_order
       = std::max(new_speed_order, Vitesse(-m_strat_movement_parameters.max_speed.linear.x));
     new_speed_order
       = std::min(new_speed_order, Vitesse(m_strat_movement_parameters.max_speed.linear.x));
+
+    m_previous_speed_cmd_by_goal = new_speed_order;
+
+    m_speed_limitations.linear_limit_by_strat_mvnt = m_strat_movement_parameters.max_speed.linear.x;
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
     ROS_INFO_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl);
     m_linear_speed_cmd = new_speed_order;
+
 }
 
 unsigned int angle_to_neuron_id(Angle a)
