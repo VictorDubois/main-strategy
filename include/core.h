@@ -185,4 +185,7 @@ private:
     Angle m_previous_angle_to_goal;
     Pose m_previous_goal_pose;
 
+    Pose m_previous_robot_pose;
+    bool m_overshoot_reset;
+    bool m_overshoot_orientation_flip;
 };

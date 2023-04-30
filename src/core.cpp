@@ -499,8 +499,8 @@ Core::State Core::Loop()
             // reacting to a goal update? => reserve the new strat_mvnt for the next iteration + limit speed right away. Currently it is possible to lack the synchronisation with reverse gear, for instance. Done
 
             // Manage position overshoots: do not turn around if the position has been overshoot by 5mm!
-            Distance l_too_close_threshold = Distance(0.1f);
-            Distance l_reach_goal_dist = Distance(0.02f);
+            const Distance l_too_close_threshold = Distance(0.05f);
+            const Distance l_reach_goal_dist = Distance(0.02f);
             /*auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
 
             if (m_distance_to_goal < l_too_close_threshold && ((abs(l_delta_orientation) > 3.f*M_PI/4.f) != reverseGear()))
@@ -510,6 +510,31 @@ Core::State Core::Loop()
 
             auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_previous_angle_to_goal);
             auto l_delta_position = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
+
+            if (m_overshoot_reset)
+            {
+                m_overshoot_reset = false;
+                m_overshoot_orientation_flip = false;
+            }
+            else if (m_distance_to_goal < l_too_close_threshold)
+            {
+                auto l_previous_robot_to_goal = (m_goal_pose.getPosition() - m_previous_robot_pose.getPosition()).getAngle();
+                auto l_robot_to_goal = (m_goal_pose.getPosition() - m_current_pose.getPosition()).getAngle();
+                auto l_scalar_product = cos((l_robot_to_goal - l_previous_robot_to_goal)*M_PI/180.f);
+
+                const float l_overshoot_angular_threshold = 0.7f;
+
+                if (l_scalar_product < -l_overshoot_angular_threshold)
+                {
+                    // Clear overshoot: reverse!
+                    m_overshoot_orientation_flip = !m_overshoot_orientation_flip;
+                }
+                else if (l_scalar_product < l_overshoot_angular_threshold)
+                {
+                    // Overshoot, but on the side: ideally, we should stop...
+                }
+            }
+            m_previous_robot_pose = m_current_pose;
 
             //if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01) && (abs(l_delta_orientation) > M_PI/2.f))
             if (m_distance_to_goal < l_reach_goal_dist )
