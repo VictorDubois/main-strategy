@@ -345,7 +345,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     krabi_msgs::motors_cmd new_motors_pwm_cmd;
     krabi_msgs::motors_parameters new_parameters;
-    new_parameters.max_current = 1.f;
+    new_parameters.max_current = 0.7f;
     new_parameters.max_current_left = 2;
     new_parameters.max_current_right = 2;
     new_motors_pwm_cmd.enable_motors = enable;
