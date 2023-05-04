@@ -184,5 +184,8 @@ private:
     geometry_msgs::PoseStamped m_buffer_goal_pose_stamped;
     Angle m_previous_angle_to_goal;
     Pose m_previous_goal_pose;
+    Pose m_previous_own_pose;
+    bool m_previous_own_pose_not_initialised = true;
 
+    bool m_overshooting = false;
 };

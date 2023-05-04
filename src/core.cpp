@@ -33,6 +33,11 @@ void Core::updateCurrentPose()
         m_map_to_baselink = transformFromMsg(
           m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
         m_current_pose = Pose(transform);
+        if(m_previous_own_pose_not_initialised)
+        {
+            m_previous_own_pose = m_current_pose;
+            m_previous_own_pose_not_initialised = false;
+        }
     }
     catch (tf2::TransformException& ex)
     {
@@ -125,7 +130,11 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
     m_buffer_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
     m_buffer_goal_pose_stamped = m_strat_movement_parameters.goal_pose;
 
-    if((m_buffer_strat_movement_parameters.max_speed.linear.x == 0 && m_strat_movement_parameters.max_speed.linear.x != 0) ||
+    m_strat_movement_parameters = m_buffer_strat_movement_parameters;
+    m_goal_pose = m_buffer_goal_pose;
+    m_goal_pose_stamped = m_buffer_goal_pose_stamped;
+
+    /*if((m_buffer_strat_movement_parameters.max_speed.linear.x == 0 && m_strat_movement_parameters.max_speed.linear.x != 0) ||
         (m_buffer_strat_movement_parameters.max_speed.angular.z == 0 && m_strat_movement_parameters.max_speed.angular.z != 0) ||
         m_buffer_strat_movement_parameters.goal_pose.pose != m_strat_movement_parameters.goal_pose.pose ||
         m_buffer_strat_movement_parameters.orient != m_strat_movement_parameters.orient ||
@@ -134,7 +143,7 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
         stopMotors();
         m_strat_movement_parameters.max_speed.angular.z = 0;
         m_strat_movement_parameters.max_speed.linear.x = 0;
-    }
+    }*/
     //    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
 }
 
@@ -144,6 +153,9 @@ Core::Core(ros::NodeHandle& nh)
 {
     m_previous_angle_to_goal = Angle (0);
     m_previous_goal_pose = Pose();
+    m_previous_own_pose = Pose();
+    m_previous_own_pose_not_initialised = true;
+    m_overshooting = false;
 
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
@@ -513,12 +525,18 @@ Core::State Core::Loop()
                 //setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
                 m_target_orientation = m_current_pose.getAngle();
                 stopMotors();
+                m_previous_angle_to_goal = getAngleToGoal();
+                m_previous_goal_pose = m_goal_pose;
+                m_previous_own_pose = m_current_pose;
                 return m_state;
             }
 
-            m_previous_angle_to_goal = getAngleToGoal();
-            m_previous_goal_pose = m_goal_pose;
-            
+            // @todo produit scalaire ancien vecteur vers goal et nouveau vecteur vers goal
+
+            if (m_overshooting)
+            {
+                m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
+            }            
         }
         else
         {
@@ -531,6 +549,10 @@ Core::State Core::Loop()
                              << std::endl
                              << "########################################" << std::endl);
         }
+
+        m_previous_angle_to_goal = getAngleToGoal();
+        m_previous_goal_pose = m_goal_pose;
+        m_previous_own_pose = m_current_pose;
 
         if (reverseGear())
         {
@@ -611,6 +633,10 @@ Core::State Core::Loop()
 
         
     } // End of m_state == State::NORMAL
+    else if (m_state == State::EXIT)
+    {
+        stopMotors();
+    }
 
     return m_state;
 }
