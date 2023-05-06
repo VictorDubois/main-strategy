@@ -121,13 +121,9 @@ void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
 
 void Core::updateStratMovement(krabi_msgs::strat_movement move)
 {
-    m_buffer_strat_movement_parameters = move;
-    m_buffer_goal_pose = Pose(m_strat_movement_parameters.goal_pose.pose);
-    m_buffer_goal_pose_stamped = m_strat_movement_parameters.goal_pose;
-
-    m_strat_movement_parameters = m_buffer_strat_movement_parameters;
-    m_goal_pose = m_buffer_goal_pose;
-    m_goal_pose_stamped = m_buffer_goal_pose_stamped;
+    m_strat_movement_parameters = move;
+    m_goal_pose = Pose(move.goal_pose.pose);
+    m_goal_pose_stamped = move.goal_pose;
     return;
 
     if((m_buffer_strat_movement_parameters.max_speed.linear.x == 0 && m_strat_movement_parameters.max_speed.linear.x != 0) ||
@@ -141,6 +137,10 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
         m_strat_movement_parameters.max_speed.linear.x = 0;
     }
     //    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
+
+    m_buffer_strat_movement_parameters = m_strat_movement_parameters;
+    m_buffer_goal_pose = m_goal_pose;
+    m_buffer_goal_pose_stamped = m_goal_pose_stamped;
 }
 
 Core::Core(ros::NodeHandle& nh)
@@ -468,9 +468,6 @@ void Core::plotAll()
 
 Core::State Core::Loop()
 {
-    m_strat_movement_parameters = m_buffer_strat_movement_parameters;
-    m_goal_pose = m_buffer_goal_pose;
-    m_goal_pose_stamped = m_buffer_goal_pose_stamped;
     publishRemainingTime();
 
     if ((m_state != State::WAIT_TIRETTE) && isTimeToStop())
