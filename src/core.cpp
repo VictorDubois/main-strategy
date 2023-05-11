@@ -518,7 +518,7 @@ Core::State Core::Loop()
                 //m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
                 //setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
                 m_target_orientation = m_current_pose.getAngle();
-                stopMotors();
+                brake();
                 return m_state;
             }
 
