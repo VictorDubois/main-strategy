@@ -244,6 +244,10 @@ void Core::stopMotors()
 {
     setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, false);
 }
+void Core::brake()
+{
+    setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), true, false);
+}
 
 void Core::setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed)
 {

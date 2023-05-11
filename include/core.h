@@ -82,6 +82,7 @@ private:
     void publishRemainingTime();
 
     void stopMotors();
+    void brake();
     void setMotorsSpeed(Vitesse linearSpeed,
                         VitesseAngulaire angularSpeed,
                         bool enable,
