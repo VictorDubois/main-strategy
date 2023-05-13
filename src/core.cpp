@@ -474,15 +474,21 @@ Core::State Core::Loop()
 {
     publishRemainingTime();
 
-    if ((m_state != State::WAIT_TIRETTE) && isTimeToStop())
+    if ((m_state != State::WAIT_TIRETTE && m_state != State::INIT_ODOM_TODO) && isTimeToStop())
     {
         ROS_INFO_STREAM("Time's up !");
         return m_state;
     }
 
-    if (m_state == State::WAIT_TIRETTE)
+    if (m_state == State::INIT_ODOM_TODO)
     {
+        // Init odom once, to allow moving for ICP/EKF init
         setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, true);
+        m_state = State::WAIT_TIRETTE;
+    }
+    else if (m_state == State::WAIT_TIRETTE)
+    {
+        setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, false);
     }
     else if (m_state == State::NORMAL)
     {

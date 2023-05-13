@@ -47,6 +47,7 @@ public:
     enum class State
     {
         EXIT,
+        INIT_ODOM_TODO,
         WAIT_TIRETTE,
         NORMAL
     };
