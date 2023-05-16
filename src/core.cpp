@@ -734,8 +734,8 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed_cmd)
 // Limit linear speed, to match the desired speed when reaching the goal
 void Core::limitLinearSpeedCmdByGoal()
 {
-    Acceleration max_acceleration = Acceleration(0.15f); // m*s-2
-    Acceleration max_deceleration = Acceleration(0.15f); // m*s-2
+    Acceleration max_acceleration = Acceleration(0.25f); // m*s-2
+    Acceleration max_deceleration = Acceleration(0.25f); // m*s-2
     if (m_strat_movement_parameters.max_speed_at_arrival > 0.01f)
     {
         max_acceleration = Acceleration(0.65f); // m*s-2
