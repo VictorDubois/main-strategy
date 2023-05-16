@@ -42,7 +42,7 @@ void OdometryTFPublisher::resetOdometry()
 
     m_init_pose_pub.publish(init_pose_msg);
 
-    resetOdometry(init_x, init_y, init_theta);
+    resetOdometry(0, 0, 0);//init_x, init_y, init_theta);
 }
 
 /**
