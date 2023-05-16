@@ -187,4 +187,5 @@ private:
     Angle m_previous_angle_to_goal;
     Pose m_previous_goal_pose;
 
+    ros::Time m_end_init_odo;
 };

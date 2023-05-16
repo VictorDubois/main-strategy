@@ -57,7 +57,7 @@ void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
 
 void Core::updateTirette(std_msgs::Bool starting)
 {
-    if (starting.data && m_state == State::WAIT_TIRETTE)
+    if (starting.data && (m_state == State::WAIT_TIRETTE || m_state == State::INIT_ODOM_TODO))
     {
         ROS_INFO_STREAM("Go for launch!");
         m_state = State::NORMAL;
@@ -225,6 +225,8 @@ Core::Core(ros::NodeHandle& nh)
     m_angular_speed = 0;
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
+
+    m_end_init_odo = ros::Time::now() + ros::Duration(2.5);
 }
 
 void Core::updateOdom(const nav_msgs::Odometry& odometry)
@@ -484,7 +486,10 @@ Core::State Core::Loop()
     {
         // Init odom once, to allow moving for ICP/EKF init
         setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, true);
-        m_state = State::WAIT_TIRETTE;
+        if (m_end_init_odo < ros::Time::now())
+        {
+            m_state = State::WAIT_TIRETTE;
+        }
     }
     else if (m_state == State::WAIT_TIRETTE)
     {
