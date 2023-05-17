@@ -35,7 +35,7 @@
 #define UPDATE_RATE 10
 
 #define ENABLE_TIMEOUT_END_MATCH true
-#define TIMEOUT_END_MATCH 99e3 // in ms
+#define TIMEOUT_END_MATCH 97e3 // in ms
 
 unsigned int angle_to_neuron_id(Angle a);
 
