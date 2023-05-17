@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
     Core my_core(nh);
     my_core.Setup();
 
-    while (!my_core.isOver() && ros::ok())
+    while (ros::ok())
     {
         loop_rate.sleep();
         ros::spinOnce();
