@@ -478,6 +478,7 @@ Core::State Core::Loop()
 
     if ((m_state != State::WAIT_TIRETTE && m_state != State::INIT_ODOM_TODO) && isTimeToStop())
     {
+        stopMotors();
         ROS_INFO_STREAM("Time's up !");
         return m_state;
     }
@@ -628,6 +629,10 @@ Core::State Core::Loop()
 
         
     } // End of m_state == State::NORMAL
+    if (m_state == State::EXIT)
+    {
+        stopMotors();
+    }
 
     return m_state;
 }
