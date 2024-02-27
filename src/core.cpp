@@ -1,11 +1,10 @@
 #include "core.h"
-#include "ros/ros.h"
-#include <std_msgs/Duration.h>
+#include <std_msgs/msg/duration.hpp>
 #include <stdexcept>
 
 #define MAX_ALLOWED_ANGULAR_SPEED 5.f // rad/s
 
-#include "lidarStrat.h"
+//#include "lidarStrat.h" @TODO fix this
 #define UPDATE_RATE 10
 
 #include <krabi_msgs/motors_cmd.h>
@@ -26,17 +25,17 @@ void Core::updateCurrentPose()
     try
     {
 
-        auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+        auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
         const auto& transform
-          = m_tf_buffer.lookupTransform("map", base_link_id, ros::Time(0)).transform;
+          = m_tf_buffer.lookupTransform("map", base_link_id, tf2::TimePointZero).transform;
         m_baselink_to_map = transformFromMsg(transform);
         m_map_to_baselink = transformFromMsg(
-          m_tf_buffer.lookupTransform(base_link_id, "map", ros::Time(0)).transform);
+          m_tf_buffer.lookupTransform(base_link_id, "map", tf2::TimePointZero).transform);
         m_current_pose = Pose(transform);
     }
     catch (tf2::TransformException& ex)
     {
-        ROS_WARN("%s", ex.what());
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "%s", ex.what());
     }
 
     // std::cout << "updateCurrentPose: " << m_current_pose << std::endl;//Raspi4 doesn't like
@@ -49,25 +48,25 @@ Angle Core::getAngleToGoal()
     return (m_goal_pose.getPosition() - m_current_pose.getPosition()).getAngle();
 }
 
-void Core::updateGoal(geometry_msgs::PoseStamped goal_pose)
+void Core::updateGoal(geometry_msgs::msg::PoseStamped goal_pose)
 {
     // m_goal_pose = Pose(goal_pose.pose);
-    // ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
+    // RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "New goal: " << m_goal_pose);
 }
 
-void Core::updateTirette(std_msgs::Bool starting)
+void Core::updateTirette(std_msgs::msg::Bool starting)
 {
     if (starting.data && (m_state == State::WAIT_TIRETTE || m_state == State::INIT_ODOM_TODO))
     {
-        ROS_INFO_STREAM("Go for launch!");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Go for launch!");
         m_state = State::NORMAL;
 
         // Start counting the time
-        m_begin_match = ros::Time::now();
+        m_begin_match = this->now();
     }
 }
 
-void Core::updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle,
+void Core::updateLidar(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> closest_obstacle,
                        bool front)
 {
     if (front == !reverseGear())
@@ -92,7 +91,7 @@ void Core::addObstacle(PolarPosition obstacle)
         m_speed_inhibition_from_obstacle = 0.f;
     }
 
-    /*ROS_INFO_STREAM("Speed inhib from obstacle = " << m_speed_inhibition_from_obstacle
+    /*RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Speed inhib from obstacle = " << m_speed_inhibition_from_obstacle
                                                    << ". Obstacle @" << obstacle << std::endl);*/
 
     float obstacle_distance_clean = obstacle.getDistance();
@@ -114,12 +113,12 @@ void Core::addObstacle(PolarPosition obstacle)
     }
 }
 
-void Core::updateGear(std_msgs::Bool a_reverse_gear_activated)
+void Core::updateGear(std_msgs::msg::Bool a_reverse_gear_activated)
 {
     m_reverse_gear_activated = a_reverse_gear_activated.data == 1;
 }
 
-void Core::updateStratMovement(krabi_msgs::strat_movement move)
+void Core::updateStratMovement(krabi_msgs::msg::StratMovement move)
 {
     m_strat_movement_parameters = move;
     m_goal_pose = Pose(move.goal_pose.pose);
@@ -136,17 +135,18 @@ void Core::updateStratMovement(krabi_msgs::strat_movement move)
         m_strat_movement_parameters.max_speed.angular.z = 0;
         m_strat_movement_parameters.max_speed.linear.x = 0;
     }
-    //    ROS_DEBUG_STREAM("New goal: " << m_goal_pose);
+    //    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "New goal: " << m_goal_pose);
 
     m_buffer_strat_movement_parameters = m_strat_movement_parameters;
     m_buffer_goal_pose = m_goal_pose;
     m_buffer_goal_pose_stamped = m_goal_pose_stamped;
 }
 
-Core::Core(ros::NodeHandle& nh)
-  : m_tf_listener(m_tf_buffer)
-  , m_nh(nh)
+Core::Core() : Node("main_strat")
 {
+    m_tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    m_tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer_);
+
     m_previous_angle_to_goal = Angle (0);
     m_previous_goal_pose = Pose();
 
@@ -156,28 +156,27 @@ Core::Core(ros::NodeHandle& nh)
     m_speed_inhibition_from_obstacle = 1;
     m_reverse_gear_activated = false;
 
-    m_nh.param<bool>("isBlue", m_is_blue, true);
-    ROS_INFO_STREAM(m_is_blue ? "Is Blue !" : "Not Blue :'(");
+    this->declare_parameter("isBlue", true);
+    m_is_blue = this->get_parameter("isBlue").as_bool();
 
-    m_motors_cmd_pub = m_nh.advertise<geometry_msgs::Twist>("cmd_vel", 5);
-    m_motors_enable_pub = m_nh.advertise<std_msgs::Bool>("enable_motor", 5);
-    m_motors_parameters_pub = m_nh.advertise<krabi_msgs::motors_parameters>("motors_parameters", 5);
-    m_motors_pwm_pub = m_nh.advertise<krabi_msgs::motors_cmd>("motors_cmd", 5);
-    m_target_orientation_pub = m_nh.advertise<geometry_msgs::PoseStamped>("target_orientation", 5);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
-    m_chrono_pub = m_nh.advertise<std_msgs::Duration>("/remaining_time", 5);
+    m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 5);
+    m_motors_enable_pub = this->create_publisher<std_msgs::msg::Bool>("enable_motor", 5);
+    m_motors_parameters_pub = this->create_publisher<krabi_msgs::msg::motors_parameters>("motors_parameters", 5);
+    m_motors_pwm_pub = this->create_publisher<krabi_msgs::msg::motors_cmd>("motors_cmd", 5);
+    m_target_orientation_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("target_orientation", 5);
+
+    m_chrono_pub = this->create_publisher<std_msgs::msg::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
-      = m_nh.advertise<krabi_msgs::motors_distance_asserv>("motors_distance_asserv", 5);
+      = this->create_publisher<krabi_msgs::msg::motors_distance_asserv>("motors_distance_asserv", 5);
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
-    m_lidar_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
-      "obstacle_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, true));
-
-    m_lidar_behind_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(
-      "obstacle_behind_pose_stamped", 5, boost::bind(&Core::updateLidar, this, _1, false));
-    m_tirette_sub = m_nh.subscribe("tirette", 1, &Core::updateTirette, this);
-    m_odometry_sub = m_nh.subscribe("odom", 1000, &Core::updateOdom, this);
-    m_strat_movement_sub = m_nh.subscribe("strat_movement", 5, &Core::updateStratMovement, this);
+    m_lidar_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_pose_stamped", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1, true));//, l_sub_options);
+    m_lidar_behind_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_behind_pose_stamped", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1, false));//, l_sub_options);
+    m_tirette_sub = this->create_subscription<std_msgs::msg::Bool>("tirette", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1));//, l_sub_options);
+    m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>("odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));//, l_sub_options);
+    m_strat_movement_sub = this->create_subscription<krabi_msgs::msg::StratMovement>("strat_movement", 5, std::bind(&Core::updateStratMovement, this, std::placeholders::_1));//, l_sub_options);
 
     m_running = std::thread(&Core::plotAll, this);
 
@@ -185,29 +184,19 @@ Core::Core(ros::NodeHandle& nh)
 
     if (!m_is_blue)
     {
-        m_arucos_sub[6] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/6", 5, boost::bind(&Core::updateAruco, this, _1, 6));
-        m_arucos_sub[7] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/7", 5, boost::bind(&Core::updateAruco, this, _1, 7));
-        m_arucos_sub[8] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/8", 5, boost::bind(&Core::updateAruco, this, _1, 8));
-        m_arucos_sub[9] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/9", 5, boost::bind(&Core::updateAruco, this, _1, 9));
-        m_arucos_sub[10] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/10", 5, boost::bind(&Core::updateAruco, this, _1, 10));
+        m_arucos_sub[6] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/6", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 6));//, l_sub_options);
+        m_arucos_sub[7] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/7", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 7));//, l_sub_options);
+        m_arucos_sub[8] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/8", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 8));//, l_sub_options);
+        m_arucos_sub[9] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/9", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 9));//, l_sub_options);
+        m_arucos_sub[10] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/10", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 10));//, l_sub_options);
     }
     else
     {
-        m_arucos_sub[1] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/1", 5, boost::bind(&Core::updateAruco, this, _1, 1));
-        m_arucos_sub[2] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/2", 5, boost::bind(&Core::updateAruco, this, _1, 2));
-        m_arucos_sub[3] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/3", 5, boost::bind(&Core::updateAruco, this, _1, 3));
-        m_arucos_sub[4] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/4", 5, boost::bind(&Core::updateAruco, this, _1, 4));
-        m_arucos_sub[5] = nh.subscribe<geometry_msgs::PoseStamped>(
-          "/pose_robots/5", 5, boost::bind(&Core::updateAruco, this, _1, 5));
+        m_arucos_sub[1] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/1", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 1));//, l_sub_options);
+        m_arucos_sub[2] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/2", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 2));//, l_sub_options);
+        m_arucos_sub[3] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/3", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 3));//, l_sub_options);
+        m_arucos_sub[4] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/4", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 4));//, l_sub_options);
+        m_arucos_sub[5] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/5", 5, std::bind(&Core::updateAruco, this, std::placeholders::_1, 5));//, l_sub_options);
     }
 
     m_goal_output[NB_NEURONS] = { 0. };
@@ -216,7 +205,7 @@ Core::Core(ros::NodeHandle& nh)
     m_angular_speed_vector[NB_NEURONS] = { 0. };
     m_angular_landscape[NB_NEURONS] = { 0. };
 
-    ROS_INFO_STREAM("Init done! Proceeding.\nStarting IA.\n");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Init done! Proceeding.\nStarting IA.\n");
 
     /**************************************
      *      Variable initialization       *
@@ -226,10 +215,10 @@ Core::Core(ros::NodeHandle& nh)
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
 
-    m_end_init_odo = ros::Time::now() + ros::Duration(2.5);
+    m_end_init_odo = this->now() + ros::Duration(2, 0.5 * 10e9);
 }
 
-void Core::updateOdom(const nav_msgs::Odometry& odometry)
+void Core::updateOdom(const nav_msgs::msg::Odometry& odometry)
 {
     m_linear_speed
       = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y, 0).length();
@@ -264,9 +253,9 @@ double Core::getReach(const std::string& end_point_frame_id)
     }
     try
     {
-        auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
-        const geometry_msgs::Transform& transform
-          = m_tf_buffer.lookupTransform(end_point_frame_id, base_link_id, ros::Time(0)).transform;
+        auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
+        const geometry_msgs::msg::Transform& transform
+          = m_tf_buffer.lookupTransform(end_point_frame_id, base_link_id, tf2::TimePointZero).transform;
 
         return static_cast<double>(sqrt(transform.translation.x * transform.translation.x
                                         + transform.translation.y * transform.translation.y
@@ -274,7 +263,7 @@ double Core::getReach(const std::string& end_point_frame_id)
     }
     catch (tf2::TransformException& ex)
     {
-        ROS_WARN("Error while getting reach: %s", ex.what());
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Error while getting reach: %s", ex.what());
 
         return Distance(0);
     }
@@ -285,13 +274,13 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
                           bool enable,
                           bool resetEncoders)
 {
-    geometry_msgs::Twist new_motor_cmd;
+    geometry_msgs::msg::Twist new_motor_cmd;
     new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
     new_motor_cmd.angular.z = angularSpeed;
 
-    krabi_msgs::motors_distance_asserv l_distance_asserv_msg;
+    krabi_msgs::msg::motors_distance_asserv l_distance_asserv_msg;
     l_distance_asserv_msg.use_distance_asserv = true;
-    l_distance_asserv_msg.goal_pose = geometry_msgs::PoseStamped();
+    l_distance_asserv_msg.goal_pose = geometry_msgs::msg::PoseStamped();
 
     const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
     const auto l_map_id = "map";
@@ -299,21 +288,21 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     std::string l_error_message = "no error";
     try
     {
-        if (m_tf_buffer.canTransform(l_map_id, l_odom_id, ros::Time(0), &l_error_message))
+        if (m_tf_buffer.canTransform(l_map_id, l_odom_id, tf2::TimePointZero, &l_error_message))
         {
 
-            geometry_msgs::TransformStamped l_map_to_odom
-              = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, ros::Time(0));
-            geometry_msgs::PoseStamped l_goal_pose_in_odom;
+            geometry_msgs::msg::TransformStamped l_map_to_odom
+              = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, tf2::TimePointZero);
+            geometry_msgs::msg::PoseStamped l_goal_pose_in_odom;
             tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
             l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
-            // ROS_WARN_STREAM("goal in map : " << m_goal_pose_stamped.pose.position.x << ", " <<
-            // m_goal_pose_stamped.pose.position.y); ROS_WARN_STREAM("goal in odom : " <<
+            // RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in map : " << m_goal_pose_stamped.pose.position.x << ", " <<
+            // m_goal_pose_stamped.pose.position.y); RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in odom : " <<
             // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
         }
         else
         {
-            ROS_WARN_STREAM("CanTransform said: Unable to find a transform from "
+            RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "CanTransform said: Unable to find a transform from "
                             << l_map_id << " to " << l_odom_id
                             << " (=map to odom), disabling distance asserv: " << l_error_message);
             l_distance_asserv_msg.use_distance_asserv = false;
@@ -321,7 +310,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     }
     catch (tf2::LookupException)
     {
-        ROS_WARN("Unable to find a transform from map to odom, disabling distance asserv");
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Unable to find a transform from map to odom, disabling distance asserv");
         l_distance_asserv_msg.use_distance_asserv = false;
     }
 
@@ -329,15 +318,15 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     l_distance_asserv_msg.reach = getReach(m_strat_movement_parameters.endpoint_frame_id);
 
-    m_distance_asserv_pub.publish(l_distance_asserv_msg);
-    m_motors_cmd_pub.publish(new_motor_cmd);
-    std_msgs::Bool new_enable_cmd;
+    m_distance_asserv_pub->publish(l_distance_asserv_msg);
+    m_motors_cmd_pub->publish(new_motor_cmd);
+    std_msgs::msg::Bool new_enable_cmd;
     new_enable_cmd.data = enable;
-    m_motors_enable_pub.publish(new_enable_cmd);
+    m_motors_enable_pub->publish(new_enable_cmd);
 
 
-    geometry_msgs::PoseStamped l_target_orientation_msg;
-    //l_target_orientation_msg.header.stamp = ros::Time::now();
+    geometry_msgs::msg::PoseStamped l_target_orientation_msg;
+    //l_target_orientation_msg.header.stamp = this->now();
     l_target_orientation_msg.header.frame_id = "/map";
     l_target_orientation_msg.pose = m_current_pose;
     //l_distance_asserv_msg.goal_pose.pose;
@@ -346,11 +335,11 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     myQuaternion.normalize();
     //tf2::convert(l_target_orientation_msg.pose.orientation, myQuaternion);
     l_target_orientation_msg.pose.orientation = tf2::toMsg(myQuaternion);
-    l_target_orientation_msg.header.stamp = ros::Time::now();
-    m_target_orientation_pub.publish(l_target_orientation_msg);
+    l_target_orientation_msg.header.stamp = this->now();
+    m_target_orientation_pub->publish(l_target_orientation_msg);
 
-    krabi_msgs::motors_cmd new_motors_pwm_cmd;
-    krabi_msgs::motors_parameters new_parameters;
+    krabi_msgs::msg::motors_cmd new_motors_pwm_cmd;
+    krabi_msgs::msg::motors_parameters new_parameters;
     new_parameters.max_current = 0.7f;
     new_parameters.max_current_left = 2;
     new_parameters.max_current_right = 2;
@@ -383,9 +372,9 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
         new_parameters.max_current_right = 3;
     }
 
-    m_motors_parameters_pub.publish(new_parameters);
+    m_motors_parameters_pub->publish(new_parameters);
 
-    m_motors_pwm_pub.publish(new_motors_pwm_cmd);
+    m_motors_pwm_pub->publish(new_motors_pwm_cmd);
 }
 
 bool Core::reverseGear()
@@ -428,7 +417,7 @@ Core::~Core()
     // We broke out of the loop, stop everything
     stopMotors();
 
-    ROS_INFO_STREAM("Got out of the main loop, stopped everything.\n");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Got out of the main loop, stopped everything.\n");
 }
 
 void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
@@ -440,7 +429,7 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
     m_linear_speed_cmd = std::min(m_linear_speed_cmd, linear_speed_limit);
-    ROS_INFO_STREAM("limit linear by angular speed : " << linear_speed_limit << std::endl);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "limit linear by angular speed : " << linear_speed_limit << std::endl);
 }
 
 void Core::plotAll()
@@ -479,7 +468,7 @@ Core::State Core::Loop()
     if ((m_state != State::WAIT_TIRETTE && m_state != State::INIT_ODOM_TODO) && isTimeToStop())
     {
         stopMotors();
-        ROS_INFO_STREAM("Time's up !");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Time's up !");
         return m_state;
     }
 
@@ -487,7 +476,7 @@ Core::State Core::Loop()
     {
         // Init odom once, to allow moving for ICP/EKF init
         setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, true);
-        if (m_end_init_odo < ros::Time::now())
+        if (m_end_init_odo < this->now())
         {
             m_state = State::WAIT_TIRETTE;
         }
@@ -543,7 +532,7 @@ Core::State Core::Loop()
             // respect the goal's own orientation
             m_target_orientation = m_goal_pose.getAngle();
 
-            ROS_DEBUG_STREAM("########################################"
+            RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "########################################"
                              << std::endl
                              << "Positionned, m_orienting to " << m_goal_pose.getAngle()
                              << std::endl
@@ -569,7 +558,7 @@ Core::State Core::Loop()
             m_goal_output[i] = target(207.f, 1.1f, angle_to_neuron_id(delta_orientation), i);
         }
 
-        /*ROS_INFO_STREAM("relative_target_orientation: "
+        /*RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "relative_target_orientation: "
                         << delta_orientation
                         << ", peak value: " << get_idx_of_max(m_goal_output, NB_NEURONS)
                         << ", central value = " <<
@@ -591,7 +580,7 @@ Core::State Core::Loop()
         m_angular_speed_cmd = VitesseAngulaire(m_angular_speed_vector[angle_to_neuron_id(
           Angle(0))]); // - as positive is towards the left in ros, while the
                        // derivation is left to right
-        // ROS_DEBUG_STREAM(",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
+        // RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), ",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
 
         limitLinearSpeedCmdByGoal();
 
@@ -605,19 +594,19 @@ Core::State Core::Loop()
         if (DISABLE_LINEAR_SPEED || orienting())
         {
             m_linear_speed_cmd = 0;
-            ROS_INFO_STREAM("linear speed disabled");
+            RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "linear speed disabled");
         }
 
         if (DISABLE_ANGULAR_SPEED || stop_angular())
         {
             m_angular_speed_cmd = 0;
-            ROS_INFO_STREAM("angular speed disabled");
+            RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "angular speed disabled");
         }
 
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         limitLinearSpeedByAngularSpeed(m_angular_speed_cmd);
 
-        ROS_INFO_STREAM("linear speed = "
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "linear speed = "
                         << m_linear_speed << ", m_orienting = " << orienting()
                         << ", speed inihib from obstacles = " << m_speed_inhibition_from_obstacle
                         << " * " << m_default_linear_speed
@@ -652,14 +641,14 @@ velocity_t limit_acceleration(velocity_t current_velocity,
 void Core::limitAcceleration()
 {
     /**
-    ROS_DEBUG_STREAM("Limiting acceleration:");
-    ROS_DEBUG_STREAM("Before: linear_speed: " << m_linear_speed_cmd << "m/s , angular_speed: "
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "Limiting acceleration:");
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "Before: linear_speed: " << m_linear_speed_cmd << "m/s , angular_speed: "
                                               << m_angular_speed_cmd << "rad/s");
     m_linear_speed_cmd = limit_acceleration(
       m_linear_speed, m_linear_speed_cmd, Acceleration(0.025), 1. / float(UPDATE_RATE));
     m_angular_speed_cmd = limit_acceleration(
       m_angular_speed, m_angular_speed_cmd, AccelerationAngulaire(0.00025), 1. /
-    float(UPDATE_RATE)); ROS_DEBUG_STREAM("After: linear_speed: " << m_linear_speed_cmd << "m/s
+    float(UPDATE_RATE)); RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "After: linear_speed: " << m_linear_speed_cmd << "m/s
     , angular_speed: "
                                              << m_angular_speed_cmd << "rad/s");
                                              **/
@@ -667,24 +656,24 @@ void Core::limitAcceleration()
 
 void Core::publishRemainingTime()
 {
-    std_msgs::Duration remaining_time_msg;
+    std_msgs::msg::Duration remaining_time_msg;
     remaining_time_msg.data = ros::Duration(TIMEOUT_END_MATCH / 1000);
 
     if (m_begin_match)
     {
         auto remaining_time
-          = ros::Duration(TIMEOUT_END_MATCH / 1000 - (ros::Time::now() - *m_begin_match).toSec());
+          = ros::Duration(TIMEOUT_END_MATCH / 1000 - (this->now() - *m_begin_match).toSec());
         remaining_time_msg.data = remaining_time;
     }
 
-    m_chrono_pub.publish(remaining_time_msg);
+    m_chrono_pub->publish(remaining_time_msg);
 }
 
 bool Core::isTimeToStop()
 {
     // State::EXIT and stop robot if we reached the end of the match
     if (ENABLE_TIMEOUT_END_MATCH == TRUE
-        && (ros::Time::now() - *m_begin_match).toSec() * 1000 > TIMEOUT_END_MATCH)
+        && (this->now() - *m_begin_match).toSec() * 1000 > TIMEOUT_END_MATCH)
     {
         m_state = State::EXIT;
         return true;
@@ -697,13 +686,13 @@ void Core::computeTargetSpeedOrientation()
     /*if (s_joystick.output->strength == 1) {
             m_target_orientation = get_idx_of_max(s_joystick.output->neural_field, NB_NEURONS);
             m_linear_speed_cmd = s_joystick.output->speed_inhibition;
-            //ROS_INFO_STREAM("Target orientation from joystick: %d\n", m_target_orientation);
+            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Target orientation from joystick: %d\n", m_target_orientation);
     } else if (s_goal.output->strength == 1) {
             m_target_orientation = get_idx_of_max(s_goal.output->neural_field, NB_NEURONS);
             //m_linear_speed_cmd = m_default_linear_speed;
             m_linear_speed_cmd = s_goal.output->speed_inhibition;
-            //ROS_INFO_STREAM("Linear speed command from goal: %d\n", m_linear_speed_cmd);
-            //ROS_INFO_STREAM("Target orientation from goal: %d\n", m_target_orientation);
+            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Linear speed command from goal: %d\n", m_linear_speed_cmd);
+            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Target orientation from goal: %d\n", m_target_orientation);
     } else {
             /*
              * If no positive valence strategy fires, set the target orientation to the robot's
@@ -754,11 +743,11 @@ void Core::limitLinearSpeedCmdByGoal()
 
     float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
     time_to_stop = std::max(0.f, time_to_stop);
-    ROS_INFO_STREAM("time to stop = " << time_to_stop << "s, ");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "time to stop = " << time_to_stop << "s, ");
 
     Distance distance_to_stop
       = Distance(time_to_stop * (m_linear_speed - desired_final_speed) / 2.);
-    ROS_INFO_STREAM(", distance to stop = " << distance_to_stop << "m, ");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), ", distance to stop = " << distance_to_stop << "m, ");
 
     // Compute extra time if accelerating
     Vitesse average_extra_speed = Vitesse(
@@ -770,22 +759,22 @@ void Core::limitLinearSpeedCmdByGoal()
 
     if (l_distance_to_goal < distance_to_stop)
     {
-        ROS_INFO_STREAM("decelerate");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "decelerate");
         new_speed_order = m_linear_speed - max_deceleration / float(UPDATE_RATE);
     }
     else if (l_distance_to_goal < m_linear_speed / float(UPDATE_RATE))
     {
-        ROS_INFO_STREAM("EMERGENCY BRAKE");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "EMERGENCY BRAKE");
         new_speed_order = 0;
     }
     else if (l_distance_to_goal > distance_to_stop + extra_distance)
     {
-        ROS_INFO_STREAM("accelerate");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "accelerate");
         new_speed_order = m_linear_speed + max_acceleration / float(UPDATE_RATE);
     }
     else
     {
-        ROS_INFO_STREAM("cruise speed");
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "cruise speed");
         new_speed_order = m_linear_speed;
     }
     new_speed_order
@@ -793,7 +782,7 @@ void Core::limitLinearSpeedCmdByGoal()
     new_speed_order
       = std::min(new_speed_order, Vitesse(m_strat_movement_parameters.max_speed.linear.x));
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
-    ROS_INFO_STREAM("new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl);
     m_linear_speed_cmd = new_speed_order;
 }
 
@@ -802,13 +791,13 @@ unsigned int angle_to_neuron_id(Angle a)
     return (unsigned int)(((AngleTools::wrapAngle(a) + M_PI) / (2 * M_PI)) * NB_NEURONS);
 }
 
-void Core::publishTf(const geometry_msgs::Pose& pose,
+void Core::publishTf(const geometry_msgs::msg::Pose& pose,
                      const std::string& frame_id,
                      const std::string& child_frame_id)
 {
     // first, we'll publish the transform over tf
-    geometry_msgs::TransformStamped odom_trans;
-    odom_trans.header.stamp = ros::Time::now();
+    geometry_msgs::msg::TransformStamped odom_trans;
+    odom_trans.header.stamp = this->now();
     odom_trans.header.frame_id = frame_id;
     odom_trans.child_frame_id = child_frame_id;
 
@@ -821,20 +810,20 @@ void Core::publishTf(const geometry_msgs::Pose& pose,
     m_tf_broadcaster.sendTransform(odom_trans);
 }
 
-void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> arucoPose, int id)
+void Core::updateAruco(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> arucoPose, int id)
 {
     m_arucos[id] = *arucoPose;
 
     publishTf(arucoPose->pose, "/aruco", "/aruco_raw_pose");
-    auto base_link_id = tf::resolve(ros::this_node::getNamespace(), "base_link");
+    auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
     auto deltaOdom = m_tf_buffer.lookupTransform(base_link_id,
                                                  arucoPose->header.stamp,
                                                  base_link_id,
-                                                 ros::Time::now(),
+                                                 this->now(),
                                                  "map",
-                                                 ros::Duration(1.0));
+                                                 rclcpp::Duration(1.0));
 
-    ROS_INFO_STREAM("ego_aruco_received. Movement since: x = "
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "ego_aruco_received. Movement since: x = "
                     << deltaOdom.transform.translation.x
                     << ", y = " << deltaOdom.transform.translation.y
                     << ", QuatW = " << deltaOdom.transform.rotation.w
@@ -863,7 +852,7 @@ void Core::updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> aruco
     quat_tf_corrected.normalize();
     corrected_pose.orientation = tf2::toMsg(quat_tf_corrected);
 
-    ROS_INFO_STREAM("corrected position: x = " << corrected_pose.position.x << ", y = "
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "corrected position: x = " << corrected_pose.position.x << ", y = "
                                                << corrected_pose.position.y << std::endl);
 
     publishTf(corrected_pose, "/aruco", "/corrected_odom");

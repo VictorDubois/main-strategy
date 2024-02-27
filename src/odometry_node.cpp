@@ -5,26 +5,30 @@
 
 using namespace std;
 
+
 int main(int argc, char* argv[])
 {
-    ros::init(argc, argv, "odometry_node");
-    ros::NodeHandle nh;
-    ros::Rate rate(200);
-    string odom_type;
-    nh.param<string>("odom_type", odom_type, "tf_pub");
-    if (!odom_type.compare("tf_pub"))
+
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<OdometryTFPublisher>();
+
+    node->declare_parameter("odom_type", "tf_pub");
+    string odom_type = this->get_parameter("odom_type").as_string();
+
+    if (odom_type.compare("tf_pub"))
     {
-        auto node = OdometryTFPublisher(nh);
-        while(ros::ok())
-        {
-            ros::spinOnce();
-            rate.sleep();
-        }
-    }
-    else
-    {
-        ROS_ERROR("Incompatible odom_type");
+        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Incompatible odom_type");
         exit(1);
+        return 1;
     }
+
+    rclcpp::executors::MultiThreadedExecutor executor;
+    executor.add_node(node);
+    while(rclcpp::ok)
+    {
+        executor.spin();
+    }
+    
+    rclcpp::shutdown();
     return 0;
 }

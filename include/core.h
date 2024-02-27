@@ -2,29 +2,30 @@
 /*********************************************
  *                  BROKER                   *
  **********************************************/
-#include "ros/ros.h"
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_listener.h>
-#include <tf2_ros/transform_listener.h>
+#include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
 
 #include <thread>
 #include <utility>
 #include <vector>
 
-#include <geometry_msgs/Point.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Twist.h>
-#include <geometry_msgs/Vector3.h>
-#include <krabi_msgs/motors.h>
-#include <krabi_msgs/motors_distance_asserv.h>
-#include <krabi_msgs/odom_light.h>
-#include <krabi_msgs/strat_movement.h>
-#include <nav_msgs/Odometry.h>
-#include <std_msgs/Bool.h>
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+#include <krabi_msgs/msg/motors.hpp>
+#include <krabi_msgs/msg/motors_parameters.hpp>
+#include <krabi_msgs/msg/motors_distance_asserv.hpp>
+#include <krabi_msgs/msg//odom_light.hpp>
+#include <krabi_msgs/msg/strat_movement.hpp>
+#include <krabi_msgs/msg/motors_cmd.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <std_msgs/msg/bool.hpp>
 
 #include "constants.h"
 #include "helpers_broker.h"
-#include "krabilib/pose.h"
+#include "krabilib/pose.h" @TODO fix this
 
 // Should remove this and put it in a global, "constant.h" file for the whole project
 #define NB_NEURONS 360
@@ -39,7 +40,7 @@
 
 unsigned int angle_to_neuron_id(Angle a);
 
-class Core
+class Core: public rclcpp::Node
 {
 
 public:
@@ -52,7 +53,7 @@ public:
         NORMAL
     };
 
-    Core(ros::NodeHandle& nh);
+    Core();
     ~Core();
     int Setup();
     State Loop();
@@ -61,7 +62,7 @@ public:
 private:
     void selectColor();
 
-    void updateStratMovement(krabi_msgs::strat_movement move);
+    void updateStratMovement(krabi_msgs::msg::StratMovement move);
 
     // Has the tirette been pulled?
     bool areWeGoForLaunch();
@@ -89,13 +90,13 @@ private:
                         bool enable,
                         bool resetEncoders);
     void setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed);
-    void updateGoal(geometry_msgs::PoseStamped goal_pose);
-    void updateLidar(boost::shared_ptr<geometry_msgs::PoseStamped const> closest_obstacle,
+    void updateGoal(geometry_msgs::msg::PoseStamped goal_pose);
+    void updateLidar(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> closest_obstacle,
                      bool front);
     void addObstacle(PolarPosition obstacle);
-    void updateTirette(std_msgs::Bool starting);
-    void updateGear(std_msgs::Bool a_reverse_gear_activated);
-    void updateOdom(const nav_msgs::Odometry& odometry);
+    void updateTirette(std_msgs::msg::Bool starting);
+    void updateGear(std_msgs::msg::Bool a_reverse_gear_activated);
+    void updateOdom(const nav_msgs::msg::Odometry& odometry);
     void updateCurrentPose();
 
     bool reverseGear();
@@ -133,59 +134,54 @@ private:
     float m_lidar_output[NB_NEURONS] = { 0. };
     float m_angular_speed_vector[NB_NEURONS] = { 0. };
     float m_angular_landscape[NB_NEURONS] = { 0. };
-    boost::optional<ros::Time> m_begin_match;
+    boost::optional<rclcpp::Time> m_begin_match;
     Pose m_goal_pose;
-    geometry_msgs::PoseStamped m_goal_pose_stamped;
+    geometry_msgs::msg::PoseStamped m_goal_pose_stamped;
     Distance m_distance_to_goal;
     bool m_reverse_gear_activated;
     float m_speed_inhibition_from_obstacle;
-    krabi_msgs::strat_movement m_strat_movement_parameters;
+    krabi_msgs::msg::StratMovement m_strat_movement_parameters;
 
     // ROS Params
     bool m_is_blue;
 
-    // Publisher
-    ros::Publisher m_motors_cmd_pub;
-    ros::Publisher m_motors_enable_pub;
-    ros::Publisher m_motors_parameters_pub;
-    ros::Publisher m_motors_pwm_pub;
-    ros::Publisher m_chrono_pub;
-    ros::Publisher m_distance_asserv_pub;
-    ros::Publisher m_target_orientation_pub;
+    // Publishers
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_motors_cmd_pub;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr m_motors_enable_pub;
+    rclcpp::Publisher<krabi_msgs::msg::MotorsParameters>::SharedPtr m_motors_parameters_pub;
+    rclcpp::Publisher<krabi_msgs::msg::MotorsCmd>::SharedPtr m_motors_pwm_pub;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr m_target_orientation_pub;
+    rclcpp::Publisher<builtin_interfaces::msg::Duration>::SharedPtr m_chrono_pub;
+    rclcpp::Publisher<krabi_msgs::msg::MotorsDistanceAsserv>::SharedPtr m_distance_asserv_pub;
 
-    // Subscriber
-    ros::Subscriber m_odometry_sub;
-    ros::Subscriber m_goal_sub;
-    ros::Subscriber m_lidar_sub;
-    ros::Subscriber m_lidar_behind_sub;
-    ros::Subscriber m_tirette_sub;
-    ros::Subscriber m_reverse_gear_sub;
-    ros::Subscriber m_strat_movement_sub;
+    // Subscribers
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_sub;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_behind_sub;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr m_tirette_sub;
+    rclcpp::Subscription<nav_mgs::msg::Odometry>::SharedPtr m_odometry_sub;
+    rclcpp::Subscription<krabi_msgs::msg::StratMovement>::SharedPtr m_lidar_sub;
 
     // Transform
-    tf2_ros::Buffer m_tf_buffer;
-    tf2_ros::TransformListener m_tf_listener;
-    tf::TransformBroadcaster m_tf_broadcaster;
+    std::shared_ptr<tf2_ros::TransformListener> m_tf_listener_{nullptr};
+    std::unique_ptr<tf2_ros::Buffer> m_tf_buffer_;
     Transform m_map_to_baselink;
     Transform m_baselink_to_map;
     Pose m_current_pose;
 
-    ros::NodeHandle m_nh;
-
     // Arcuo
-    void updateAruco(boost::shared_ptr<geometry_msgs::PoseStamped const> arucoPose, int id);
-    void publishTf(const geometry_msgs::Pose& pose,
+    void updateAruco(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> arucoPose, int id);
+    void publishTf(const geometry_msgs::msg::Pose& pose,
                    const std::string& frame_id,
                    const std::string& child_frame_id);
-    std::map<int, ros::Subscriber> m_arucos_sub;
-    std::array<geometry_msgs::PoseStamped, 10> m_arucos;
+    std::map<int, rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> m_arucos_sub;
+    std::array<geometry_msgs::msg::PoseStamped, 10> m_arucos;
 
     // Buffer
-    krabi_msgs::strat_movement m_buffer_strat_movement_parameters;
+    krabi_msgs::msg::StratMovement m_buffer_strat_movement_parameters;
     Pose m_buffer_goal_pose;
-    geometry_msgs::PoseStamped m_buffer_goal_pose_stamped;
+    geometry_msgs::msg::PoseStamped m_buffer_goal_pose_stamped;
     Angle m_previous_angle_to_goal;
     Pose m_previous_goal_pose;
 
-    ros::Time m_end_init_odo;
+    rclcpp::Time m_end_init_odo;
 };

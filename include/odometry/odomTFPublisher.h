@@ -1,35 +1,38 @@
 #pragma once
-#include <geometry_msgs/PoseStamped.h>
-#include <krabi_msgs/SetOdom.h>
-#include <krabi_msgs/odom_light.h>
-#include <krabi_msgs/odom_lighter.h>
+#include <krabi_msgs/msg/odom_light.hpp>
+#include <krabi_msgs/msg/odom_lighter.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <krabi_msgs/srv/set_odom.hpp>
 #include <krabilib/pose.h>
-#include <nav_msgs/Odometry.h>
-#include <ros/ros.h>
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_datatypes.h>
+#include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
 
-class OdometryTFPublisher
+class OdometryTFPublisher: public rclcpp::Node
 {
 public:
-    OdometryTFPublisher(ros::NodeHandle& nh);
+    OdometryTFPublisher();
 
 private:
-    void updateLightOdom(krabi_msgs::odom_light odommsg);
-    void updateLighterOdom(krabi_msgs::odom_lighter odommsg);
-    void publishOdom(krabi_msgs::odom_light odommsg);
-    void publishOdom(krabi_msgs::odom_lighter odommsg, geometry_msgs::Pose odompose);
+    void updateLightOdom(krabi_msgs::msg::odom_light odommsg);
+    void updateLighterOdom(krabi_msgs::msg::odom_lighter odommsg);
+    void publishOdom(krabi_msgs::msg::odom_light odommsg);
+    void publishOdom(krabi_msgs::msg::odom_lighter odommsg, geometry_msgs::msg::Pose odompose);
 
-    void publishTf(const geometry_msgs::Pose& pose,
+    void publishTf(const geometry_msgs::msg::Pose& pose,
                    const std::string& frame_id,
                    const std::string& child_frame_id);
 
-    tf::TransformBroadcaster m_tf_broadcaster;
-    ros::Subscriber m_odom_sub;
-    ros::Subscriber m_odom_lighter_sub;
-    ros::Publisher m_init_pose_pub;
-    ros::Publisher m_odom_pub;
-    ros::NodeHandle& m_nh;
+    std::shared_ptr<tf2_ros::TransformListener> m_tf_listener_{nullptr};
+    std::unique_ptr<tf2_ros::Buffer> m_tf_buffer_;
+
+    rclcpp::Subscription<krabi_msgs::msg::OdomLight>::SharedPtr m_odom_sub;
+    rclcpp::Subscription<krabi_msgs::msg::OdomLighter>::SharedPtr m_odom_lighter_sub;
+
+    rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr m_init_pose_pub;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr m_odom_pub;
+
     bool m_odom_reset;
     void resetOdometry(float x, float y, float theta);
     void resetOdometry();
