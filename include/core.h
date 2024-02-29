@@ -4,6 +4,7 @@
  **********************************************/
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_ros/transform_listener.h"
+#include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/buffer.h"
 
 #include <thread>
@@ -25,7 +26,7 @@
 
 #include "constants.h"
 #include "helpers_broker.h"
-#include "krabilib/pose.h" @TODO fix this
+#include "krabilib/pose.h"
 
 // Should remove this and put it in a global, "constant.h" file for the whole project
 #define NB_NEURONS 360
@@ -91,7 +92,7 @@ private:
                         bool resetEncoders);
     void setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed);
     void updateGoal(geometry_msgs::msg::PoseStamped goal_pose);
-    void updateLidar(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> closest_obstacle,
+    void updateLidar(std::shared_ptr<geometry_msgs::msg::PoseStamped const> closest_obstacle,
                      bool front);
     void addObstacle(PolarPosition obstacle);
     void updateTirette(std_msgs::msg::Bool starting);
@@ -134,7 +135,7 @@ private:
     float m_lidar_output[NB_NEURONS] = { 0. };
     float m_angular_speed_vector[NB_NEURONS] = { 0. };
     float m_angular_landscape[NB_NEURONS] = { 0. };
-    boost::optional<rclcpp::Time> m_begin_match;
+    rclcpp::Time m_begin_match = rclcpp::Time(0, 0);
     Pose m_goal_pose;
     geometry_msgs::msg::PoseStamped m_goal_pose_stamped;
     Distance m_distance_to_goal;
@@ -158,18 +159,20 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_behind_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr m_tirette_sub;
-    rclcpp::Subscription<nav_mgs::msg::Odometry>::SharedPtr m_odometry_sub;
-    rclcpp::Subscription<krabi_msgs::msg::StratMovement>::SharedPtr m_lidar_sub;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odometry_sub;
+    rclcpp::Subscription<krabi_msgs::msg::StratMovement>::SharedPtr m_strat_movement_sub;
 
     // Transform
     std::shared_ptr<tf2_ros::TransformListener> m_tf_listener_{nullptr};
     std::unique_ptr<tf2_ros::Buffer> m_tf_buffer_;
+    //tf2_ros::TransformBroadcaster m_tf_broadcaster;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> m_tf_broadcaster;
     Transform m_map_to_baselink;
     Transform m_baselink_to_map;
     Pose m_current_pose;
 
     // Arcuo
-    void updateAruco(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> arucoPose, int id);
+    void updateAruco(std::shared_ptr<geometry_msgs::msg::PoseStamped const> arucoPose, int id);
     void publishTf(const geometry_msgs::msg::Pose& pose,
                    const std::string& frame_id,
                    const std::string& child_frame_id);

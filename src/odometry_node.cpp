@@ -1,6 +1,6 @@
 #include "odometry/odomTFPublisher.h"
 
-#include "ros/ros.h"
+#include "rclcpp/rclcpp.hpp"
 #include <string>
 
 using namespace std;
@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
     auto node = std::make_shared<OdometryTFPublisher>();
 
     node->declare_parameter("odom_type", "tf_pub");
-    string odom_type = this->get_parameter("odom_type").as_string();
+    string odom_type = node->get_parameter("odom_type").as_string();
 
     if (odom_type.compare("tf_pub"))
     {

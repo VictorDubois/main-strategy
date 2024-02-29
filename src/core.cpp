@@ -1,5 +1,4 @@
 #include "core.h"
-#include <std_msgs/msg/duration.hpp>
 #include <stdexcept>
 
 #define MAX_ALLOWED_ANGULAR_SPEED 5.f // rad/s
@@ -7,8 +6,8 @@
 //#include "lidarStrat.h" @TODO fix this
 #define UPDATE_RATE 10
 
-#include <krabi_msgs/motors_cmd.h>
-#include <krabi_msgs/motors_parameters.h>
+#include <krabi_msgs/msg/motors_cmd.h>
+#include <krabi_msgs/msg/motors_parameters.h>
 
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
@@ -27,10 +26,10 @@ void Core::updateCurrentPose()
 
         auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
         const auto& transform
-          = m_tf_buffer.lookupTransform("map", base_link_id, tf2::TimePointZero).transform;
+          = m_tf_buffer_->lookupTransform("map", base_link_id, tf2::TimePointZero).transform;
         m_baselink_to_map = transformFromMsg(transform);
         m_map_to_baselink = transformFromMsg(
-          m_tf_buffer.lookupTransform(base_link_id, "map", tf2::TimePointZero).transform);
+          m_tf_buffer_->lookupTransform(base_link_id, "map", tf2::TimePointZero).transform);
         m_current_pose = Pose(transform);
     }
     catch (tf2::TransformException& ex)
@@ -66,7 +65,7 @@ void Core::updateTirette(std_msgs::msg::Bool starting)
     }
 }
 
-void Core::updateLidar(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> closest_obstacle,
+void Core::updateLidar(std::shared_ptr<geometry_msgs::msg::PoseStamped const> closest_obstacle,
                        bool front)
 {
     if (front == !reverseGear())
@@ -83,8 +82,9 @@ void Core::addObstacle(PolarPosition obstacle)
                                ? obstacle.getAngle()
                                : AngleTools::wrapAngle(Angle(obstacle.getAngle() + M_PI));
 
-    m_speed_inhibition_from_obstacle
-      = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
+    //m_speed_inhibition_from_obstacle
+    //  = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
+    //@TODO fix this
 
     if (m_speed_inhibition_from_obstacle < 0.2f)
     {
@@ -146,6 +146,8 @@ Core::Core() : Node("main_strat")
 {
     m_tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     m_tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer_);
+    m_tf_broadcaster =
+      std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
     m_previous_angle_to_goal = Angle (0);
     m_previous_goal_pose = Pose();
@@ -159,21 +161,21 @@ Core::Core() : Node("main_strat")
     this->declare_parameter("isBlue", true);
     m_is_blue = this->get_parameter("isBlue").as_bool();
 
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), m_is_blue ? "Is Blue !" : "Not Blue :'(");
+    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
     m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 5);
     m_motors_enable_pub = this->create_publisher<std_msgs::msg::Bool>("enable_motor", 5);
-    m_motors_parameters_pub = this->create_publisher<krabi_msgs::msg::motors_parameters>("motors_parameters", 5);
-    m_motors_pwm_pub = this->create_publisher<krabi_msgs::msg::motors_cmd>("motors_cmd", 5);
+    m_motors_parameters_pub = this->create_publisher<krabi_msgs::msg::MotorsParameters>("motors_parameters", 5);
+    m_motors_pwm_pub = this->create_publisher<krabi_msgs::msg::MotorsCmd>("motors_cmd", 5);
     m_target_orientation_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("target_orientation", 5);
 
-    m_chrono_pub = this->create_publisher<std_msgs::msg::Duration>("/remaining_time", 5);
+    m_chrono_pub = this->create_publisher<builtin_interfaces::msg::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
-      = this->create_publisher<krabi_msgs::msg::motors_distance_asserv>("motors_distance_asserv", 5);
+      = this->create_publisher<krabi_msgs::msg::MotorsDistanceAsserv>("motors_distance_asserv", 5);
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
-    m_lidar_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_pose_stamped", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1, true));//, l_sub_options);
-    m_lidar_behind_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_behind_pose_stamped", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1, false));//, l_sub_options);
+    m_lidar_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_pose_stamped", 5, std::bind(&Core::updateLidar, this, std::placeholders::_1, true));//, l_sub_options);
+    m_lidar_behind_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_behind_pose_stamped", 5, std::bind(&Core::updateLidar, this, std::placeholders::_1, false));//, l_sub_options);
     m_tirette_sub = this->create_subscription<std_msgs::msg::Bool>("tirette", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1));//, l_sub_options);
     m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>("odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));//, l_sub_options);
     m_strat_movement_sub = this->create_subscription<krabi_msgs::msg::StratMovement>("strat_movement", 5, std::bind(&Core::updateStratMovement, this, std::placeholders::_1));//, l_sub_options);
@@ -215,13 +217,13 @@ Core::Core() : Node("main_strat")
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
 
-    m_end_init_odo = this->now() + ros::Duration(2, 0.5 * 10e9);
+    m_end_init_odo = this->now() + rclcpp::Duration(2, 0.5 * 10e9);
 }
 
 void Core::updateOdom(const nav_msgs::msg::Odometry& odometry)
 {
     m_linear_speed
-      = tf::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y, 0).length();
+      = tf2::Vector3(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y, 0).length();
     m_angular_speed = odometry.twist.twist.angular.z;
     // Loop();
 }
@@ -255,7 +257,7 @@ double Core::getReach(const std::string& end_point_frame_id)
     {
         auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
         const geometry_msgs::msg::Transform& transform
-          = m_tf_buffer.lookupTransform(end_point_frame_id, base_link_id, tf2::TimePointZero).transform;
+          = m_tf_buffer_->lookupTransform(end_point_frame_id, base_link_id, tf2::TimePointZero).transform;
 
         return static_cast<double>(sqrt(transform.translation.x * transform.translation.x
                                         + transform.translation.y * transform.translation.y
@@ -278,21 +280,21 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
     new_motor_cmd.angular.z = angularSpeed;
 
-    krabi_msgs::msg::motors_distance_asserv l_distance_asserv_msg;
+    krabi_msgs::msg::MotorsDistanceAsserv l_distance_asserv_msg;
     l_distance_asserv_msg.use_distance_asserv = true;
     l_distance_asserv_msg.goal_pose = geometry_msgs::msg::PoseStamped();
 
-    const auto l_odom_id = tf::resolve(ros::this_node::getNamespace(), "odom");
+    const auto l_odom_id = "odom";//tf::resolve(ros::this_node::getNamespace(), "odom");
     const auto l_map_id = "map";
 
     std::string l_error_message = "no error";
     try
     {
-        if (m_tf_buffer.canTransform(l_map_id, l_odom_id, tf2::TimePointZero, &l_error_message))
+        if (m_tf_buffer_->canTransform(l_map_id, l_odom_id, tf2::TimePointZero, &l_error_message))
         {
 
             geometry_msgs::msg::TransformStamped l_map_to_odom
-              = m_tf_buffer.lookupTransform(l_map_id, l_odom_id, tf2::TimePointZero);
+              = m_tf_buffer_->lookupTransform(l_map_id, l_odom_id, tf2::TimePointZero);
             geometry_msgs::msg::PoseStamped l_goal_pose_in_odom;
             tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
             l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
@@ -338,16 +340,16 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     l_target_orientation_msg.header.stamp = this->now();
     m_target_orientation_pub->publish(l_target_orientation_msg);
 
-    krabi_msgs::msg::motors_cmd new_motors_pwm_cmd;
-    krabi_msgs::msg::motors_parameters new_parameters;
+    krabi_msgs::msg::MotorsCmd new_motors_pwm_cmd;
+    krabi_msgs::msg::MotorsParameters new_parameters;
     new_parameters.max_current = 0.7f;
     new_parameters.max_current_left = 2;
     new_parameters.max_current_right = 2;
     new_motors_pwm_cmd.enable_motors = enable;
     new_motors_pwm_cmd.reset_encoders = resetEncoders;
-    new_motors_pwm_cmd.override_PWM = false;
-    new_motors_pwm_cmd.PWM_override_left = 0;
-    new_motors_pwm_cmd.PWM_override_right = 0;
+    new_motors_pwm_cmd.override_pwm = false;
+    new_motors_pwm_cmd.pwm_override_left = 0;
+    new_motors_pwm_cmd.pwm_override_right = 0;
 
     if (recalage_bordure())
     {
@@ -355,13 +357,13 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
         new_parameters.max_current_left = 0.4f;
         new_parameters.max_current_right = 0.4f;
         new_motors_pwm_cmd.enable_motors = enable;
-        new_motors_pwm_cmd.override_PWM = true;
-        new_motors_pwm_cmd.PWM_override_left = 20;
-        new_motors_pwm_cmd.PWM_override_right = 20;
+        new_motors_pwm_cmd.override_pwm = true;
+        new_motors_pwm_cmd.pwm_override_left = 20;
+        new_motors_pwm_cmd.pwm_override_right = 20;
         if (reverseGear())
         {
-            new_motors_pwm_cmd.PWM_override_left = -new_motors_pwm_cmd.PWM_override_left;
-            new_motors_pwm_cmd.PWM_override_right = -new_motors_pwm_cmd.PWM_override_right;
+            new_motors_pwm_cmd.pwm_override_left = -new_motors_pwm_cmd.pwm_override_left;
+            new_motors_pwm_cmd.pwm_override_right = -new_motors_pwm_cmd.pwm_override_right;
         }
     }
 
@@ -656,14 +658,14 @@ void Core::limitAcceleration()
 
 void Core::publishRemainingTime()
 {
-    std_msgs::msg::Duration remaining_time_msg;
-    remaining_time_msg.data = ros::Duration(TIMEOUT_END_MATCH / 1000);
+    builtin_interfaces::msg::Duration remaining_time_msg;
+    remaining_time_msg = rclcpp::Duration(TIMEOUT_END_MATCH / 1000, 0);
 
-    if (m_begin_match)
+    if (m_begin_match > rclcpp::Time(1, 0))
     {
         auto remaining_time
-          = ros::Duration(TIMEOUT_END_MATCH / 1000 - (this->now() - *m_begin_match).toSec());
-        remaining_time_msg.data = remaining_time;
+          = rclcpp::Duration(TIMEOUT_END_MATCH / 1000, 0) - (this->now() - m_begin_match);
+        remaining_time_msg = remaining_time;
     }
 
     m_chrono_pub->publish(remaining_time_msg);
@@ -673,7 +675,7 @@ bool Core::isTimeToStop()
 {
     // State::EXIT and stop robot if we reached the end of the match
     if (ENABLE_TIMEOUT_END_MATCH == TRUE
-        && (this->now() - *m_begin_match).toSec() * 1000 > TIMEOUT_END_MATCH)
+        && (this->now() - m_begin_match).seconds() * 1000 > TIMEOUT_END_MATCH)
     {
         m_state = State::EXIT;
         return true;
@@ -807,21 +809,21 @@ void Core::publishTf(const geometry_msgs::msg::Pose& pose,
     odom_trans.transform.rotation = pose.orientation;
 
     // send the transform
-    m_tf_broadcaster.sendTransform(odom_trans);
+    m_tf_broadcaster->sendTransform(odom_trans);
 }
 
-void Core::updateAruco(boost::shared_ptr<geometry_msgs::msg::PoseStamped const> arucoPose, int id)
+void Core::updateAruco(std::shared_ptr<geometry_msgs::msg::PoseStamped const> arucoPose, int id)
 {
     m_arucos[id] = *arucoPose;
 
     publishTf(arucoPose->pose, "/aruco", "/aruco_raw_pose");
     auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
-    auto deltaOdom = m_tf_buffer.lookupTransform(base_link_id,
+    auto deltaOdom = m_tf_buffer_->lookupTransform(base_link_id,
                                                  arucoPose->header.stamp,
                                                  base_link_id,
                                                  this->now(),
                                                  "map",
-                                                 rclcpp::Duration(1.0));
+                                                 rclcpp::Duration(1, 0));
 
     RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "ego_aruco_received. Movement since: x = "
                     << deltaOdom.transform.translation.x

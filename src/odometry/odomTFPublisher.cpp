@@ -1,8 +1,8 @@
 #include "odometry/odomTFPublisher.h"
-#include <tf2_geometry_msgs/msg/tf2_geometry_msgs.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 
-OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
+OdometryTFPublisher::OdometryTFPublisher()
 : Node("odometry_node")
 //  : m_nh(nh)
   , m_odom_reset(false)
@@ -12,28 +12,28 @@ OdometryTFPublisher::OdometryTFPublisher(ros::NodeHandle& nh)
 
 
     m_init_pose_pub = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 5);
-    m_init_pose_pub = this->create_publisher<nav_msgs::msg::Odometry>("odom", 5);
+    m_odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odom", 5);
 
     // If problem with spin called multiple times
     /*auto my_callback_group = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions l_sub_options;
     l_sub_options.callback_group = my_callback_group;*/
 
-    m_odom_sub = this->create_subscription<krabi_msgs::msg::odom_light>("odom_light", 5, std::bind(&OdometryTFPublisher::updateLightOdom, this, std::placeholders::_1));//, l_sub_options);
-    m_odom_lighter_sub = this->create_subscription<krabi_msgs::msg::odom_lighter>("odom_lighter", 5, std::bind(&OdometryTFPublisher::updateLighterOdom, this, std::placeholders::_1));//, l_sub_options);
+    m_odom_sub = this->create_subscription<krabi_msgs::msg::OdomLight>("odom_light", 5, std::bind(&OdometryTFPublisher::updateLightOdom, this, std::placeholders::_1));//, l_sub_options);
+    m_odom_lighter_sub = this->create_subscription<krabi_msgs::msg::OdomLighter>("odom_lighter", 5, std::bind(&OdometryTFPublisher::updateLighterOdom, this, std::placeholders::_1));//, l_sub_options);
 
     this->declare_parameter("/init_pose/x", 0.f);
     this->declare_parameter("/init_pose/y", 0.f);
     this->declare_parameter("/init_pose/theta", 0.f);
-
+    this->declare_parameter("/publish_tf_odom", true);
 }
 
 void OdometryTFPublisher::resetOdometry()
 {
     float init_x, init_y, init_theta;
-    init_x = this->get_parameter("/init_pose/x").as_float();
-    init_y = this->get_parameter("/init_pose/y").as_float();
-    init_theta = this->get_parameter("/init_pose/theta").as_float();
+    this->get_parameter("/init_pose/x", init_x);
+    this->get_parameter("/init_pose/y", init_y);
+    this->get_parameter("/init_pose/theta", init_theta);
 
     geometry_msgs::msg::PoseWithCovarianceStamped init_pose_msg
       = geometry_msgs::msg::PoseWithCovarianceStamped();
@@ -53,7 +53,7 @@ void OdometryTFPublisher::resetOdometry()
     init_pose_msg.pose.pose.orientation = quat_msg;
 
     init_pose_msg.header.frame_id = "map";
-    init_pose_msg.header.stamp = ros::Time::now();
+    init_pose_msg.header.stamp = rclcpp::now();
 
     m_init_pose_pub->publish(init_pose_msg);
 
@@ -145,7 +145,7 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::msg::Pose& pose,
                                     const std::string& child_frame_id)
 {
     bool publish_tf_odom;
-    m_nh.param<bool>("/publish_tf_odom", publish_tf_odom, true);
+    this->get_parameter("/publish_tf_odom", publish_tf_odom);
     if (!publish_tf_odom)
     {
         return;
@@ -153,7 +153,7 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::msg::Pose& pose,
 
     // first, we'll publish the transform over tf
     geometry_msgs::msg::TransformStamped odom_trans;
-    odom_trans.header.stamp = ros::Time::now();
+    odom_trans.header.stamp = rclcpp::now();
     odom_trans.header.frame_id = frame_id;
     odom_trans.child_frame_id = child_frame_id;
 
@@ -169,18 +169,23 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::msg::Pose& pose,
 void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
 {
     m_odom_reset = true;
-    ros::ServiceClient client = m_nh.serviceClient<krabi_msgs::srv::SetOdom>("set_odom");
-    krabi_msgs::srv::SetOdom srv;
-    srv.request.x = x;
-    srv.request.y = y;
-    srv.request.theta = theta;
 
-    if (client.call(srv))
+    rclcpp::Client<krabi_msgs::srv::SetOdom>::SharedPtr client = node->create_client<krabi_msgs::srv::SetOdom>("set_odom");
+
+    auto request = std::make_shared<krabi_msgs::srv::SetOdom::Request>();
+
+    request->x = x;
+    request->y = y;
+    request->theta = theta;
+  
+
+    auto result = client->async_send_request(request);
+    // Wait for the result.
+    if (rclcpp::spin_until_future_complete(node, result) ==
+        rclcpp::FutureReturnCode::SUCCESS)
     {
         RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Odometry calibrated");
-    }
-    else
-    {
-        RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Failed to calibrate odometry");
+    } else {
+        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to calibrate odometry");
     }
 }

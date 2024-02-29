@@ -15,10 +15,10 @@ public:
     OdometryTFPublisher();
 
 private:
-    void updateLightOdom(krabi_msgs::msg::odom_light odommsg);
-    void updateLighterOdom(krabi_msgs::msg::odom_lighter odommsg);
-    void publishOdom(krabi_msgs::msg::odom_light odommsg);
-    void publishOdom(krabi_msgs::msg::odom_lighter odommsg, geometry_msgs::msg::Pose odompose);
+    void updateLightOdom(krabi_msgs::msg::OdomLight odommsg);
+    void updateLighterOdom(krabi_msgs::msg::OdomLighter odommsg);
+    void publishOdom(krabi_msgs::msg::OdomLight odommsg);
+    void publishOdom(krabi_msgs::msg::OdomLighter odommsg, geometry_msgs::msg::Pose odompose);
 
     void publishTf(const geometry_msgs::msg::Pose& pose,
                    const std::string& frame_id,
