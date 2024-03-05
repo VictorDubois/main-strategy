@@ -193,37 +193,37 @@ Core::Core() : Node("main_strat")
     {
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_6_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 6);
-        m_arucos_sub[6] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/6", 5, l_arucos_6_func);//, l_sub_options);
+        m_arucos_sub[6] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r6", 5, l_arucos_6_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_7_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 7);
-        m_arucos_sub[7] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/7", 5, l_arucos_7_func);//, l_sub_options);
+        m_arucos_sub[7] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r7", 5, l_arucos_7_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_8_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 8);
-        m_arucos_sub[8] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/8", 5, l_arucos_8_func);//, l_sub_options);
+        m_arucos_sub[8] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r8", 5, l_arucos_8_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_9_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 9);
-        m_arucos_sub[9] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/9", 5, l_arucos_9_func);//, l_sub_options);
+        m_arucos_sub[9] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r9", 5, l_arucos_9_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_10_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 10);
-        m_arucos_sub[10] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/10", 5, l_arucos_10_func);//, l_sub_options);
+        m_arucos_sub[10] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r10", 5, l_arucos_10_func);//, l_sub_options);
     }
     else
     {
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_1_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 1);
-        m_arucos_sub[1] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/1", 5, l_arucos_1_func);//, l_sub_options);
+        m_arucos_sub[1] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r1", 5, l_arucos_1_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_2_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 2);
-        m_arucos_sub[2] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/2", 5, l_arucos_2_func);//, l_sub_options);
+        m_arucos_sub[2] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r2", 5, l_arucos_2_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_3_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 3);
-        m_arucos_sub[3] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/3", 5, l_arucos_3_func);//, l_sub_options);
+        m_arucos_sub[3] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r3", 5, l_arucos_3_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_4_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 4);
-        m_arucos_sub[4] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/4", 5, l_arucos_4_func);//, l_sub_options);
+        m_arucos_sub[4] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r4", 5, l_arucos_4_func);//, l_sub_options);
         std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_5_func = std::bind(
             &Core::updateAruco, this, std::placeholders::_1, 5);
-        m_arucos_sub[5] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/5", 5, l_arucos_5_func);//, l_sub_options);
+        m_arucos_sub[5] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r5", 5, l_arucos_5_func);//, l_sub_options);
     }
 
     m_goal_output[NB_NEURONS] = { 0. };
