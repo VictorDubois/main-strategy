@@ -9,7 +9,7 @@ OdometryTFPublisher::OdometryTFPublisher()
 {
     m_tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     m_tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer_);
-
+    m_tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
     m_init_pose_pub = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("initialpose", 5);
     m_odom_pub = this->create_publisher<nav_msgs::msg::Odometry>("odom", 5);
@@ -53,7 +53,7 @@ void OdometryTFPublisher::resetOdometry()
     init_pose_msg.pose.pose.orientation = quat_msg;
 
     init_pose_msg.header.frame_id = "map";
-    init_pose_msg.header.stamp = rclcpp::now();
+    init_pose_msg.header.stamp = this->now();
 
     m_init_pose_pub->publish(init_pose_msg);
 
@@ -65,7 +65,7 @@ void OdometryTFPublisher::resetOdometry()
  * for rosserial to publish it directly
  * @param odom_light_msg the partial message published by rosserial
  */
-void OdometryTFPublisher::publishOdom(krabi_msgs::msg::odom_light odom_light_msg)
+void OdometryTFPublisher::publishOdom(krabi_msgs::msg::OdomLight odom_light_msg)
 {
     nav_msgs::msg::Odometry odom_msg = nav_msgs::msg::Odometry();
     odom_msg.pose.pose = odom_light_msg.pose;
@@ -87,13 +87,13 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::msg::odom_light odom_light_msg
  * for rosserial to publish it directly
  * @param odom_lighter_msg the partial message published by rosserial (even lighter than odom_light)
  */
-void OdometryTFPublisher::publishOdom(krabi_msgs::msg::odom_lighter odom_lighter_msg,
+void OdometryTFPublisher::publishOdom(krabi_msgs::msg::OdomLighter odom_lighter_msg,
                                       geometry_msgs::msg::Pose pose)
 {
     nav_msgs::msg::Odometry odom_msg = nav_msgs::msg::Odometry();
     odom_msg.pose.pose = pose;
-    odom_msg.twist.twist.linear.x = odom_lighter_msg.speedVx;
-    odom_msg.twist.twist.angular.z = odom_lighter_msg.speedWz;
+    odom_msg.twist.twist.linear.x = odom_lighter_msg.speed_vx;
+    odom_msg.twist.twist.angular.z = odom_lighter_msg.speed_wz;
     odom_msg.header.stamp = odom_lighter_msg.header.stamp;
     odom_msg.header.frame_id = "krabby/odom";
     odom_msg.child_frame_id = "krabby/base_link";
@@ -107,7 +107,7 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::msg::odom_lighter odom_lighter
     m_odom_pub->publish(odom_msg);
 }
 
-void OdometryTFPublisher::updateLightOdom(krabi_msgs::msg::odom_light odommsg)
+void OdometryTFPublisher::updateLightOdom(krabi_msgs::msg::OdomLight odommsg)
 {
     if (!m_odom_reset)
     {
@@ -120,7 +120,7 @@ void OdometryTFPublisher::updateLightOdom(krabi_msgs::msg::odom_light odommsg)
     publishOdom(odommsg);
 }
 
-void OdometryTFPublisher::updateLighterOdom(krabi_msgs::msg::odom_lighter odom_lighter_msg)
+void OdometryTFPublisher::updateLighterOdom(krabi_msgs::msg::OdomLighter odom_lighter_msg)
 {
     if (!m_odom_reset)
     {
@@ -130,11 +130,11 @@ void OdometryTFPublisher::updateLighterOdom(krabi_msgs::msg::odom_lighter odom_l
     auto base_link_id = "base_link"; // tf::resolve(ros::this_node::getNamespace(), "base_link");
     auto odom_id = "odom"; // tf::resolve(ros::this_node::getNamespace(), "odom");
     geometry_msgs::msg::Pose odom_pose;
-    odom_pose.position.x = odom_lighter_msg.poseX;
-    odom_pose.position.y = odom_lighter_msg.poseY;
+    odom_pose.position.x = odom_lighter_msg.pose_x;
+    odom_pose.position.y = odom_lighter_msg.pose_y;
     odom_pose.position.z = 0;
     tf2::Quaternion odom_orientation_quat;
-    odom_orientation_quat.setRPY(0, 0, odom_lighter_msg.angleRz);
+    odom_orientation_quat.setRPY(0, 0, odom_lighter_msg.angle_rz);
     odom_pose.orientation = tf2::toMsg(odom_orientation_quat);
     publishTf(odom_pose, odom_id, base_link_id);
     publishOdom(odom_lighter_msg, odom_pose);
@@ -144,7 +144,7 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::msg::Pose& pose,
                                     const std::string& frame_id,
                                     const std::string& child_frame_id)
 {
-    bool publish_tf_odom;
+    bool publish_tf_odom = false;
     this->get_parameter("/publish_tf_odom", publish_tf_odom);
     if (!publish_tf_odom)
     {
@@ -153,7 +153,7 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::msg::Pose& pose,
 
     // first, we'll publish the transform over tf
     geometry_msgs::msg::TransformStamped odom_trans;
-    odom_trans.header.stamp = rclcpp::now();
+    odom_trans.header.stamp = this->now();
     odom_trans.header.frame_id = frame_id;
     odom_trans.child_frame_id = child_frame_id;
 
@@ -163,14 +163,14 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::msg::Pose& pose,
     odom_trans.transform.rotation = pose.orientation;
 
     // send the transform
-    m_tf_broadcaster.sendTransform(odom_trans);
+    m_tf_broadcaster->sendTransform(odom_trans);
 }
 
 void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
 {
     m_odom_reset = true;
 
-    rclcpp::Client<krabi_msgs::srv::SetOdom>::SharedPtr client = node->create_client<krabi_msgs::srv::SetOdom>("set_odom");
+    rclcpp::Client<krabi_msgs::srv::SetOdom>::SharedPtr client = this->create_client<krabi_msgs::srv::SetOdom>("set_odom");
 
     auto request = std::make_shared<krabi_msgs::srv::SetOdom::Request>();
 
@@ -181,7 +181,7 @@ void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
 
     auto result = client->async_send_request(request);
     // Wait for the result.
-    if (rclcpp::spin_until_future_complete(node, result) ==
+    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
         rclcpp::FutureReturnCode::SUCCESS)
     {
         RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Odometry calibrated");

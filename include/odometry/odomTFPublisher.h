@@ -8,6 +8,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
+#include <tf2_ros/transform_broadcaster.h>
 
 class OdometryTFPublisher: public rclcpp::Node
 {
@@ -26,6 +27,7 @@ private:
 
     std::shared_ptr<tf2_ros::TransformListener> m_tf_listener_{nullptr};
     std::unique_ptr<tf2_ros::Buffer> m_tf_buffer_;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> m_tf_broadcaster;
 
     rclcpp::Subscription<krabi_msgs::msg::OdomLight>::SharedPtr m_odom_sub;
     rclcpp::Subscription<krabi_msgs::msg::OdomLighter>::SharedPtr m_odom_lighter_sub;
