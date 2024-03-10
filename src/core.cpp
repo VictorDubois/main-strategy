@@ -1,4 +1,5 @@
 #include "core.h"
+#include <chrono>
 #include <stdexcept>
 
 #define MAX_ALLOWED_ANGULAR_SPEED 5.f // rad/s
@@ -163,7 +164,7 @@ Core::Core() : Node("main_strat")
 
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
-    m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 5);
+    m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 5);
     m_motors_enable_pub = this->create_publisher<std_msgs::msg::Bool>("enable_motor", 5);
     m_motors_parameters_pub = this->create_publisher<krabi_msgs::msg::MotorsParameters>("motors_parameters", 5);
     m_motors_pwm_pub = this->create_publisher<krabi_msgs::msg::MotorsCmd>("motors_cmd", 5);
@@ -243,6 +244,8 @@ Core::Core() : Node("main_strat")
     m_angular_speed_cmd = 0;
 
     m_end_init_odo = this->now() + rclcpp::Duration(2, 0.5 * 10e9);
+
+    timer_ = this->create_wall_timer(std::chrono::milliseconds{100}, std::bind(&Core::Loop, this));
 }
 
 void Core::updateOdom(const nav_msgs::msg::Odometry& odometry)
@@ -686,7 +689,7 @@ void Core::publishRemainingTime()
     builtin_interfaces::msg::Duration remaining_time_msg;
     remaining_time_msg = rclcpp::Duration(TIMEOUT_END_MATCH / 1000, 0);
 
-    if (m_begin_match > rclcpp::Time(1, 0))
+    if (m_begin_match.seconds() > rclcpp::Time(1, 0).seconds())
     {
         auto remaining_time
           = rclcpp::Duration(TIMEOUT_END_MATCH / 1000, 0) - (this->now() - m_begin_match);

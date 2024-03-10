@@ -95,8 +95,8 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::msg::OdomLighter odom_lighter_
     odom_msg.twist.twist.linear.x = odom_lighter_msg.speed_vx;
     odom_msg.twist.twist.angular.z = odom_lighter_msg.speed_wz;
     odom_msg.header.stamp = odom_lighter_msg.header.stamp;
-    odom_msg.header.frame_id = "krabby/odom";
-    odom_msg.child_frame_id = "krabby/base_link";
+    odom_msg.header.frame_id = "odom";
+    odom_msg.child_frame_id = "base_link";
 
     odom_msg.pose.covariance = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };

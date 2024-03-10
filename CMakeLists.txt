@@ -73,4 +73,8 @@ install(TARGETS
   ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME}/
 )
+install(TARGETS
+  odometry_node
+  DESTINATION lib/${PROJECT_NAME}/
+)
 ament_package()

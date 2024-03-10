@@ -187,4 +187,5 @@ private:
     Pose m_previous_goal_pose;
 
     rclcpp::Time m_end_init_odo;
+    rclcpp::TimerBase::SharedPtr timer_;
 };
