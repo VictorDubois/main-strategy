@@ -169,6 +169,7 @@ void OdometryTFPublisher::publishTf(const geometry_msgs::msg::Pose& pose,
 void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
 {
     m_odom_reset = true;
+    m_odom_reset = true;
 
     rclcpp::Client<krabi_msgs::srv::SetOdom>::SharedPtr client = this->create_client<krabi_msgs::srv::SetOdom>("set_odom");
 
@@ -181,11 +182,11 @@ void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
 
     auto result = client->async_send_request(request);
     // Wait for the result.
-    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
+    /*if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
         rclcpp::FutureReturnCode::SUCCESS)
     {
         RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Odometry calibrated");
     } else {
         RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to calibrate odometry");
-    }
+    }*/
 }
