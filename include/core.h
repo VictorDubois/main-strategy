@@ -148,6 +148,7 @@ private:
 
     // Publishers
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_motors_cmd_pub;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_motors_cmd_slash_pub;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr m_motors_enable_pub;
     rclcpp::Publisher<krabi_msgs::msg::MotorsParameters>::SharedPtr m_motors_parameters_pub;
     rclcpp::Publisher<krabi_msgs::msg::MotorsCmd>::SharedPtr m_motors_pwm_pub;

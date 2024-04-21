@@ -164,7 +164,8 @@ Core::Core() : Node("main_strat")
 
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
-    m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 5);
+    m_motors_cmd_slash_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 5);
+    m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 5);
     m_motors_enable_pub = this->create_publisher<std_msgs::msg::Bool>("enable_motor", 5);
     m_motors_parameters_pub = this->create_publisher<krabi_msgs::msg::MotorsParameters>("motors_parameters", 5);
     m_motors_pwm_pub = this->create_publisher<krabi_msgs::msg::MotorsCmd>("motors_cmd", 5);
@@ -350,6 +351,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     m_distance_asserv_pub->publish(l_distance_asserv_msg);
     m_motors_cmd_pub->publish(new_motor_cmd);
+    m_motors_cmd_slash_pub->publish(new_motor_cmd);
     std_msgs::msg::Bool new_enable_cmd;
     new_enable_cmd.data = enable;
     m_motors_enable_pub->publish(new_enable_cmd);
