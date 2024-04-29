@@ -12,7 +12,7 @@ def generate_launch_description():
     
     isBlue_launch_arg = DeclareLaunchArgument(
         'isBlue',
-        default_value='false'
+        default_value='False'
     )
     xRobotPos_launch_arg = DeclareLaunchArgument(
         'xRobotPos',
