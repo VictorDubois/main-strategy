@@ -123,7 +123,7 @@ private:
     std::thread m_running;
 
     // State of the broker loop
-    State m_state = State::WAIT_TIRETTE;
+    State m_state = State::INIT_ODOM_TODO;
     // Line speed to set when no positive valence strategy fires
     const Vitesse m_default_linear_speed = Vitesse(0.5f);
     Angle m_target_orientation;
