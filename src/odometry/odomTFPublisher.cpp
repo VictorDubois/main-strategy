@@ -68,9 +68,13 @@ void OdometryTFPublisher::resetOdometry()
 void OdometryTFPublisher::publishOdom(krabi_msgs::msg::OdomLight odom_light_msg)
 {
     nav_msgs::msg::Odometry odom_msg = nav_msgs::msg::Odometry();
+    odom_msg.header.stamp = odom_light_msg.header.stamp;
+    if(odom_light_msg.header.stamp.sec == 0 && odom_light_msg.header.stamp.nanosec == 0)
+    {
+        odom_msg.header.stamp = this->now();
+    }
     odom_msg.pose.pose = odom_light_msg.pose;
     odom_msg.twist.twist = odom_light_msg.speed;
-    odom_msg.header.stamp = odom_light_msg.header.stamp;
     odom_msg.header.frame_id = "odom";
     odom_msg.child_frame_id = "base_link";
 
@@ -91,10 +95,15 @@ void OdometryTFPublisher::publishOdom(krabi_msgs::msg::OdomLighter odom_lighter_
                                       geometry_msgs::msg::Pose pose)
 {
     nav_msgs::msg::Odometry odom_msg = nav_msgs::msg::Odometry();
+    odom_msg.header.stamp = odom_lighter_msg.header.stamp;
+    if(odom_lighter_msg.header.stamp.sec == 0 && odom_lighter_msg.header.stamp.nanosec == 0)
+    {
+        odom_msg.header.stamp = this->now();
+    }
+    
     odom_msg.pose.pose = pose;
     odom_msg.twist.twist.linear.x = odom_lighter_msg.speed_vx;
     odom_msg.twist.twist.angular.z = odom_lighter_msg.speed_wz;
-    odom_msg.header.stamp = odom_lighter_msg.header.stamp;
     odom_msg.header.frame_id = "odom";
     odom_msg.child_frame_id = "base_link";
 
