@@ -4,7 +4,7 @@
 
 #define MAX_ALLOWED_ANGULAR_SPEED 5.f // rad/s
 
-//#include "lidarStrat.h" @TODO fix this
+#include "lidarStrat.h"
 #define UPDATE_RATE 10
 
 #include <krabi_msgs/msg/motors_cmd.h>
@@ -83,9 +83,8 @@ void Core::addObstacle(PolarPosition obstacle)
                                ? obstacle.getAngle()
                                : AngleTools::wrapAngle(Angle(obstacle.getAngle() + M_PI));
 
-    //m_speed_inhibition_from_obstacle
-    //  = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
-    //@TODO fix this
+    m_speed_inhibition_from_obstacle
+      = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
 
     if (m_speed_inhibition_from_obstacle < 0.2f)
     {

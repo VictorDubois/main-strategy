@@ -24,10 +24,14 @@ find_package(krabi_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(goal_strategy REQUIRED)
-#find_package(lidar_strategy REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+
+# For including LidarStrat:
+find_package(lidar_strategy REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
 
 include_directories(include)
 
@@ -50,11 +54,15 @@ add_executable(odometry_node
   src/odometry/odomTFPublisher.cpp)
 
 ament_target_dependencies(${PROJECT_NAME}_node std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
- #lidar_strategy
  tf2_eigen
 tf2_ros
 tf2_geometry_msgs
-  rclcpp)
+  rclcpp
+
+  # For including LidarStrat:
+  visualization_msgs
+  lidar_strategy
+  )
 
 ament_target_dependencies(odometry_node std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
 # lidar_strategy
