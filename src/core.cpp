@@ -184,6 +184,7 @@ Core::Core() : Node("main_strat")
     m_lidar_behind_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_behind_pose_stamped", 5, l_lidar_behind_sub_func);//, l_sub_options);
     m_tirette_sub = this->create_subscription<std_msgs::msg::Bool>("tirette", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1));//, l_sub_options);
     m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>("odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));//, l_sub_options);
+    m_odometry_slash_sub = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));//, l_sub_options);
     m_strat_movement_sub = this->create_subscription<krabi_msgs::msg::StratMovement>("strat_movement", 5, std::bind(&Core::updateStratMovement, this, std::placeholders::_1));//, l_sub_options);
 
     m_running = std::thread(&Core::plotAll, this);

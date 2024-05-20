@@ -161,6 +161,7 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_behind_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr m_tirette_sub;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odometry_sub;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odometry_slash_sub;
     rclcpp::Subscription<krabi_msgs::msg::StratMovement>::SharedPtr m_strat_movement_sub;
 
     // Transform
