@@ -411,27 +411,27 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
 bool Core::reverseGear()
 {
-    return m_strat_movement_parameters.reverse_gear == 1;
+    return m_strat_movement_parameters.reverse_gear == krabi_msgs::msg::StratMovement::REVERSE;
 }
 
 bool Core::orienting()
 {
-    return m_strat_movement_parameters.orient == 1;
+    return m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION;
 }
 
 bool Core::stop_angular()
 {
-    return m_strat_movement_parameters.orient == 4;
+    return m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::STOP_ANGULAR;
 }
 
 bool Core::recalage_bordure()
 {
-    return m_strat_movement_parameters.orient == 2;
+    return m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::RECALAGE_BORDURE;
 }
 
 bool Core::clamp_mode()
 {
-    return m_strat_movement_parameters.orient == 3;
+    return m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::CLAMP_MODE;
 }
 
 int Core::Setup()
