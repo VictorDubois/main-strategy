@@ -552,6 +552,7 @@ Core::State Core::Loop()
                 //setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
                 m_target_orientation = m_current_pose.getAngle();
                 brake();
+                RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Arrived at destination, braking" << std::endl);
                 return m_state;
             }
 
