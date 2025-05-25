@@ -166,6 +166,18 @@ Core::Core()
     this->declare_parameter("isBlue", true);
     m_is_blue = this->get_parameter("isBlue").as_bool();
 
+    this->declare_parameter("maxAccel", 0.1f);
+    m_maxAccel = this->get_parameter("maxAccel").as_double();
+
+    this->declare_parameter("tuningSpread", 207.f);
+    m_tuning_spread = this->get_parameter("tuningSpread").as_double();
+
+    this->declare_parameter("tuningOffset", 1.1f);
+    m_tuning_offset = this->get_parameter("tuningOffset").as_double();
+
+    this->declare_parameter("maxCurrent", 1.7f);
+    m_max_current = this->get_parameter("maxCurrent").as_double();
+
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
     m_motors_cmd_slash_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 5);
@@ -405,9 +417,9 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     krabi_msgs::msg::MotorsCmd new_motors_pwm_cmd;
     krabi_msgs::msg::MotorsParameters new_parameters;
-    new_parameters.max_current = 0.7f;
-    new_parameters.max_current_left = 2;
-    new_parameters.max_current_right = 2;
+    new_parameters.max_current = m_max_current;
+    new_parameters.max_current_left = m_max_current * 2;
+    new_parameters.max_current_right = m_max_current * 2;
     new_motors_pwm_cmd.enable_motors = enable;
     new_motors_pwm_cmd.reset_encoders = resetEncoders;
     new_motors_pwm_cmd.override_pwm = false;
@@ -633,7 +645,9 @@ Core::State Core::Loop()
 
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
-            m_goal_output[i] = target(207.f, 1.1f, angle_to_neuron_id(delta_orientation), i);
+
+            m_goal_output[i]
+              = target(m_tuning_spread, m_tuning_offset, angle_to_neuron_id(delta_orientation), i);
         }
 
         /*RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "relative_target_orientation: "
@@ -811,11 +825,11 @@ void Core::limitLinearSpeedCmdByGoal()
 {
     Acceleration max_acceleration = Acceleration(0.35f); // m*s-2
     Acceleration max_deceleration = Acceleration(0.35f); // m*s-2
-    if (m_strat_movement_parameters.max_speed_at_arrival > 0.01f)
+    /*if (m_strat_movement_parameters.max_speed_at_arrival > 0.01f)
     {
         max_acceleration = Acceleration(0.65f); // m*s-2
         max_deceleration = Acceleration(0.45f); // m*s-2
-    }
+    }*/
 
     Vitesse new_speed_order = Vitesse(0); // m/s
 

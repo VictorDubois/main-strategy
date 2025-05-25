@@ -15,11 +15,11 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
-#include <krabi_msgs/msg //odom_light.hpp>
 #include <krabi_msgs/msg/motors.hpp>
 #include <krabi_msgs/msg/motors_cmd.hpp>
 #include <krabi_msgs/msg/motors_distance_asserv.hpp>
 #include <krabi_msgs/msg/motors_parameters.hpp>
+#include <krabi_msgs/msg/odom_light.hpp>
 #include <krabi_msgs/msg/strat_movement.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/bool.hpp>
@@ -145,6 +145,10 @@ private:
 
     // ROS Params
     bool m_is_blue;
+    float m_maxAccel;
+    float m_tuning_spread;
+    float m_tuning_offset;
+    float m_max_current;
 
     // Publishers
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_motors_cmd_pub;

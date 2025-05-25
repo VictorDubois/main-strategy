@@ -32,6 +32,10 @@ def generate_launch_description():
         launch_ros.actions.SetParameter(name='xRobotPos', value=xRobotPos_value),
         launch_ros.actions.SetParameter(name='yRobotPos', value=yRobotPos_value),
         launch_ros.actions.SetParameter(name='zRobotOrientation', value=zRobotOrientation_value),
+        launch_ros.actions.SetParameter(name='maxAccel', value="0.1"),
+        launch_ros.actions.SetParameter(name='tuningSpread', value="207"),
+        launch_ros.actions.SetParameter(name='tuningOffset', value="1.1"),
+        launch_ros.actions.SetParameter(name='maxCurrent', value="1.7"),
         Node(
             #prefix=['gdbserver localhost:3000'],
             package='main_strategy',
