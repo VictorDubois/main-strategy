@@ -3,9 +3,9 @@
  *                  BROKER                   *
  **********************************************/
 #include "rclcpp/rclcpp.hpp"
-#include "tf2_ros/transform_listener.h"
-#include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_broadcaster.h"
+#include "tf2_ros/transform_listener.h"
 
 #include <thread>
 #include <utility>
@@ -15,12 +15,12 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
+#include <krabi_msgs/msg //odom_light.hpp>
 #include <krabi_msgs/msg/motors.hpp>
-#include <krabi_msgs/msg/motors_parameters.hpp>
-#include <krabi_msgs/msg/motors_distance_asserv.hpp>
-#include <krabi_msgs/msg//odom_light.hpp>
-#include <krabi_msgs/msg/strat_movement.hpp>
 #include <krabi_msgs/msg/motors_cmd.hpp>
+#include <krabi_msgs/msg/motors_distance_asserv.hpp>
+#include <krabi_msgs/msg/motors_parameters.hpp>
+#include <krabi_msgs/msg/strat_movement.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/bool.hpp>
 
@@ -41,7 +41,7 @@
 
 unsigned int angle_to_neuron_id(Angle a);
 
-class Core: public rclcpp::Node
+class Core : public rclcpp::Node
 {
 
 public:
@@ -165,9 +165,9 @@ private:
     rclcpp::Subscription<krabi_msgs::msg::StratMovement>::SharedPtr m_strat_movement_sub;
 
     // Transform
-    std::shared_ptr<tf2_ros::TransformListener> m_tf_listener_{nullptr};
+    std::shared_ptr<tf2_ros::TransformListener> m_tf_listener_{ nullptr };
     std::unique_ptr<tf2_ros::Buffer> m_tf_buffer_;
-    //tf2_ros::TransformBroadcaster m_tf_broadcaster;
+    // tf2_ros::TransformBroadcaster m_tf_broadcaster;
     std::unique_ptr<tf2_ros::TransformBroadcaster> m_tf_broadcaster;
     Transform m_map_to_baselink;
     Transform m_baselink_to_map;

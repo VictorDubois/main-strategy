@@ -25,7 +25,8 @@ void Core::updateCurrentPose()
     try
     {
 
-        auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
+        auto base_link_id = "base_link"; // tf::resolve(ros::this_node::getNamespace(),
+                                         // "base_link");
         const auto& transform
           = m_tf_buffer_->lookupTransform("map", base_link_id, tf2::TimePointZero).transform;
         m_baselink_to_map = transformFromMsg(transform);
@@ -91,7 +92,8 @@ void Core::addObstacle(PolarPosition obstacle)
         m_speed_inhibition_from_obstacle = 0.f;
     }
 
-    /*RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Speed inhib from obstacle = " << m_speed_inhibition_from_obstacle
+    /*RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Speed inhib from obstacle = " <<
+       m_speed_inhibition_from_obstacle
                                                    << ". Obstacle @" << obstacle << std::endl);*/
 
     float obstacle_distance_clean = obstacle.getDistance();
@@ -103,13 +105,12 @@ void Core::addObstacle(PolarPosition obstacle)
     float averaving_factor = 0.8f;
     for (int j = 0; j < NB_NEURONS; j += 1)
     {
-        float l_sigma = 30; // °  
-        float l_strength = 10.0 / obstacle_distance_clean; 
+        float l_sigma = 30; // °
+        float l_strength = 10.0 / obstacle_distance_clean;
 
         m_lidar_output[j]
           = averaving_factor * m_lidar_output[j]
-            - (1 - averaving_factor)
-                * gaussian(l_sigma, l_strength, closest_obstacle_id, j);
+            - (1 - averaving_factor) * gaussian(l_sigma, l_strength, closest_obstacle_id, j);
     }
 }
 
@@ -125,11 +126,15 @@ void Core::updateStratMovement(krabi_msgs::msg::StratMovement move)
     m_goal_pose_stamped = move.goal_pose;
     return;
 
-    if((m_buffer_strat_movement_parameters.max_speed.linear.x == 0 && m_strat_movement_parameters.max_speed.linear.x != 0) ||
-        (m_buffer_strat_movement_parameters.max_speed.angular.z == 0 && m_strat_movement_parameters.max_speed.angular.z != 0) ||
-        m_buffer_strat_movement_parameters.goal_pose.pose != m_strat_movement_parameters.goal_pose.pose ||
-        m_buffer_strat_movement_parameters.orient != m_strat_movement_parameters.orient ||
-        m_buffer_strat_movement_parameters.reverse_gear != m_strat_movement_parameters.reverse_gear)
+    if ((m_buffer_strat_movement_parameters.max_speed.linear.x == 0
+         && m_strat_movement_parameters.max_speed.linear.x != 0)
+        || (m_buffer_strat_movement_parameters.max_speed.angular.z == 0
+            && m_strat_movement_parameters.max_speed.angular.z != 0)
+        || m_buffer_strat_movement_parameters.goal_pose.pose
+             != m_strat_movement_parameters.goal_pose.pose
+        || m_buffer_strat_movement_parameters.orient != m_strat_movement_parameters.orient
+        || m_buffer_strat_movement_parameters.reverse_gear
+             != m_strat_movement_parameters.reverse_gear)
     {
         stopMotors();
         m_strat_movement_parameters.max_speed.angular.z = 0;
@@ -142,14 +147,14 @@ void Core::updateStratMovement(krabi_msgs::msg::StratMovement move)
     m_buffer_goal_pose_stamped = m_goal_pose_stamped;
 }
 
-Core::Core() : Node("main_strat")
+Core::Core()
+  : Node("main_strat")
 {
     m_tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     m_tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer_);
-    m_tf_broadcaster =
-      std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    m_tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-    m_previous_angle_to_goal = Angle (0);
+    m_previous_angle_to_goal = Angle(0);
     m_previous_goal_pose = Pose();
 
     m_goal_pose = Pose();
@@ -166,26 +171,38 @@ Core::Core() : Node("main_strat")
     m_motors_cmd_slash_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 5);
     m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 5);
     m_motors_enable_pub = this->create_publisher<std_msgs::msg::Bool>("enable_motor", 5);
-    m_motors_parameters_pub = this->create_publisher<krabi_msgs::msg::MotorsParameters>("motors_parameters", 5);
+    m_motors_parameters_pub
+      = this->create_publisher<krabi_msgs::msg::MotorsParameters>("motors_parameters", 5);
     m_motors_pwm_pub = this->create_publisher<krabi_msgs::msg::MotorsCmd>("motors_cmd", 5);
-    m_target_orientation_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("target_orientation", 5);
+    m_target_orientation_pub
+      = this->create_publisher<geometry_msgs::msg::PoseStamped>("target_orientation", 5);
 
     m_chrono_pub = this->create_publisher<builtin_interfaces::msg::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
       = this->create_publisher<krabi_msgs::msg::MotorsDistanceAsserv>("motors_distance_asserv", 5);
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
 
-    std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_lidar_sub_func = std::bind(
-    &Core::updateLidar, this, std::placeholders::_1, true);
-    std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_lidar_behind_sub_func = std::bind(
-    &Core::updateLidar, this, std::placeholders::_1, false);
+    std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_lidar_sub_func
+      = std::bind(&Core::updateLidar, this, std::placeholders::_1, true);
+    std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_lidar_behind_sub_func
+      = std::bind(&Core::updateLidar, this, std::placeholders::_1, false);
 
-    m_lidar_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_pose_stamped", 5, l_lidar_sub_func);//, l_sub_options);
-    m_lidar_behind_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("obstacle_behind_pose_stamped", 5, l_lidar_behind_sub_func);//, l_sub_options);
-    m_tirette_sub = this->create_subscription<std_msgs::msg::Bool>("tirette", 5, std::bind(&Core::updateTirette, this, std::placeholders::_1));//, l_sub_options);
-    m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>("odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));//, l_sub_options);
-    m_odometry_slash_sub = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));//, l_sub_options);
-    m_strat_movement_sub = this->create_subscription<krabi_msgs::msg::StratMovement>("strat_movement", 5, std::bind(&Core::updateStratMovement, this, std::placeholders::_1));//, l_sub_options);
+    m_lidar_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+      "obstacle_pose_stamped", 5, l_lidar_sub_func); //, l_sub_options);
+    m_lidar_behind_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+      "obstacle_behind_pose_stamped", 5, l_lidar_behind_sub_func); //, l_sub_options);
+    m_tirette_sub = this->create_subscription<std_msgs::msg::Bool>(
+      "tirette",
+      5,
+      std::bind(&Core::updateTirette, this, std::placeholders::_1)); //, l_sub_options);
+    m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>(
+      "odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1)); //, l_sub_options);
+    m_odometry_slash_sub = this->create_subscription<nav_msgs::msg::Odometry>(
+      "/odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1)); //, l_sub_options);
+    m_strat_movement_sub = this->create_subscription<krabi_msgs::msg::StratMovement>(
+      "strat_movement",
+      5,
+      std::bind(&Core::updateStratMovement, this, std::placeholders::_1)); //, l_sub_options);
 
     m_running = std::thread(&Core::plotAll, this);
 
@@ -193,39 +210,49 @@ Core::Core() : Node("main_strat")
 
     if (!m_is_blue)
     {
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_6_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 6);
-        m_arucos_sub[6] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r6", 5, l_arucos_6_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_7_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 7);
-        m_arucos_sub[7] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r7", 5, l_arucos_7_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_8_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 8);
-        m_arucos_sub[8] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r8", 5, l_arucos_8_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_9_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 9);
-        m_arucos_sub[9] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r9", 5, l_arucos_9_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_10_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 10);
-        m_arucos_sub[10] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r10", 5, l_arucos_10_func);//, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_6_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 6);
+        m_arucos_sub[6] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r6", 5, l_arucos_6_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_7_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 7);
+        m_arucos_sub[7] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r7", 5, l_arucos_7_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_8_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 8);
+        m_arucos_sub[8] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r8", 5, l_arucos_8_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_9_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 9);
+        m_arucos_sub[9] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r9", 5, l_arucos_9_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_10_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 10);
+        m_arucos_sub[10] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r10", 5, l_arucos_10_func); //, l_sub_options);
     }
     else
     {
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_1_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 1);
-        m_arucos_sub[1] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r1", 5, l_arucos_1_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_2_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 2);
-        m_arucos_sub[2] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r2", 5, l_arucos_2_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_3_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 3);
-        m_arucos_sub[3] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r3", 5, l_arucos_3_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_4_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 4);
-        m_arucos_sub[4] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r4", 5, l_arucos_4_func);//, l_sub_options);
-        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_5_func = std::bind(
-            &Core::updateAruco, this, std::placeholders::_1, 5);
-        m_arucos_sub[5] = this->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_robots/r5", 5, l_arucos_5_func);//, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_1_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 1);
+        m_arucos_sub[1] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r1", 5, l_arucos_1_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_2_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 2);
+        m_arucos_sub[2] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r2", 5, l_arucos_2_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_3_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 3);
+        m_arucos_sub[3] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r3", 5, l_arucos_3_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_4_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 4);
+        m_arucos_sub[4] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r4", 5, l_arucos_4_func); //, l_sub_options);
+        std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_arucos_5_func
+          = std::bind(&Core::updateAruco, this, std::placeholders::_1, 5);
+        m_arucos_sub[5] = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+          "/pose_robots/r5", 5, l_arucos_5_func); //, l_sub_options);
     }
 
     m_goal_output[NB_NEURONS] = { 0. };
@@ -246,7 +273,8 @@ Core::Core() : Node("main_strat")
 
     m_end_init_odo = this->now() + rclcpp::Duration(2, 0.5 * 10e9);
 
-    timer_ = this->create_wall_timer(std::chrono::milliseconds{100}, std::bind(&Core::Loop, this));
+    timer_
+      = this->create_wall_timer(std::chrono::milliseconds{ 100 }, std::bind(&Core::Loop, this));
 }
 
 void Core::updateOdom(const nav_msgs::msg::Odometry& odometry)
@@ -284,9 +312,11 @@ double Core::getReach(const std::string& end_point_frame_id)
     }
     try
     {
-        auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
+        auto base_link_id = "base_link"; // tf::resolve(ros::this_node::getNamespace(),
+                                         // "base_link");
         const geometry_msgs::msg::Transform& transform
-          = m_tf_buffer_->lookupTransform(end_point_frame_id, base_link_id, tf2::TimePointZero).transform;
+          = m_tf_buffer_->lookupTransform(end_point_frame_id, base_link_id, tf2::TimePointZero)
+              .transform;
 
         return static_cast<double>(sqrt(transform.translation.x * transform.translation.x
                                         + transform.translation.y * transform.translation.y
@@ -313,7 +343,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     l_distance_asserv_msg.use_distance_asserv = true;
     l_distance_asserv_msg.goal_pose = geometry_msgs::msg::PoseStamped();
 
-    const auto l_odom_id = "odom";//tf::resolve(ros::this_node::getNamespace(), "odom");
+    const auto l_odom_id = "odom"; // tf::resolve(ros::this_node::getNamespace(), "odom");
     const auto l_map_id = "map";
 
     std::string l_error_message = "no error";
@@ -327,21 +357,25 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
             geometry_msgs::msg::PoseStamped l_goal_pose_in_odom;
             tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
             l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
-            // RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in map : " << m_goal_pose_stamped.pose.position.x << ", " <<
-            // m_goal_pose_stamped.pose.position.y); RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in odom : " <<
+            // RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in map : " <<
+            // m_goal_pose_stamped.pose.position.x << ", " << m_goal_pose_stamped.pose.position.y);
+            // RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in odom : " <<
             // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
         }
         else
         {
-            RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "CanTransform said: Unable to find a transform from "
-                            << l_map_id << " to " << l_odom_id
-                            << " (=map to odom), disabling distance asserv: " << l_error_message);
+            RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"),
+                               "CanTransform said: Unable to find a transform from "
+                                 << l_map_id << " to " << l_odom_id
+                                 << " (=map to odom), disabling distance asserv: "
+                                 << l_error_message);
             l_distance_asserv_msg.use_distance_asserv = false;
         }
     }
     catch (tf2::LookupException)
     {
-        RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Unable to find a transform from map to odom, disabling distance asserv");
+        RCLCPP_WARN(rclcpp::get_logger("rclcpp"),
+                    "Unable to find a transform from map to odom, disabling distance asserv");
         l_distance_asserv_msg.use_distance_asserv = false;
     }
 
@@ -356,16 +390,15 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_enable_cmd.data = enable;
     m_motors_enable_pub->publish(new_enable_cmd);
 
-
     geometry_msgs::msg::PoseStamped l_target_orientation_msg;
-    //l_target_orientation_msg.header.stamp = this->now();
+    // l_target_orientation_msg.header.stamp = this->now();
     l_target_orientation_msg.header.frame_id = "/map";
     l_target_orientation_msg.pose = m_current_pose;
-    //l_distance_asserv_msg.goal_pose.pose;
+    // l_distance_asserv_msg.goal_pose.pose;
     tf2::Quaternion myQuaternion;
-    myQuaternion.setRPY( 0, 0, m_target_orientation );
+    myQuaternion.setRPY(0, 0, m_target_orientation);
     myQuaternion.normalize();
-    //tf2::convert(l_target_orientation_msg.pose.orientation, myQuaternion);
+    // tf2::convert(l_target_orientation_msg.pose.orientation, myQuaternion);
     l_target_orientation_msg.pose.orientation = tf2::toMsg(myQuaternion);
     l_target_orientation_msg.header.stamp = this->now();
     m_target_orientation_pub->publish(l_target_orientation_msg);
@@ -416,7 +449,8 @@ bool Core::reverseGear()
 
 bool Core::orienting()
 {
-    return m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION;
+    return m_strat_movement_parameters.orient
+           == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION;
 }
 
 bool Core::stop_angular()
@@ -449,7 +483,8 @@ Core::~Core()
     // We broke out of the loop, stop everything
     stopMotors();
 
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Got out of the main loop, stopped everything.\n");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                       "Got out of the main loop, stopped everything.\n");
 }
 
 void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
@@ -461,14 +496,15 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
     m_linear_speed_cmd = std::min(m_linear_speed_cmd, linear_speed_limit);
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "limit linear by angular speed : " << linear_speed_limit << std::endl);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                       "limit linear by angular speed : " << linear_speed_limit << std::endl);
 }
 
 void Core::plotAll()
 {
     while (m_state != State::EXIT)
     {
-	usleep(100000);
+        usleep(100000);
         std::vector<float> l_angular_landscape;
         std::vector<float> l_goal_output;
         std::vector<float> l_lidar_output;
@@ -527,57 +563,66 @@ Core::State Core::Loop()
             // orient towards the goal's position
             m_target_orientation = getAngleToGoal();
 
-            // update the goal to 0 when reaching a goal => doesn't do much, is overridden quickly :/
-            // Remaining issue: 90° turns => more than 90° margin? => ça a l'air de marcher :) => en fait, il reste des sauts de moins de 3/4 PI => done mais désactivé
-            // @todo, check if very close to target + orientation jump (from the previous iteration) => done, mais juste en arrêtant le robot. Pas compatible avec un asserv en position
-            // reacting to a goal update? => reserve the new strat_mvnt for the next iteration + limit speed right away. Currently it is possible to lack the synchronisation with reverse gear, for instance. Done
+            // update the goal to 0 when reaching a goal => doesn't do much, is overridden quickly
+            // :/ Remaining issue: 90° turns => more than 90° margin? => ça a l'air de marcher :) =>
+            // en fait, il reste des sauts de moins de 3/4 PI => done mais désactivé
+            // @todo, check if very close to target + orientation jump (from the previous iteration)
+            // => done, mais juste en arrêtant le robot. Pas compatible avec un asserv en position
+            // reacting to a goal update? => reserve the new strat_mvnt for the next iteration +
+            // limit speed right away. Currently it is possible to lack the synchronisation with
+            // reverse gear, for instance. Done
 
-            // Manage position overshoots: do not turn around if the position has been overshoot by 5mm!
+            // Manage position overshoots: do not turn around if the position has been overshoot by
+            // 5mm!
             Distance l_too_close_threshold = Distance(0.1f);
             Distance l_reach_goal_dist = Distance(0.02f);
-            /*auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+            /*auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation,
+            m_current_pose.getAngle());
 
-            if (m_distance_to_goal < l_too_close_threshold && ((abs(l_delta_orientation) > 3.f*M_PI/4.f) != reverseGear()))
+            if (m_distance_to_goal < l_too_close_threshold && ((abs(l_delta_orientation)
+            > 3.f*M_PI/4.f) != reverseGear()))
             {
                 m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
             }*/
 
-            auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation, m_previous_angle_to_goal);
-            auto l_delta_position = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
+            auto l_delta_orientation
+              = AngleTools::diffAngle(m_target_orientation, m_previous_angle_to_goal);
+            auto l_delta_position
+              = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
 
-            //if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01) && (abs(l_delta_orientation) > M_PI/2.f))
-            if (m_distance_to_goal < l_reach_goal_dist )
+            // if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01)
+            // && (abs(l_delta_orientation) > M_PI/2.f))
+            if (m_distance_to_goal < l_reach_goal_dist)
             {
-                //m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
-                //setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
+                // m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
+                // setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
                 m_target_orientation = m_current_pose.getAngle();
                 brake();
-                RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Arrived at destination, braking" << std::endl);
+                RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                                   "Arrived at destination, braking" << std::endl);
                 return m_state;
             }
 
             m_previous_angle_to_goal = getAngleToGoal();
             m_previous_goal_pose = m_goal_pose;
-            
         }
         else
         {
             // respect the goal's own orientation
             m_target_orientation = m_goal_pose.getAngle();
 
-            RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "########################################"
-                             << std::endl
-                             << "Positionned, m_orienting to " << m_goal_pose.getAngle()
-                             << std::endl
-                             << "########################################" << std::endl);
+            RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"),
+                                "########################################"
+                                  << std::endl
+                                  << "Positionned, m_orienting to " << m_goal_pose.getAngle()
+                                  << std::endl
+                                  << "########################################" << std::endl);
         }
 
         if (reverseGear())
         {
             m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
         }
-
-        
 
         // Inhibit linear speed if there are obstacles
 
@@ -602,7 +647,7 @@ Core::State Core::Loop()
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             m_angular_landscape[i] = m_goal_output[i];
-                  //+m_lidar_output[i];
+            //+m_lidar_output[i];
         }
 
         // And finally: differentiate the m_angular_landscape vector to get drive
@@ -613,7 +658,8 @@ Core::State Core::Loop()
         m_angular_speed_cmd = VitesseAngulaire(m_angular_speed_vector[angle_to_neuron_id(
           Angle(0))]); // - as positive is towards the left in ros, while the
                        // derivation is left to right
-        // RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), ",m_angular_speed_cmd = " << m_angular_speed_cmd << std::endl);
+        // RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), ",m_angular_speed_cmd = " <<
+        // m_angular_speed_cmd << std::endl);
 
         limitLinearSpeedCmdByGoal();
 
@@ -639,17 +685,17 @@ Core::State Core::Loop()
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         limitLinearSpeedByAngularSpeed(m_angular_speed_cmd);
 
-        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "linear speed = "
-                        << m_linear_speed << ", m_orienting = " << orienting()
-                        << ", speed inihib from obstacles = " << m_speed_inhibition_from_obstacle
-                        << " * " << m_default_linear_speed
-                        << ", angular_speed_cmd = " << m_angular_speed_cmd
-                        << ", linear_speed_cmd = " << m_linear_speed_cmd << std::endl);
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                           "linear speed = "
+                             << m_linear_speed << ", m_orienting = " << orienting()
+                             << ", speed inihib from obstacles = "
+                             << m_speed_inhibition_from_obstacle << " * " << m_default_linear_speed
+                             << ", angular_speed_cmd = " << m_angular_speed_cmd
+                             << ", linear_speed_cmd = " << m_linear_speed_cmd << std::endl);
 
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
 
-        
     } // End of m_state == State::NORMAL
     if (m_state == State::EXIT)
     {
@@ -675,14 +721,15 @@ void Core::limitAcceleration()
 {
     /**
     RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "Limiting acceleration:");
-    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "Before: linear_speed: " << m_linear_speed_cmd << "m/s , angular_speed: "
+    RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "Before: linear_speed: " << m_linear_speed_cmd
+    << "m/s , angular_speed: "
                                               << m_angular_speed_cmd << "rad/s");
     m_linear_speed_cmd = limit_acceleration(
       m_linear_speed, m_linear_speed_cmd, Acceleration(0.025), 1. / float(UPDATE_RATE));
     m_angular_speed_cmd = limit_acceleration(
       m_angular_speed, m_angular_speed_cmd, AccelerationAngulaire(0.00025), 1. /
-    float(UPDATE_RATE)); RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "After: linear_speed: " << m_linear_speed_cmd << "m/s
-    , angular_speed: "
+    float(UPDATE_RATE)); RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "After: linear_speed: "
+    << m_linear_speed_cmd << "m/s , angular_speed: "
                                              << m_angular_speed_cmd << "rad/s");
                                              **/
 }
@@ -719,14 +766,15 @@ void Core::computeTargetSpeedOrientation()
     /*if (s_joystick.output->strength == 1) {
             m_target_orientation = get_idx_of_max(s_joystick.output->neural_field, NB_NEURONS);
             m_linear_speed_cmd = s_joystick.output->speed_inhibition;
-            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Target orientation from joystick: %d\n", m_target_orientation);
-    } else if (s_goal.output->strength == 1) {
-            m_target_orientation = get_idx_of_max(s_goal.output->neural_field, NB_NEURONS);
+            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Target orientation from joystick:
+    %d\n", m_target_orientation); } else if (s_goal.output->strength == 1) { m_target_orientation =
+    get_idx_of_max(s_goal.output->neural_field, NB_NEURONS);
             //m_linear_speed_cmd = m_default_linear_speed;
             m_linear_speed_cmd = s_goal.output->speed_inhibition;
-            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Linear speed command from goal: %d\n", m_linear_speed_cmd);
-            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Target orientation from goal: %d\n", m_target_orientation);
-    } else {
+            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Linear speed command from goal:
+    %d\n", m_linear_speed_cmd);
+            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Target orientation from goal: %d\n",
+    m_target_orientation); } else {
             /*
              * If no positive valence strategy fires, set the target orientation to the robot's
     orientation
@@ -780,7 +828,8 @@ void Core::limitLinearSpeedCmdByGoal()
 
     Distance distance_to_stop
       = Distance(time_to_stop * (m_linear_speed - desired_final_speed) / 2.);
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), ", distance to stop = " << distance_to_stop << "m, ");
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                       ", distance to stop = " << distance_to_stop << "m, ");
 
     // Compute extra time if accelerating
     Vitesse average_extra_speed = Vitesse(
@@ -815,7 +864,9 @@ void Core::limitLinearSpeedCmdByGoal()
     new_speed_order
       = std::min(new_speed_order, Vitesse(m_strat_movement_parameters.max_speed.linear.x));
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "new speed: " << new_speed_order << " => " << m_linear_speed_cmd << std::endl);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                       "new speed: " << new_speed_order << " => " << m_linear_speed_cmd
+                                     << std::endl);
     m_linear_speed_cmd = new_speed_order;
 }
 
@@ -848,21 +899,22 @@ void Core::updateAruco(std::shared_ptr<geometry_msgs::msg::PoseStamped const> ar
     m_arucos[id] = *arucoPose;
 
     publishTf(arucoPose->pose, "/aruco", "/aruco_raw_pose");
-    auto base_link_id = "base_link";//tf::resolve(ros::this_node::getNamespace(), "base_link");
+    auto base_link_id = "base_link"; // tf::resolve(ros::this_node::getNamespace(), "base_link");
     auto deltaOdom = m_tf_buffer_->lookupTransform(base_link_id,
-                                                 arucoPose->header.stamp,
-                                                 base_link_id,
-                                                 this->now(),
-                                                 "map",
-                                                 rclcpp::Duration(1, 0));
+                                                   arucoPose->header.stamp,
+                                                   base_link_id,
+                                                   this->now(),
+                                                   "map",
+                                                   rclcpp::Duration(1, 0));
 
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "ego_aruco_received. Movement since: x = "
-                    << deltaOdom.transform.translation.x
-                    << ", y = " << deltaOdom.transform.translation.y
-                    << ", QuatW = " << deltaOdom.transform.rotation.w
-                    << ", QuatX = " << deltaOdom.transform.rotation.x
-                    << ", QuatY = " << deltaOdom.transform.rotation.y
-                    << ", QuatZ = " << deltaOdom.transform.rotation.z << std::endl);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                       "ego_aruco_received. Movement since: x = "
+                         << deltaOdom.transform.translation.x
+                         << ", y = " << deltaOdom.transform.translation.y
+                         << ", QuatW = " << deltaOdom.transform.rotation.w
+                         << ", QuatX = " << deltaOdom.transform.rotation.x
+                         << ", QuatY = " << deltaOdom.transform.rotation.y
+                         << ", QuatZ = " << deltaOdom.transform.rotation.z << std::endl);
     auto corrected_pose = arucoPose->pose;
     tf2::Quaternion quat_tf_odom;
     tf2::fromMsg(deltaOdom.transform.rotation, quat_tf_odom);
@@ -885,8 +937,9 @@ void Core::updateAruco(std::shared_ptr<geometry_msgs::msg::PoseStamped const> ar
     quat_tf_corrected.normalize();
     corrected_pose.orientation = tf2::toMsg(quat_tf_corrected);
 
-    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "corrected position: x = " << corrected_pose.position.x << ", y = "
-                                               << corrected_pose.position.y << std::endl);
+    RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"),
+                       "corrected position: x = " << corrected_pose.position.x << ", y = "
+                                                  << corrected_pose.position.y << std::endl);
 
     publishTf(corrected_pose, "/aruco", "/corrected_odom");
 }
