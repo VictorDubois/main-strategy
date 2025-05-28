@@ -422,9 +422,45 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_parameters.max_current_right = m_max_current * 2;
     new_motors_pwm_cmd.enable_motors = enable;
     new_motors_pwm_cmd.reset_encoders = resetEncoders;
+
     new_motors_pwm_cmd.override_pwm = false;
     new_motors_pwm_cmd.pwm_override_left = 0;
     new_motors_pwm_cmd.pwm_override_right = 0;
+
+    bool asserv_petee = true; // ;_;
+    if (asserv_petee)
+    {
+        new_motors_pwm_cmd.override_pwm = true;
+        if (new_motor_cmd.linear.x > 0.1)
+        {
+            new_motors_pwm_cmd.pwm_override_left = 20;
+            new_motors_pwm_cmd.pwm_override_right = 20;
+        }
+        else if (new_motor_cmd.linear.x < -0.1)
+        {
+            new_motors_pwm_cmd.pwm_override_left = 20;
+            new_motors_pwm_cmd.pwm_override_right = 20;
+        }
+
+        if (new_motor_cmd.angular.z > 0.1)
+        {
+
+            new_motors_pwm_cmd.pwm_override_left = -20;
+            new_motors_pwm_cmd.pwm_override_right = 20;
+        }
+        else if (new_motor_cmd.angular.z < -0.1)
+        {
+
+            new_motors_pwm_cmd.pwm_override_left = 20;
+            new_motors_pwm_cmd.pwm_override_right = -20;
+        }
+
+        if (reverseGear())
+        {
+            new_motors_pwm_cmd.pwm_override_left = -new_motors_pwm_cmd.pwm_override_left;
+            new_motors_pwm_cmd.pwm_override_right = -new_motors_pwm_cmd.pwm_override_right;
+        }
+    }
 
     if (recalage_bordure())
     {
