@@ -427,7 +427,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motors_pwm_cmd.pwm_override_left = 0;
     new_motors_pwm_cmd.pwm_override_right = 0;
 
-    bool asserv_petee = true; // ;_;
+    bool asserv_petee = false; // ;_;
     if (asserv_petee)
     {
         new_motors_pwm_cmd.override_pwm = true;
