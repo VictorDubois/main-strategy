@@ -105,6 +105,7 @@ private:
     bool recalage_bordure();
     bool clamp_mode();
     bool stop_angular();
+    void chooseReverseGear(Angle diff_angle);
 
     double getReach(const std::string& end_point_frame_id);
 
@@ -142,6 +143,7 @@ private:
     bool m_reverse_gear_activated;
     float m_speed_inhibition_from_obstacle;
     krabi_msgs::msg::StratMovement m_strat_movement_parameters;
+    bool m_reverse_gear = false;
 
     // ROS Params
     bool m_is_blue;

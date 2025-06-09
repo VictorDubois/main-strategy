@@ -492,7 +492,29 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
 bool Core::reverseGear()
 {
-    return m_strat_movement_parameters.reverse_gear == krabi_msgs::msg::StratMovement::REVERSE;
+    return m_reverse_gear == krabi_msgs::msg::StratMovement::REVERSE;
+}
+
+void Core::chooseReverseGear(Angle orientation_diff)
+{
+    if (m_strat_movement_parameters.reverse_gear
+        != krabi_msgs::msg::StratMovement::FORWARD_OR_REVERSE)
+    {
+        m_reverse_gear = m_strat_movement_parameters.reverse_gear;
+        return;
+    }
+
+    // else, complexe case: FORWARD_OR_REVERSE. We have to choose
+    if (AngleTools::wrapAngle(orientation_diff) > M_PI / 2
+        || AngleTools::wrapAngle(orientation_diff) < -M_PI / 2)
+    {
+        // It is closer to reverse
+        m_reverse_gear = krabi_msgs::msg::StratMovement::REVERSE;
+    }
+    else
+    {
+        m_reverse_gear = krabi_msgs::msg::StratMovement::FORWARD;
+    }
 }
 
 bool Core::orienting()
@@ -667,17 +689,26 @@ Core::State Core::Loop()
                                   << "########################################" << std::endl);
         }
 
+        // Default orientation
+        auto delta_orientation
+          = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+
+        // Choose whether the robot should reverse (when it has the choice)
+        chooseReverseGear(AngleTools::wrapAngle(Angle(delta_orientation)));
+
+        // Apply the choosen gear
         if (reverseGear())
         {
             m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
         }
 
+        // Orientation taking reversing into account
+        delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+
         // Inhibit linear speed if there are obstacles
 
         // Compute attractive vectors from positive valence strategies
         // TODO: choose the POSITIVE VALENCE STRATEGY!
-        auto delta_orientation
-          = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
 
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
@@ -869,8 +900,7 @@ void Core::limitLinearSpeedCmdByGoal()
 
     Vitesse new_speed_order = Vitesse(0); // m/s
 
-    Vitesse desired_final_speed
-      = Vitesse(m_strat_movement_parameters.max_speed_at_arrival); // m*s-2
+    Vitesse desired_final_speed = Vitesse(m_strat_movement_parameters.max_speed_at_arrival); // m/s
 
     float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
     time_to_stop = std::max(0.f, time_to_stop);
