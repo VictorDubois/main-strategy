@@ -27,6 +27,7 @@ find_package(goal_strategy REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 
 # For including LidarStrat:
 find_package(lidar_strategy REQUIRED)
@@ -58,6 +59,7 @@ ament_target_dependencies(${PROJECT_NAME}_node std_msgs geometry_msgs tf2 sensor
 tf2_ros
 tf2_geometry_msgs
   rclcpp
+  diagnostic_updater
 
   # For including LidarStrat:
   visualization_msgs
@@ -66,7 +68,7 @@ tf2_geometry_msgs
 
 ament_target_dependencies(odometry_node std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
 # lidar_strategy
- rclcpp)
+ rclcpp diagnostic_updater)
 
 
 if(PLOT_NEURONS)

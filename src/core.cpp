@@ -33,10 +33,12 @@ void Core::updateCurrentPose()
         m_map_to_baselink = transformFromMsg(
           m_tf_buffer_->lookupTransform(base_link_id, "map", tf2::TimePointZero).transform);
         m_current_pose = Pose(transform);
+        m_transform_found = true;
     }
     catch (tf2::TransformException& ex)
     {
         RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "%s", ex.what());
+        m_transform_found = false;
     }
 
     // std::cout << "updateCurrentPose: " << m_current_pose << std::endl;//Raspi4 doesn't like
@@ -90,6 +92,11 @@ void Core::addObstacle(PolarPosition obstacle)
     if (m_speed_inhibition_from_obstacle < 0.2f)
     {
         m_speed_inhibition_from_obstacle = 0.f;
+        m_stopped_by_obstacle = true;
+    }
+    else
+    {
+        m_stopped_by_obstacle = false;
     }
 
     /*RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Speed inhib from obstacle = " <<
@@ -320,15 +327,18 @@ double Core::getReach(const std::string& end_point_frame_id)
 {
     if (end_point_frame_id == "")
     {
+        m_reach_transform_found = true;
         return Distance(0);
     }
     try
     {
         auto base_link_id = "base_link"; // tf::resolve(ros::this_node::getNamespace(),
-                                         // "base_link");
+        // "base_link");
+        m_reach_transform_found = false;
         const geometry_msgs::msg::Transform& transform
           = m_tf_buffer_->lookupTransform(end_point_frame_id, base_link_id, tf2::TimePointZero)
               .transform;
+        m_reach_transform_found = true;
 
         return static_cast<double>(sqrt(transform.translation.x * transform.translation.x
                                         + transform.translation.y * transform.translation.y
@@ -337,7 +347,7 @@ double Core::getReach(const std::string& end_point_frame_id)
     catch (tf2::TransformException& ex)
     {
         RCLCPP_WARN(rclcpp::get_logger("rclcpp"), "Error while getting reach: %s", ex.what());
-
+        m_reach_transform_found = false;
         return Distance(0);
     }
 }
@@ -369,6 +379,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
             geometry_msgs::msg::PoseStamped l_goal_pose_in_odom;
             tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
             l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
+
             // RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in map : " <<
             // m_goal_pose_stamped.pose.position.x << ", " << m_goal_pose_stamped.pose.position.y);
             // RCLCPP_WARN_STREAM(rclcpp::get_logger("rclcpp"), "goal in odom : " <<
@@ -1022,4 +1033,26 @@ void Core::updateAruco(std::shared_ptr<geometry_msgs::msg::PoseStamped const> ar
                                                   << corrected_pose.position.y << std::endl);
 
     publishTf(corrected_pose, "/aruco", "/corrected_odom");
+}
+
+void Core::produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& stat)
+{
+    if (!m_transform_found)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR,
+                     "Unable to find a transform from map to odom");
+    }
+    if (!m_reach_transform_found)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR,
+                     "Unable to find a transform for reach");
+    }
+    if (m_stopped_by_obstacle)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Stopped by obstacle");
+    }
+    if (m_stopped_by_goalstrat) // Not used yet
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Stopped by GoalStrat");
+    }
 }

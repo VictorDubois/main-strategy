@@ -28,6 +28,8 @@
 #include "helpers_broker.h"
 #include "krabilib/pose.h"
 
+#include <diagnostic_updater/diagnostic_updater.hpp>
+
 // Should remove this and put it in a global, "constant.h" file for the whole project
 #define NB_NEURONS 360
 
@@ -59,6 +61,7 @@ public:
     int Setup();
     State Loop();
     bool isOver();
+    void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
 private:
     void selectColor();
@@ -196,4 +199,10 @@ private:
 
     rclcpp::Time m_end_init_odo;
     rclcpp::TimerBase::SharedPtr timer_;
+
+    // Diagnostic
+    bool m_transform_found = false;
+    bool m_reach_transform_found = false;
+    bool m_stopped_by_obstacle = false;
+    bool m_stopped_by_goalstrat = false;
 };
