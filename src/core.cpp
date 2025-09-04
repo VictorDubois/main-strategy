@@ -290,7 +290,7 @@ Core::Core()
     m_linear_speed_cmd = 0;
     m_angular_speed_cmd = 0;
 
-    m_end_init_odo = this->now() + rclcpp::Duration(2, 0.5 * 10e9);
+    m_end_init_odo = this->now() + rclcpp::Duration(2, 500 * 1e6);
 
     timer_
       = this->create_wall_timer(std::chrono::milliseconds{ 100 }, std::bind(&Core::Loop, this));
@@ -395,7 +395,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
             l_distance_asserv_msg.use_distance_asserv = false;
         }
     }
-    catch (tf2::LookupException)
+    catch (tf2::LookupException const&)
     {
         RCLCPP_WARN(rclcpp::get_logger("rclcpp"),
                     "Unable to find a transform from map to odom, disabling distance asserv");
