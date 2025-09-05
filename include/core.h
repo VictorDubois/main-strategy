@@ -24,7 +24,6 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/bool.hpp>
 
-#include "constants.h"
 #include "helpers_broker.h"
 #include "krabilib/pose.h"
 
