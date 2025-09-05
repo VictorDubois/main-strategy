@@ -245,6 +245,7 @@ void Core::setMotorsSpeed(Vitesse linearSpeed, VitesseAngulaire angularSpeed)
     setMotorsSpeed(linearSpeed, angularSpeed, true, false);
 }
 
+// Reach of the actuator (if any)
 double Core::getReach(const std::string& end_point_frame_id)
 {
     if (end_point_frame_id == "")
@@ -490,6 +491,7 @@ Core::~Core()
                        "Got out of the main loop, stopped everything.\n");
 }
 
+// Do not translate when turning
 void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
 {
     VitesseAngulaire l_sigma_angular_speed = VitesseAngulaire(0.1f); // rad/s
@@ -826,6 +828,9 @@ void Core::limitLinearSpeedCmdByGoal()
 {
     Acceleration max_acceleration = Acceleration(0.35f); // m*s-2
     Acceleration max_deceleration = Acceleration(0.35f); // m*s-2
+
+    // Allow faster robot when doing a low-precision movement (where we do not need to stop at the
+    // end)
     /*if (m_strat_movement_parameters.max_speed_at_arrival > 0.01f)
     {
         max_acceleration = Acceleration(0.65f); // m*s-2
