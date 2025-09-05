@@ -1,10 +1,9 @@
 #include "odometry/odomTFPublisher.h"
 
-#include "rclcpp/rclcpp.hpp"
+#include "rclcpp/node.hpp"
 #include <string>
 
 using namespace std;
-
 
 int main(int argc, char* argv[])
 {
@@ -25,7 +24,7 @@ int main(int argc, char* argv[])
     rclcpp::executors::MultiThreadedExecutor executor;
     executor.add_node(node);
     executor.spin();
-    
+
     rclcpp::shutdown();
     return 0;
 }

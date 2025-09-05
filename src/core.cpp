@@ -51,7 +51,7 @@ Angle Core::getAngleToGoal()
     return (m_goal_pose.getPosition() - m_current_pose.getPosition()).getAngle();
 }
 
-void Core::updateGoal(geometry_msgs::msg::PoseStamped goal_pose)
+void Core::updateGoal(geometry_msgs::msg::PoseStamped /*goal_pose*/)
 {
     // m_goal_pose = Pose(goal_pose.pose);
     // RCLCPP_DEBUG_STREAM(rclcpp::get_logger("rclcpp"), "New goal: " << m_goal_pose);
@@ -187,42 +187,9 @@ Core::Core()
 
     RCLCPP_INFO(rclcpp::get_logger("rclcpp"), m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
-    m_motors_cmd_slash_pub = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 5);
-    m_motors_cmd_pub = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 5);
-    m_motors_enable_pub = this->create_publisher<std_msgs::msg::Bool>("enable_motor", 5);
-    m_motors_parameters_pub
-      = this->create_publisher<krabi_msgs::msg::MotorsParameters>("motors_parameters", 5);
-    m_motors_pwm_pub = this->create_publisher<krabi_msgs::msg::MotorsCmd>("motors_cmd", 5);
-    m_target_orientation_pub
-      = this->create_publisher<geometry_msgs::msg::PoseStamped>("target_orientation", 5);
-
-    m_chrono_pub = this->create_publisher<builtin_interfaces::msg::Duration>("/remaining_time", 5);
-    m_distance_asserv_pub
-      = this->create_publisher<krabi_msgs::msg::MotorsDistanceAsserv>("motors_distance_asserv", 5);
+    create_publishers();
     // m_goal_sub = m_nh.subscribe("goal_pose", 1000, &Core::updateGoal, this);
-
-    std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_lidar_sub_func
-      = std::bind(&Core::updateLidar, this, std::placeholders::_1, true);
-    std::function<void(std::shared_ptr<geometry_msgs::msg::PoseStamped>)> l_lidar_behind_sub_func
-      = std::bind(&Core::updateLidar, this, std::placeholders::_1, false);
-
-    m_lidar_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "obstacle_pose_stamped", 5, l_lidar_sub_func); //, l_sub_options);
-    m_lidar_behind_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "obstacle_behind_pose_stamped", 5, l_lidar_behind_sub_func); //, l_sub_options);
-    m_tirette_sub = this->create_subscription<std_msgs::msg::Bool>(
-      "tirette",
-      5,
-      std::bind(&Core::updateTirette, this, std::placeholders::_1)); //, l_sub_options);
-    m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-      "odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1)); //, l_sub_options);
-    m_odometry_slash_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-      "/odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1)); //, l_sub_options);
-    m_strat_movement_sub = this->create_subscription<krabi_msgs::msg::StratMovement>(
-      "strat_movement",
-      5,
-      std::bind(&Core::updateStratMovement, this, std::placeholders::_1)); //, l_sub_options);
-
+    create_subscribers();
     m_running = std::thread(&Core::plotAll, this);
 
     // m_reverse_gear_sub = m_nh.subscribe("reverseGear", 1000, &Core::updateGear, this);
@@ -867,11 +834,12 @@ void Core::computeTargetSpeedOrientation()
     %d\n", m_linear_speed_cmd);
             //RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Target orientation from goal: %d\n",
     m_target_orientation); } else {
-            /*
+            / *
              * If no positive valence strategy fires, set the target orientation to the robot's
     orientation
              * which means the robot will go straight on
-             */
+             * /
+    */
     // m_target_orientation = orientation;
     m_linear_speed_cmd = m_default_linear_speed;
     //}
@@ -1037,6 +1005,7 @@ void Core::updateAruco(std::shared_ptr<geometry_msgs::msg::PoseStamped const> ar
 
 void Core::produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& stat)
 {
+    // stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "MainStrat started");
     if (!m_transform_found)
     {
         stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR,

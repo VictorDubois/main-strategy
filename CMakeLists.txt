@@ -47,6 +47,8 @@ endif()
 
 add_executable(${PROJECT_NAME}_node
   src/main_strategy_node.cpp 
+  src/publishers_creator.cpp
+  src/subscribers_creator.cpp
   src/helpers_broker.c 
   src/core.cpp)
 

@@ -2,7 +2,7 @@
 /*********************************************
  *                  BROKER                   *
  **********************************************/
-#include "rclcpp/rclcpp.hpp"
+#include "rclcpp/node.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/transform_listener.h"
@@ -111,6 +111,9 @@ private:
     void chooseReverseGear(Angle diff_angle);
 
     double getReach(const std::string& end_point_frame_id);
+
+    void create_publishers();
+    void create_subscribers();
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
