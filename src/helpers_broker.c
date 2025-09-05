@@ -86,23 +86,23 @@ float apply_circular(float f(int), const int u, const int x)
 
 /*
  * Applies a gaussian function with given sigma and mu value, in x
- * 
+ *
  * The gaussian is wrapped between 0 and nb_steps
  */
 float gaussian(const float sigma, const float scaling_factor, const float mu, const float x)
 {
     int new_x = x;
-    unsigned int dist = abs(new_x - mu);
+    unsigned int dist = fabs(new_x - mu);
 
-    if ((unsigned int)abs((x - 360) - mu) < dist)
+    if ((unsigned int)fabs((x - 360) - mu) < dist)
     {
         new_x = x - 360;
-        dist = abs(new_x - mu);
+        dist = fabs(new_x - mu);
     }
-    else if ((unsigned int)abs((x + 360) - mu) < dist)
+    else if ((unsigned int)fabs((x + 360) - mu) < dist)
     {
         new_x = x + 360;
-        dist = abs(new_x - mu);
+        dist = fabs(new_x - mu);
     }
 
     return scaling_factor / (sigma * sqrt(2. * M_PI)) * exp(-pow((new_x - mu) / sigma, 2) / 2.0);
@@ -125,18 +125,18 @@ void differentiate(const float* vector, float* result, const size_t len, const f
 
 float target(const float spread, const float offset, const float x0, const float x)
 {
-    int new_x = x;
-    unsigned int dist = abs(new_x - x0);
+    float new_x = x;
+    unsigned int dist = fabs(new_x - x0);
 
-    if ((unsigned int)abs((x - 360) - x0) < dist)
+    if ((unsigned int)fabs((x - 360) - x0) < dist)
     {
         new_x = x - 360;
-        dist = abs(new_x - x0);
+        dist = fabs(new_x - x0);
     }
-    else if ((unsigned int)abs((x + 360) - x0) < dist)
+    else if ((unsigned int)fabs((x + 360) - x0) < dist)
     {
         new_x = x + 360;
-        dist = abs(new_x - x0);
+        dist = fabs(new_x - x0);
     }
 
     return -log(cosh((new_x - x0) / spread)) + offset;
