@@ -113,6 +113,7 @@ private:
 
     void create_publishers();
     void create_subscribers();
+    void create_aruco_subscribers();
 
     /**
      * @brief getGoalAngle returns the relative angle in degres to the goal
