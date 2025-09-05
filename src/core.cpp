@@ -265,7 +265,9 @@ double Core::getReach(const std::string& end_point_frame_id)
 
         return static_cast<double>(sqrt(transform.translation.x * transform.translation.x
                                         + transform.translation.y * transform.translation.y
-                                        + transform.translation.z * transform.translation.z));
+                                        //+ transform.translation.z * transform.translation.z
+                                        // we probably should not take the height into account
+                                        ));
     }
     catch (tf2::TransformException& ex)
     {
