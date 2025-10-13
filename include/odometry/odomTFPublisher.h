@@ -37,6 +37,7 @@ private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr m_odom_pub;
 
     bool m_odom_reset;
+    void publishInitialPose();
     void resetOdometry(float x, float y, float theta);
     void resetOdometry();
 

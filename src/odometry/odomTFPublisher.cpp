@@ -36,9 +36,11 @@ OdometryTFPublisher::OdometryTFPublisher()
     this->declare_parameter("/init_pose/y", 0.f);
     this->declare_parameter("/init_pose/theta", 0.f);
     this->declare_parameter("/publish_tf_odom", true);
+
+    publishInitialPose();
 }
 
-void OdometryTFPublisher::resetOdometry()
+void OdometryTFPublisher::publishInitialPose()
 {
     float init_x, init_y, init_theta;
     this->get_parameter("/init_pose/x", init_x);
@@ -66,7 +68,11 @@ void OdometryTFPublisher::resetOdometry()
     init_pose_msg.header.stamp = this->now();
 
     m_init_pose_pub->publish(init_pose_msg);
+}
 
+void OdometryTFPublisher::resetOdometry()
+{
+    publishInitialPose();
     resetOdometry(0, 0, 0); // init_x, init_y, init_theta);
 }
 
