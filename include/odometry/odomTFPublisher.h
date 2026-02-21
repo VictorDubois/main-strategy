@@ -18,9 +18,12 @@ public:
 private:
     void updateLightOdom(const krabi_msgs::msg::OdomLight odommsg);
     void updateLighterOdom(const krabi_msgs::msg::OdomLighter odommsg);
+    void updateOdom(const nav_msgs::msg::Odometry odommsg);
+
     void publishOdom(const krabi_msgs::msg::OdomLight& odommsg);
     void publishOdom(const krabi_msgs::msg::OdomLighter& odommsg,
                      const geometry_msgs::msg::Pose& odompose);
+    void publishOdom(const nav_msgs::msg::Odometry& odommsg);
 
     void publishTf(const geometry_msgs::msg::Pose& pose,
                    const std::string& frame_id,
@@ -32,6 +35,7 @@ private:
 
     rclcpp::Subscription<krabi_msgs::msg::OdomLight>::SharedPtr m_odom_sub;
     rclcpp::Subscription<krabi_msgs::msg::OdomLighter>::SharedPtr m_odom_lighter_sub;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odom_odom_sub;
 
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr m_init_pose_pub;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr m_odom_pub;

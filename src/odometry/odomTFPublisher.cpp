@@ -21,6 +21,10 @@ OdometryTFPublisher::OdometryTFPublisher()
     rclcpp::SubscriptionOptions l_sub_options;
     l_sub_options.callback_group = my_callback_group;*/
 
+    m_odom_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>(
+      "odom_simu",
+      5,
+      std::bind(&OdometryTFPublisher::updateOdom, this, std::placeholders::_1)); //, l_sub_options);
     m_odom_sub = this->create_subscription<krabi_msgs::msg::OdomLight>(
       "odom_light",
       5,
@@ -116,6 +120,18 @@ void OdometryTFPublisher::publishOdom(const krabi_msgs::msg::OdomLighter& odom_l
     m_odom_pub->publish(odom_msg);
 }
 
+void OdometryTFPublisher::publishOdom(const nav_msgs::msg::Odometry& a_odom_msg)
+{
+    nav_msgs::msg::Odometry odom_msg = a_odom_msg;
+    odom_msg.pose.covariance = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    odom_msg.pose.covariance[0] = 0.01f;  // X covariance
+    odom_msg.pose.covariance[7] = 0.01f;  // Y covariance
+    odom_msg.pose.covariance[35] = 0.05f; // Rz covariance
+
+    m_odom_pub->publish(odom_msg);
+}
+
 void OdometryTFPublisher::updateLightOdom(const krabi_msgs::msg::OdomLight odommsg)
 {
     if (!m_odom_reset)
@@ -126,6 +142,11 @@ void OdometryTFPublisher::updateLightOdom(const krabi_msgs::msg::OdomLight odomm
     auto base_link_id = "base_link"; // tf::resolve(ros::this_node::getNamespace(), "base_link");
     auto odom_id = "odom";           // tf::resolve(ros::this_node::getNamespace(), "odom");
     publishTf(odommsg.pose, odom_id, base_link_id);
+    publishOdom(odommsg);
+}
+
+void OdometryTFPublisher::updateOdom(const nav_msgs::msg::Odometry odommsg)
+{
     publishOdom(odommsg);
 }
 
