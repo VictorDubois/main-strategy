@@ -196,11 +196,14 @@ Core::Core()
 
     create_aruco_subscribers();
 
-    m_goal_output[NB_NEURONS] = { 0. };
-    m_obstacles_output[NB_NEURONS] = { 0. };
-    m_lidar_output[NB_NEURONS] = { 0. };
-    m_angular_speed_vector[NB_NEURONS] = { 0. };
-    m_angular_landscape[NB_NEURONS] = { 0. };
+    for (int i = 0; i < NB_NEURONS; i++)
+    {
+        m_goal_output[i] = 0.;
+        m_obstacles_output[i] = 0.;
+        m_lidar_output[i] = 0.;
+        m_angular_speed_vector[i] = 0.;
+        m_angular_landscape[i] = 0.;
+    }
 
     RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Init done! Proceeding.\nStarting IA.\n");
 
@@ -581,7 +584,7 @@ Core::State Core::Loop()
 
             // Manage position overshoots: do not turn around if the position has been overshoot by
             // 5mm!
-            Distance l_too_close_threshold = Distance(0.1f);
+            [[maybe_unused]] Distance l_too_close_threshold = Distance(0.1f);
             Distance l_reach_goal_dist = Distance(0.02f);
             /*auto l_delta_orientation = AngleTools::diffAngle(m_target_orientation,
             m_current_pose.getAngle());
@@ -592,9 +595,9 @@ Core::State Core::Loop()
                 m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
             }*/
 
-            auto l_delta_orientation
+            [[maybe_unused]] auto l_delta_orientation
               = AngleTools::diffAngle(m_target_orientation, m_previous_angle_to_goal);
-            auto l_delta_position
+            [[maybe_unused]] auto l_delta_position
               = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
 
             // if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01)

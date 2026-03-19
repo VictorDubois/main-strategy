@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(main_strategy)
+set(CMAKE_CXX_STANDARD 17)
 
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-endif()
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -71,7 +69,6 @@ tf2_geometry_msgs
 ament_target_dependencies(odometry_node std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
 # lidar_strategy
  rclcpp diagnostic_updater)
-
 
 if(PLOT_NEURONS)
 ament_target_dependencies(${PROJECT_NAME}_node -lpython3.8)
