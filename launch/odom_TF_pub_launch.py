@@ -8,6 +8,7 @@ def generate_launch_description():
     xRobotPos_value = LaunchConfiguration('xRobotPos')
     yRobotPos_value = LaunchConfiguration('yRobotPos')
     zRobotOrientation_value = LaunchConfiguration('zRobotOrientation')
+    use_sim_time_value = LaunchConfiguration('use_sim_time')
     
     isBlue_launch_arg = DeclareLaunchArgument(
         'isBlue',
@@ -25,6 +26,10 @@ def generate_launch_description():
         'zRobotOrientation',
         default_value='0.0'
     )
+    use_sim_time_launch_arg = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='True'
+    )
     return LaunchDescription([
         isBlue_launch_arg, xRobotPos_launch_arg, yRobotPos_launch_arg, zRobotOrientation_launch_arg,
         Node(
@@ -40,7 +45,9 @@ def generate_launch_description():
             {"init_pose/x": xRobotPos_value},
             {"init_pose/y": yRobotPos_value},
             {"init_pose/theta": zRobotOrientation_value},
-            {"publish_tf_odom": True}
+            {"publish_tf_odom": True},
+            {"use_sim_time": use_sim_time_value}
+
         ]
         )
     ])
