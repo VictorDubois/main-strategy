@@ -62,10 +62,11 @@ void Core::updateTirette(std_msgs::msg::Bool starting)
     if (starting.data && (m_state == State::WAIT_TIRETTE || m_state == State::INIT_ODOM_TODO))
     {
         RCLCPP_INFO_STREAM(rclcpp::get_logger("rclcpp"), "Go for launch!");
-        m_state = State::NORMAL;
 
         // Start counting the time
         m_begin_match = this->now();
+
+        m_state = State::NORMAL;
     }
 }
 
@@ -760,7 +761,7 @@ void Core::publishRemainingTime()
     builtin_interfaces::msg::Duration remaining_time_msg;
     remaining_time_msg = rclcpp::Duration(TIMEOUT_END_MATCH / 1000, 0);
 
-    if (m_begin_match.seconds() > rclcpp::Time(1, 0).seconds())
+    if (m_state == State::NORMAL)
     {
         auto remaining_time
           = rclcpp::Duration(TIMEOUT_END_MATCH / 1000, 0) - (this->now() - m_begin_match);
