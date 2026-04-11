@@ -777,6 +777,7 @@ bool Core::isTimeToStop()
         && (this->now() - m_begin_match).seconds() * 1000 > TIMEOUT_END_MATCH)
     {
         m_state = State::EXIT;
+        m_match_ended = true;
         return true;
     }
     return false;
@@ -969,23 +970,38 @@ void Core::updateAruco(std::shared_ptr<geometry_msgs::msg::PoseStamped const> ar
 
 void Core::produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& stat)
 {
+    bool l_message_sent = false;
     // stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "MainStrat started");
     if (!m_transform_found)
     {
         stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR,
                      "Unable to find a transform from map to odom");
+        l_message_sent = true;
     }
     if (!m_reach_transform_found)
     {
         stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR,
                      "Unable to find a transform for reach");
+        l_message_sent = true;
     }
     if (m_stopped_by_obstacle)
     {
         stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Stopped by obstacle");
+        l_message_sent = true;
     }
     if (m_stopped_by_goalstrat) // Not used yet
     {
         stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Stopped by GoalStrat");
+        l_message_sent = true;
+    }
+    if (m_match_ended)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Match ended");
+        l_message_sent = true;
+    }
+
+    if (!l_message_sent)
+    {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "MainStrat running");
     }
 }
