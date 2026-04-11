@@ -16,7 +16,7 @@ int main(int argc, char* argv[])
 
     if (odom_type.compare("tf_pub"))
     {
-        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Incompatible odom_type");
+        RCLCPP_ERROR(node->get_logger(), "Incompatible odom_type");
         exit(1);
         return 1;
     }

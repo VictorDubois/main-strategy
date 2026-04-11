@@ -215,8 +215,8 @@ void OdometryTFPublisher::resetOdometry(float x, float y, float theta)
     /*if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), result) ==
         rclcpp::FutureReturnCode::SUCCESS)
     {
-        RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Odometry calibrated");
+        RCLCPP_INFO(this->get_logger(), "Odometry calibrated");
     } else {
-        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), "Failed to calibrate odometry");
+        RCLCPP_ERROR(this->get_logger(), "Failed to calibrate odometry");
     }*/
 }
