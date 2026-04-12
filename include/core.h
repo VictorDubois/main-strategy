@@ -15,6 +15,7 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
+#include <krabi_msgs/msg/motion_debug.hpp>
 #include <krabi_msgs/msg/motors.hpp>
 #include <krabi_msgs/msg/motors_cmd.hpp>
 #include <krabi_msgs/msg/motors_distance_asserv.hpp>
@@ -159,6 +160,7 @@ private:
     float m_max_current;
 
     // Publishers
+    rclcpp::Publisher<krabi_msgs::msg::MotionDebug>::SharedPtr m_motion_debug_pub;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_motors_cmd_pub;
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr m_motors_cmd_slash_pub;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr m_motors_enable_pub;
@@ -202,6 +204,9 @@ private:
 
     rclcpp::Time m_end_init_odo;
     rclcpp::TimerBase::SharedPtr timer_;
+
+    // Motion debug message accumulator (populated across multiple functions, published each loop)
+    krabi_msgs::msg::MotionDebug m_motion_debug_msg;
 
     // Diagnostic
     bool m_transform_found = false;

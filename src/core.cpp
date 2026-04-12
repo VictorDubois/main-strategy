@@ -506,8 +506,9 @@ void Core::limitLinearSpeedByAngularSpeed(VitesseAngulaire a_angular_speed)
       = m_default_linear_speed * gaussian(l_sigma_angular_speed, l_scale, 0, a_angular_speed);
 
     m_linear_speed_cmd = std::min(m_linear_speed_cmd, linear_speed_limit);
-    RCLCPP_INFO_STREAM(this->get_logger(),
-                       "limit linear by angular speed : " << linear_speed_limit << std::endl);
+    m_motion_debug_msg.linear_limit_by_angular_speed = static_cast<float>(linear_speed_limit);
+    RCLCPP_DEBUG_STREAM(this->get_logger(),
+                        "limit linear by angular speed : " << linear_speed_limit << std::endl);
 }
 
 void Core::plotAll()
@@ -644,6 +645,7 @@ Core::State Core::Loop()
 
         // Orientation taking reversing into account
         delta_orientation = AngleTools::diffAngle(m_target_orientation, m_current_pose.getAngle());
+        m_motion_debug_msg.delta_orientation = static_cast<float>(delta_orientation);
 
         // Inhibit linear speed if there are obstacles
 
@@ -694,25 +696,41 @@ Core::State Core::Loop()
         if (DISABLE_LINEAR_SPEED || orienting())
         {
             m_linear_speed_cmd = 0;
-            RCLCPP_INFO_STREAM(this->get_logger(), "linear speed disabled");
+            RCLCPP_DEBUG_STREAM(this->get_logger(), "linear speed disabled");
         }
 
         if (DISABLE_ANGULAR_SPEED || stop_angular())
         {
             m_angular_speed_cmd = 0;
-            RCLCPP_INFO_STREAM(this->get_logger(), "angular speed disabled");
+            RCLCPP_DEBUG_STREAM(this->get_logger(), "angular speed disabled");
         }
 
         // Modulate linear speed by angular speed: stop going forward when you want to turn
         limitLinearSpeedByAngularSpeed(m_angular_speed_cmd);
 
-        RCLCPP_INFO_STREAM(this->get_logger(),
-                           "linear speed = "
-                             << m_linear_speed << ", m_orienting = " << orienting()
-                             << ", speed inihib from obstacles = "
-                             << m_speed_inhibition_from_obstacle << " * " << m_default_linear_speed
-                             << ", angular_speed_cmd = " << m_angular_speed_cmd
-                             << ", linear_speed_cmd = " << m_linear_speed_cmd << std::endl);
+        RCLCPP_DEBUG_STREAM(this->get_logger(),
+                            "linear speed = "
+                              << m_linear_speed << ", m_orienting = " << orienting()
+                              << ", speed inihib from obstacles = "
+                              << m_speed_inhibition_from_obstacle << " * " << m_default_linear_speed
+                              << ", angular_speed_cmd = " << m_angular_speed_cmd
+                              << ", linear_speed_cmd = " << m_linear_speed_cmd << std::endl);
+
+        m_motion_debug_msg.header.stamp = this->now();
+        m_motion_debug_msg.linear_speed = static_cast<float>(m_linear_speed);
+        m_motion_debug_msg.linear_speed_cmd = static_cast<float>(m_linear_speed_cmd);
+        m_motion_debug_msg.angular_speed = static_cast<float>(m_angular_speed);
+        m_motion_debug_msg.angular_speed_cmd = static_cast<float>(m_angular_speed_cmd);
+        m_motion_debug_msg.speed_inhibition_from_obstacle = m_speed_inhibition_from_obstacle;
+        m_motion_debug_msg.default_linear_speed = static_cast<float>(m_default_linear_speed);
+        m_motion_debug_msg.orienting = orienting();
+        m_motion_debug_msg.linear_speed_disabled = (DISABLE_LINEAR_SPEED || orienting());
+        m_motion_debug_msg.angular_speed_disabled = (DISABLE_ANGULAR_SPEED || stop_angular());
+        m_motion_debug_msg.reverse_gear = m_reverse_gear;
+        m_motion_debug_msg.stopped_by_obstacle = m_stopped_by_obstacle;
+        m_motion_debug_msg.stopped_by_goalstrat = m_stopped_by_goalstrat;
+        m_motion_debug_msg.distance_to_goal = static_cast<float>(m_distance_to_goal);
+        m_motion_debug_pub->publish(m_motion_debug_msg);
 
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
@@ -849,11 +867,11 @@ void Core::limitLinearSpeedCmdByGoal()
 
     float time_to_stop = (m_linear_speed - desired_final_speed) / max_deceleration;
     time_to_stop = std::max(0.f, time_to_stop);
-    RCLCPP_INFO_STREAM(this->get_logger(), "time to stop = " << time_to_stop << "s, ");
+    RCLCPP_DEBUG_STREAM(this->get_logger(), "time to stop = " << time_to_stop << "s, ");
 
     Distance distance_to_stop
       = Distance(time_to_stop * (m_linear_speed - desired_final_speed) / 2.);
-    RCLCPP_INFO_STREAM(this->get_logger(), ", distance to stop = " << distance_to_stop << "m, ");
+    RCLCPP_DEBUG_STREAM(this->get_logger(), ", distance to stop = " << distance_to_stop << "m, ");
 
     // Compute extra time if accelerating
     Vitesse average_extra_speed = Vitesse(
@@ -865,32 +883,40 @@ void Core::limitLinearSpeedCmdByGoal()
 
     if (l_distance_to_goal < distance_to_stop)
     {
-        RCLCPP_INFO_STREAM(this->get_logger(), "decelerate");
+        RCLCPP_DEBUG_STREAM(this->get_logger(), "decelerate");
         new_speed_order = m_linear_speed - max_deceleration / float(UPDATE_RATE);
+        m_motion_debug_msg.speed_mode = krabi_msgs::msg::MotionDebug::DECELERATE;
     }
     else if (l_distance_to_goal < m_linear_speed / float(UPDATE_RATE))
     {
-        RCLCPP_INFO_STREAM(this->get_logger(), "EMERGENCY BRAKE");
+        RCLCPP_DEBUG_STREAM(this->get_logger(), "EMERGENCY BRAKE");
         new_speed_order = 0;
+        m_motion_debug_msg.speed_mode = krabi_msgs::msg::MotionDebug::EMERGENCY_BRAKE;
     }
     else if (l_distance_to_goal > distance_to_stop + extra_distance)
     {
-        RCLCPP_INFO_STREAM(this->get_logger(), "accelerate");
+        RCLCPP_DEBUG_STREAM(this->get_logger(), "accelerate");
         new_speed_order = m_linear_speed + max_acceleration / float(UPDATE_RATE);
+        m_motion_debug_msg.speed_mode = krabi_msgs::msg::MotionDebug::ACCELERATE;
     }
     else
     {
-        RCLCPP_INFO_STREAM(this->get_logger(), "cruise speed");
+        RCLCPP_DEBUG_STREAM(this->get_logger(), "cruise speed");
         new_speed_order = m_linear_speed;
+        m_motion_debug_msg.speed_mode = krabi_msgs::msg::MotionDebug::CRUISE;
     }
     new_speed_order
       = std::max(new_speed_order, Vitesse(-m_strat_movement_parameters.max_speed.linear.x));
     new_speed_order
       = std::min(new_speed_order, Vitesse(m_strat_movement_parameters.max_speed.linear.x));
     // m_linear_speed_cmd = MIN(m_default_linear_speed, new_speed_order);
-    RCLCPP_INFO_STREAM(this->get_logger(),
-                       "new speed: " << new_speed_order << " => " << m_linear_speed_cmd
-                                     << std::endl);
+    RCLCPP_DEBUG_STREAM(this->get_logger(),
+                        "new speed: " << new_speed_order << " => " << m_linear_speed_cmd
+                                      << std::endl);
+    m_motion_debug_msg.time_to_stop = time_to_stop;
+    m_motion_debug_msg.distance_to_stop = static_cast<float>(distance_to_stop);
+    m_motion_debug_msg.new_speed_order = static_cast<float>(new_speed_order);
+    m_motion_debug_msg.desired_final_speed = static_cast<float>(desired_final_speed);
     m_linear_speed_cmd = new_speed_order;
 }
 

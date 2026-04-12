@@ -11,6 +11,8 @@ void Core::create_publishers()
     m_target_orientation_pub
       = this->create_publisher<geometry_msgs::msg::PoseStamped>("target_orientation", 5);
 
+    m_motion_debug_pub
+      = this->create_publisher<krabi_msgs::msg::MotionDebug>("motion_debug", 5);
     m_chrono_pub = this->create_publisher<builtin_interfaces::msg::Duration>("/remaining_time", 5);
     m_distance_asserv_pub
       = this->create_publisher<krabi_msgs::msg::MotorsDistanceAsserv>("motors_distance_asserv", 5);
