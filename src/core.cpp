@@ -177,6 +177,11 @@ Core::Core()
     this->declare_parameter("maxAccel", 0.1f);
     m_maxAccel = this->get_parameter("maxAccel").as_double();
 
+    this->declare_parameter("maxAngularAccel", 30.0);
+    m_maxAngularAccel = AccelerationAngulaire(this->get_parameter("maxAngularAccel").as_double());
+    this->declare_parameter("maxAngularJerk", 3000.0);
+    m_maxAngularJerk = JerkAngulaire(this->get_parameter("maxAngularJerk").as_double());
+
     this->declare_parameter("tuningSpread", 207.f);
     m_tuning_spread = this->get_parameter("tuningSpread").as_double();
 
@@ -702,6 +707,7 @@ Core::State Core::Loop()
         if (DISABLE_ANGULAR_SPEED || stop_angular())
         {
             m_angular_speed_cmd = 0;
+            m_angular_accel = AccelerationAngulaire(0.0);
             RCLCPP_DEBUG_STREAM(this->get_logger(), "angular speed disabled");
         }
 
@@ -752,25 +758,41 @@ velocity_t limit_acceleration(velocity_t current_velocity,
 {
     auto delta_vel = cmd_velocity - current_velocity;
     int delta_vel_sign = (delta_vel > 0) ? 1 : ((delta_vel < 0) ? -1 : 0);
-    delta_vel = delta_vel_sign * max_acceleration * dt;
+
+    if (std::abs(delta_vel) > max_acceleration * dt)
+    {
+        delta_vel = delta_vel_sign * max_acceleration * dt;
+    }
     return velocity_t(current_velocity + delta_vel);
 }
 
 void Core::limitAcceleration()
 {
-    /**
-    RCLCPP_DEBUG_STREAM(this->get_logger(), "Limiting acceleration:");
-    RCLCPP_DEBUG_STREAM(this->get_logger(), "Before: linear_speed: " << m_linear_speed_cmd
-    << "m/s , angular_speed: "
-                                              << m_angular_speed_cmd << "rad/s");
-    m_linear_speed_cmd = limit_acceleration(
-      m_linear_speed, m_linear_speed_cmd, Acceleration(0.025), 1. / float(UPDATE_RATE));
-    m_angular_speed_cmd = limit_acceleration(
-      m_angular_speed, m_angular_speed_cmd, AccelerationAngulaire(0.00025), 1. /
-    float(UPDATE_RATE)); RCLCPP_DEBUG_STREAM(this->get_logger(), "After: linear_speed: "
-    << m_linear_speed_cmd << "m/s , angular_speed: "
-                                             << m_angular_speed_cmd << "rad/s");
-                                             **/
+    // Only limit when speed magnitude is increasing; braking is handled elsewhere
+    if (std::abs(double(m_angular_speed_cmd)) <= std::abs(double(m_angular_speed)))
+    {
+        m_angular_accel = m_angular_speed_cmd - m_angular_speed;
+        return;
+    }
+
+    const double dt = 1.0 / double(UPDATE_RATE);
+
+    // Limit angular acceleration: how fast angular speed can change per step
+    m_angular_speed_cmd
+      = limit_acceleration(m_angular_speed, m_angular_speed_cmd, m_maxAngularAccel, dt);
+
+    // Limit angular jerk: how fast the acceleration itself can change per step
+    AccelerationAngulaire target_accel
+      = AccelerationAngulaire((double(m_angular_speed_cmd) - double(m_angular_speed)) / dt);
+    double accel_delta = double(target_accel) - double(m_angular_accel);
+    double max_accel_delta = double(m_maxAngularJerk) * dt;
+    if (std::abs(accel_delta) > max_accel_delta)
+    {
+        target_accel = AccelerationAngulaire(double(m_angular_accel)
+                                             + std::copysign(max_accel_delta, accel_delta));
+        m_angular_speed_cmd = VitesseAngulaire(double(m_angular_speed) + double(target_accel) * dt);
+    }
+    m_angular_accel = target_accel;
 }
 
 void Core::publishRemainingTime()

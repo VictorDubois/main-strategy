@@ -155,6 +155,11 @@ private:
     // ROS Params
     bool m_is_blue;
     float m_maxAccel;
+    AccelerationAngulaire m_maxAngularAccel = AccelerationAngulaire(3.0); // rad/s²
+    JerkAngulaire m_maxAngularJerk = JerkAngulaire(30.0);                 // rad/s³
+
+    // Tracked angular acceleration (for jerk limiting)
+    AccelerationAngulaire m_angular_accel = AccelerationAngulaire(0.0);
     float m_tuning_spread;
     float m_tuning_offset;
     float m_max_current;
