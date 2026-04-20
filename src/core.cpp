@@ -708,8 +708,12 @@ Core::State Core::Loop()
             limitLinearSpeedCmdByGoal();
         }
 
-        m_linear_speed_cmd = std::min(
-          m_linear_speed_cmd, Vitesse(m_default_linear_speed * m_speed_inhibition_from_obstacle));
+        {
+            double l_cap
+              = static_cast<double>(m_default_linear_speed) * m_speed_inhibition_from_obstacle;
+            m_linear_speed_cmd
+              = Vitesse(std::clamp(static_cast<double>(m_linear_speed_cmd), -l_cap, l_cap));
+        }
 
         limitAngularSpeedCmd(m_angular_speed_cmd);
 
@@ -976,10 +980,10 @@ void Core::fineTunePositionPID()
     float heading = static_cast<float>(m_current_pose.getAngle());
     float signed_error = dx * std::cos(heading) + dy * std::sin(heading);
 
-    constexpr float KP = 2.0f;
-    constexpr float KI = 0.5f;
-    constexpr float KD = 0.1f;
-    constexpr float MAX_INTEGRAL = 0.1f; // anti-windup (m·s)
+    constexpr float KP = 10.0f;
+    constexpr float KI = 0.0f;
+    constexpr float KD = 0.0f;
+    constexpr float MAX_INTEGRAL = 1.0f; // anti-windup (m·s)
     constexpr float MAX_SPEED = 0.2f;    // m/s, lower than normal 0.5
 
     m_pid_position_integral += signed_error / static_cast<float>(UPDATE_RATE);
@@ -988,9 +992,19 @@ void Core::fineTunePositionPID()
     float derivative = (signed_error - m_pid_position_prev_error) * static_cast<float>(UPDATE_RATE);
     m_pid_position_prev_error = signed_error;
 
-    float output = KP * signed_error + KI * m_pid_position_integral + KD * derivative;
+    float derivative_contribution = KD * derivative;
+    float output = KP * signed_error + KI * m_pid_position_integral + derivative_contribution;
     output = std::clamp(output, -MAX_SPEED, MAX_SPEED);
 
+    RCLCPP_DEBUG_STREAM(this->get_logger(),
+                        "fineTunePositionPID: error="
+                          << signed_error << " integral=" << m_pid_position_integral
+                          << " derivative=" << derivative << " output=" << output);
+
+    m_motion_debug_msg.pid_position_output = output;
+
+    if (reverseGear())
+        output = -output;
     m_linear_speed_cmd = Vitesse(output);
 }
 
