@@ -246,6 +246,7 @@ void Core::stopMotors()
 }
 void Core::brake()
 {
+    m_motion_debug_msg.braking = true;
     setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), true, false);
 }
 
@@ -470,7 +471,8 @@ bool Core::orienting()
 
 bool Core::stop_angular()
 {
-    return m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::STOP_ANGULAR;
+    return (!orienting() && m_fine_tuning_linear)
+           || m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::STOP_ANGULAR;
 }
 
 bool Core::recalage_bordure()
@@ -549,6 +551,8 @@ Core::State Core::Loop()
 {
     publishRemainingTime();
 
+    m_motion_debug_msg.braking = false;
+
     if ((m_state != State::WAIT_TIRETTE && m_state != State::INIT_ODOM_TODO) && isTimeToStop())
     {
         stopMotors();
@@ -610,13 +614,19 @@ Core::State Core::Loop()
             // && (abs(l_delta_orientation) > M_PI/2.f))
             if (m_distance_to_goal < l_reach_goal_dist)
             {
-                // m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
-                // setMotorsSpeed(Vitesse(0), Vitesse(0), true, false);
                 m_target_orientation = m_current_pose.getAngle();
-                brake();
-                RCLCPP_INFO_STREAM(this->get_logger(),
-                                   "Arrived at destination, braking" << std::endl);
-                return m_state;
+                if (!m_fine_tuning_linear)
+                {
+                    RCLCPP_INFO_STREAM(this->get_logger(),
+                                       "Arrived at destination, fine-tuning position");
+                    m_pid_position_integral = 0.0f;
+                    m_pid_position_prev_error = 0.0f;
+                }
+                m_fine_tuning_linear = true;
+            }
+            else
+            {
+                m_fine_tuning_linear = false;
             }
 
             m_previous_angle_to_goal = getAngleToGoal();
@@ -689,7 +699,14 @@ Core::State Core::Loop()
         // RCLCPP_DEBUG_STREAM(this->get_logger(), ",m_angular_speed_cmd = " <<
         // m_angular_speed_cmd << std::endl);
 
-        limitLinearSpeedCmdByGoal();
+        if (m_fine_tuning_linear)
+        {
+            fineTunePositionPID();
+        }
+        else
+        {
+            limitLinearSpeedCmdByGoal();
+        }
 
         m_linear_speed_cmd = std::min(
           m_linear_speed_cmd, Vitesse(m_default_linear_speed * m_speed_inhibition_from_obstacle));
@@ -736,6 +753,9 @@ Core::State Core::Loop()
         m_motion_debug_msg.stopped_by_obstacle = m_stopped_by_obstacle;
         m_motion_debug_msg.stopped_by_goalstrat = m_stopped_by_goalstrat;
         m_motion_debug_msg.distance_to_goal = static_cast<float>(m_distance_to_goal);
+        m_motion_debug_msg.fine_tuning_linear = m_fine_tuning_linear;
+        m_motion_debug_msg.pid_position_error = m_pid_position_prev_error;
+        m_motion_debug_msg.pid_position_integral = m_pid_position_integral;
         m_motion_debug_pub->publish(m_motion_debug_msg);
 
         // Set motors speed according to values computed before
@@ -940,6 +960,38 @@ void Core::limitLinearSpeedCmdByGoal()
     m_motion_debug_msg.new_speed_order = static_cast<float>(new_speed_order);
     m_motion_debug_msg.desired_final_speed = static_cast<float>(desired_final_speed);
     m_linear_speed_cmd = new_speed_order;
+}
+
+void Core::fineTunePositionPID()
+{
+    m_motion_debug_msg.speed_mode = krabi_msgs::msg::MotionDebug::FINE_TUNING;
+
+    // Signed distance: project (goal - robot) onto robot heading.
+    // Positive = goal is ahead, negative = goal is behind.
+    // stop_angular() already zeroes rotation, so no 180° turn is possible.
+    float dx
+      = static_cast<float>(m_goal_pose.getPosition().getX() - m_current_pose.getPosition().getX());
+    float dy
+      = static_cast<float>(m_goal_pose.getPosition().getY() - m_current_pose.getPosition().getY());
+    float heading = static_cast<float>(m_current_pose.getAngle());
+    float signed_error = dx * std::cos(heading) + dy * std::sin(heading);
+
+    constexpr float KP = 2.0f;
+    constexpr float KI = 0.5f;
+    constexpr float KD = 0.1f;
+    constexpr float MAX_INTEGRAL = 0.1f; // anti-windup (m·s)
+    constexpr float MAX_SPEED = 0.2f;    // m/s, lower than normal 0.5
+
+    m_pid_position_integral += signed_error / static_cast<float>(UPDATE_RATE);
+    m_pid_position_integral = std::clamp(m_pid_position_integral, -MAX_INTEGRAL, MAX_INTEGRAL);
+
+    float derivative = (signed_error - m_pid_position_prev_error) * static_cast<float>(UPDATE_RATE);
+    m_pid_position_prev_error = signed_error;
+
+    float output = KP * signed_error + KI * m_pid_position_integral + KD * derivative;
+    output = std::clamp(output, -MAX_SPEED, MAX_SPEED);
+
+    m_linear_speed_cmd = Vitesse(output);
 }
 
 unsigned int angle_to_neuron_id(Angle a)

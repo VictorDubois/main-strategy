@@ -124,6 +124,7 @@ private:
 
     void updateCurrentSpeed();
     void limitLinearSpeedCmdByGoal();
+    void fineTunePositionPID();
     void limitAcceleration();
     void limitLinearSpeedByAngularSpeed(VitesseAngulaire angular_speed);
 
@@ -151,6 +152,11 @@ private:
     float m_speed_inhibition_from_obstacle;
     krabi_msgs::msg::StratMovement m_strat_movement_parameters;
     bool m_reverse_gear = false;
+    bool m_fine_tuning_linear = false;
+
+    // Position PID state (active during m_fine_tuning_linear)
+    float m_pid_position_integral = 0.0f;
+    float m_pid_position_prev_error = 0.0f;
 
     // ROS Params
     bool m_is_blue;
