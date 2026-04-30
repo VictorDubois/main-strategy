@@ -105,6 +105,7 @@ private:
 
     bool reverseGear();
     bool orienting();
+    bool allowFineTuningLinear();
     bool recalage_bordure();
     bool clamp_mode();
     bool stop_angular();

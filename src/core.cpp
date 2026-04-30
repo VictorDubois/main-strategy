@@ -465,8 +465,17 @@ void Core::chooseReverseGear(Angle orientation_diff)
 
 bool Core::orienting()
 {
+    return (
+      m_strat_movement_parameters.orient
+        == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION
+      || m_strat_movement_parameters.orient
+           == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE);
+}
+
+bool Core::allowFineTuningLinear()
+{
     return m_strat_movement_parameters.orient
-           == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION;
+           == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE;
 }
 
 bool Core::stop_angular()
@@ -634,6 +643,8 @@ Core::State Core::Loop()
         }
         else
         {
+            m_fine_tuning_linear = false;
+
             // respect the goal's own orientation
             m_target_orientation = m_goal_pose.getAngle();
 
@@ -719,7 +730,7 @@ Core::State Core::Loop()
 
         limitAcceleration();
 
-        if (DISABLE_LINEAR_SPEED || orienting())
+        if (DISABLE_LINEAR_SPEED || (orienting() && !allowFineTuningLinear()))
         {
             m_linear_speed_cmd = 0;
             RCLCPP_DEBUG_STREAM(this->get_logger(), "linear speed disabled");
