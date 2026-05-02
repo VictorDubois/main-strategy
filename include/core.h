@@ -125,6 +125,7 @@ private:
 
     void updateCurrentSpeed();
     void limitLinearSpeedCmdByGoal();
+    void limitAngularSpeedCmdByGoal(Angle delta_orientation);
     void fineTunePositionPID();
     void limitAcceleration();
     void limitLinearSpeedByAngularSpeed(VitesseAngulaire angular_speed);

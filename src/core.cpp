@@ -2,7 +2,7 @@
 #include <chrono>
 #include <stdexcept>
 
-#define MAX_ALLOWED_ANGULAR_SPEED 5.f // rad/s
+#define MAX_ALLOWED_ANGULAR_SPEED 4.f // rad/s
 
 #include "lidarStrat.h"
 #define UPDATE_RATE 10
@@ -177,9 +177,9 @@ Core::Core()
     this->declare_parameter("maxAccel", 0.1f);
     m_maxAccel = this->get_parameter("maxAccel").as_double();
 
-    this->declare_parameter("maxAngularAccel", 30.0);
+    this->declare_parameter("maxAngularAccel", 5.0);
     m_maxAngularAccel = AccelerationAngulaire(this->get_parameter("maxAngularAccel").as_double());
-    this->declare_parameter("maxAngularJerk", 3000.0);
+    this->declare_parameter("maxAngularJerk", 50.0);
     m_maxAngularJerk = JerkAngulaire(this->get_parameter("maxAngularJerk").as_double());
 
     this->declare_parameter("tuningSpread", 207.f);
@@ -678,6 +678,8 @@ Core::State Core::Loop()
         // Compute attractive vectors from positive valence strategies
         // TODO: choose the POSITIVE VALENCE STRATEGY!
 
+        // [COMMENTED OUT] Neural field approach replaced by trapezoidal angular speed profile
+        /*
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
 
@@ -709,6 +711,10 @@ Core::State Core::Loop()
                        // derivation is left to right
         // RCLCPP_DEBUG_STREAM(this->get_logger(), ",m_angular_speed_cmd = " <<
         // m_angular_speed_cmd << std::endl);
+        */
+
+        // Trapezoidal angular speed profile (replaces neural field)
+        limitAngularSpeedCmdByGoal(delta_orientation);
 
         if (m_fine_tuning_linear)
         {
@@ -803,12 +809,13 @@ velocity_t limit_acceleration(velocity_t current_velocity,
 
 void Core::limitAcceleration()
 {
-    // Only limit when speed magnitude is increasing; braking is handled elsewhere
-    if (std::abs(double(m_angular_speed_cmd)) <= std::abs(double(m_angular_speed)))
-    {
-        m_angular_accel = m_angular_speed_cmd - m_angular_speed;
-        return;
-    }
+    // [COMMENTED OUT] Previously only limited when speed magnitude was increasing.
+    // Now apply symmetrically since trapezoidal profile handles deceleration planning.
+    // if (std::abs(double(m_angular_speed_cmd)) <= std::abs(double(m_angular_speed)))
+    // {
+    //     m_angular_accel = m_angular_speed_cmd - m_angular_speed;
+    //     return;
+    // }
 
     const double dt = 1.0 / double(UPDATE_RATE);
 
@@ -902,6 +909,74 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed_cmd)
       a_angular_speed_cmd, VitesseAngulaire(-m_strat_movement_parameters.max_speed.angular.z));
     a_angular_speed_cmd = std::min(
       a_angular_speed_cmd, VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z));
+}
+
+// Trapezoidal angular speed profile: limit angular speed to decelerate smoothly to the target angle
+void Core::limitAngularSpeedCmdByGoal(Angle delta_orientation)
+{
+    AccelerationAngulaire max_angular_accel = m_maxAngularAccel; // rad/s^2
+    AccelerationAngulaire max_angular_decel = m_maxAngularAccel; // rad/s^2
+    VitesseAngulaire max_angular_speed
+      = VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z);
+
+    // delta_orientation is signed: positive = need to turn left (positive angular speed)
+    int turn_sign = (delta_orientation > 0) ? 1 : ((delta_orientation < 0) ? -1 : 0);
+    double abs_angle_remaining = std::abs(double(delta_orientation));
+    double abs_current_angular_speed = std::abs(double(m_angular_speed));
+
+    // Angle needed to decelerate from current angular speed to zero
+    // theta_stop = omega^2 / (2 * alpha)
+    double angle_to_stop
+      = (abs_current_angular_speed * abs_current_angular_speed)
+        / (2.0 * double(max_angular_decel));
+
+    // Extra angle if we accelerate one more tick
+    double extra_speed = abs_current_angular_speed
+                         + double(max_angular_accel) / double(UPDATE_RATE);
+    double extra_angle_to_stop
+      = (extra_speed * extra_speed) / (2.0 * double(max_angular_decel));
+    double extra_angle = extra_angle_to_stop - angle_to_stop
+                         + abs_current_angular_speed / double(UPDATE_RATE);
+
+    VitesseAngulaire new_angular_speed_order = VitesseAngulaire(0);
+
+    if (abs_angle_remaining < angle_to_stop)
+    {
+        // Decelerate
+        new_angular_speed_order = VitesseAngulaire(
+          double(m_angular_speed)
+          - turn_sign * double(max_angular_decel) / double(UPDATE_RATE));
+    }
+    else if (abs_angle_remaining < abs_current_angular_speed / double(UPDATE_RATE))
+    {
+        // Emergency brake
+        new_angular_speed_order = VitesseAngulaire(0);
+    }
+    else if (abs_angle_remaining > angle_to_stop + extra_angle)
+    {
+        // Accelerate
+        new_angular_speed_order = VitesseAngulaire(
+          double(m_angular_speed)
+          + turn_sign * double(max_angular_accel) / double(UPDATE_RATE));
+    }
+    else
+    {
+        // Cruise
+        new_angular_speed_order = m_angular_speed;
+    }
+
+    // Cap speed to what allows stopping within the remaining angle (triangle profile)
+    double max_speed_for_remaining_angle = std::sqrt(2.0 * double(max_angular_decel) * abs_angle_remaining);
+    new_angular_speed_order = std::max(new_angular_speed_order, VitesseAngulaire(-max_speed_for_remaining_angle));
+    new_angular_speed_order = std::min(new_angular_speed_order, VitesseAngulaire(max_speed_for_remaining_angle));
+
+    // Clamp to max angular speed
+    new_angular_speed_order
+      = std::max(new_angular_speed_order, VitesseAngulaire(-double(max_angular_speed)));
+    new_angular_speed_order
+      = std::min(new_angular_speed_order, VitesseAngulaire(double(max_angular_speed)));
+
+    m_angular_speed_cmd = new_angular_speed_order;
 }
 
 // Limit linear speed, to match the desired speed when reaching the goal
