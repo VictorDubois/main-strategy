@@ -993,7 +993,7 @@ void Core::fineTunePositionPID()
     float heading = static_cast<float>(m_current_pose.getAngle());
     float signed_error = dx * std::cos(heading) + dy * std::sin(heading);
 
-    constexpr float KP = 10.0f;
+    constexpr float KP = 1.0f;
     constexpr float KI = 0.0f;
     constexpr float KD = 0.0f;
     constexpr float MAX_INTEGRAL = 1.0f; // anti-windup (m·s)
