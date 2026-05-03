@@ -474,8 +474,10 @@ bool Core::orienting()
 
 bool Core::allowFineTuningLinear()
 {
+    constexpr Distance l_reach_goal_dist = Distance(0.02f);
     return m_strat_movement_parameters.orient
-           == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE;
+             == krabi_msgs::msg::StratMovement::ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE
+           && (m_distance_to_goal < l_reach_goal_dist);
 }
 
 bool Core::stop_angular()
