@@ -568,6 +568,7 @@ void Core::plotAll()
 Core::State Core::Loop()
 {
     publishRemainingTime();
+    updateCurrentPose();
 
     m_motion_debug_msg.braking = false;
 
@@ -593,7 +594,6 @@ Core::State Core::Loop()
     }
     else if (m_state == State::NORMAL)
     {
-        updateCurrentPose();
         m_distance_to_goal = (m_goal_pose.getPosition() - m_current_pose.getPosition()).getNorme();
 
         if (!orienting())
