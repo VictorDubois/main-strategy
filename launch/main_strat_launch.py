@@ -51,7 +51,8 @@ def generate_launch_description():
             namespace='krabi_ns',
             executable='main_strategy_node',
             name='main_strat',
-            parameters=[{"use_sim_time": use_sim_time_value}]
+            parameters=[{"use_sim_time": use_sim_time_value}],
+            #arguments=["--ros-args", "--log-level", "debug"]
             #,remappings=[
             #    ('/input/pose', '/turtlesim1/turtle1/pose'),
             #    ('/output/cmd_vel', '/turtlesim2/turtle1/cmd_vel'),
