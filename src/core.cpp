@@ -292,6 +292,13 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
                           bool enable,
                           bool resetEncoders)
 {
+    if (m_strat_movement_parameters.reset_odometry)
+    {
+        linearSpeed = Vitesse(0);
+        angularSpeed = VitesseAngulaire(0);
+        resetEncoders = true;
+    }
+
     geometry_msgs::msg::Twist new_motor_cmd;
     new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
     new_motor_cmd.angular.z = angularSpeed;
