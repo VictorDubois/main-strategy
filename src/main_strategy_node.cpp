@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
 
     diagnostic_updater::Updater updater(node);
     updater.setHardwareID("MainStrat");
-    updater.add("MainStrat diag", node.get(), &Core::produce_diagnostics);
+    updater.add("MainStrat", node.get(), &Core::produce_diagnostics);
 
     node->Setup();
 
