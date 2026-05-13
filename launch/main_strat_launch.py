@@ -52,6 +52,8 @@ def generate_launch_description():
             executable='main_strategy_node',
             name='main_strat',
             parameters=[{"use_sim_time": use_sim_time_value}],
+            respawn=True,
+            respawn_delay=5.0
             #arguments=["--ros-args", "--log-level", "debug"]
             #,remappings=[
             #    ('/input/pose', '/turtlesim1/turtle1/pose'),
