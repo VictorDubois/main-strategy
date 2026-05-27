@@ -9,6 +9,12 @@ From most important (top) to least important (bottom)
 
 ## strat_movement <= most important message
 Custom message, from goal_strat, to detail where and how the robot should move (type: [krabi_msgs/msg/StratMovement](https://github.com/VictorDubois/krabi-msgs/blob/feature/ROS2/msg/StratMovement.msg))
+- What the the goal's pose
+- Should the robot go forward/backwards
+- What is the absolute max speed
+- What is the max speed when reaching the goal
+- What should the mode be (rotation only, translatation only, recalage bordure... See full list in the message)
+- Should the odometry be reset
 
 ## obstacle_pose_stamped
 Most threatening obstacle in front of the robot (type: [PoseStamped](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseStamped.html))
@@ -41,12 +47,35 @@ Standard ROS/ROS2 message, 3D linear and angular speed order (type: [Twist](http
 See [cmd_vel](#cmd_vel) 
 
 ### motors_cmd
-Controls the mode in which the motors are
-type: custom message
+Controls the mode in which the motors are (custom type: [MotorsCmd](https://github.com/VictorDubois/krabi-msgs/blob/feature/ROS2/msg/MotorsCmd.msg))
+- enable/disable the motors
+- enable/disable the PID (and override output values)
+- reset the odometry
 
 ### motors_parameters
-How much current are the motors allowed to consume
-type: custom message
+How much current are the motors allowed to consume (custom type: [MotorsParameters](https://github.com/VictorDubois/krabi-msgs/blob/feature/ROS2/msg/MotorsParameters.msg))
 
-### Enable_motor
-Boolean to stop the motors. Should be delete, redondant with motors_cmd
+### enable_motor
+Boolean to stop the motors (type: [Bool](https://docs.ros2.org/foxy/api/std_msgs/msg/Bool.html))
+Note: @todo Should be delete, redondant with motors_cmd
+
+## Diagnostics
+
+### diagnostics
+Used for this screen (type: [DiagnosticArray](https://docs.ros2.org/foxy/api/diagnostic_msgs/msg/DiagnosticArray.html))
+
+<img width="100" height="50" alt="image" src="https://github.com/user-attachments/assets/dc3ff701-6853-42a4-b6e3-c8ad0786c019" />
+
+### motion_debug
+Custom debug message, used mostly for ploting (custom type: [MotionDebug](https://github.com/VictorDubois/krabi-msgs/blob/feature/ROS2/msg/MotionDebug.msg))
+
+### target_orientation
+Orientation that the robot targets. Centered on the robot (type: [PoseStamped](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseStamped.html))
+Used for displaying in the 3d view
+
+## Others
+### remaining_time
+The number of seconds remaining until the end of the match (type: [Duration](https://docs.ros2.org/foxy/api/builtin_interfaces/msg/Duration.html))
+
+### motors_distance_asserv
+Obsolete message, never fully implemented. I think that the idea was to have the motor board do the final position tuning, not just the speed tuning. @todo: To be deleted
