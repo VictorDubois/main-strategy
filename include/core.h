@@ -95,7 +95,7 @@ private:
     void maintainLoopTiming();
 
     // Set target speed and orientation
-    // computeTargetSpeedOrientation() was superseded by limitLinearSpeedCmdByGoal()
+    void computeTargetSpeedOrientation(); // was superseded by limitLinearSpeedCmdByGoal()
     // and is no longer called — @todo delete both the declaration and the definition in core.cpp
 
     // Enforce limits on angular speed: absolute max and obstacle inhibition
