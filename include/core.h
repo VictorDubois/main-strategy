@@ -1,7 +1,20 @@
 #pragma once
-/*********************************************
- *                  BROKER                   *
- **********************************************/
+/**
+ * Main motion controller for the Krabi robot (ROS 2 node).
+ *
+ * Motion control uses a Dynamic Neural Field (DNF) approach (see https://theses.fr/2017CERG0898)
+ *   - The full 360° heading space is discretised into NB_NEURONS bins (1°/bin).
+ *   - An attractive potential (m_goal_output) is built around the desired heading using a
+ *     log-cosh "hill" function (see target() in helpers_broker.c).
+ *   - A repulsive potential (m_lidar_output) is built around the bearing of the nearest
+ *     obstacle using a Gaussian bump (see gaussian() in helpers_broker.c). Currently deactivated
+ *   - Both are summed into m_angular_landscape and differentiated (see differentiate()).
+ *   - The derivative at the robot's own heading (neuron 0) gives the angular speed command:
+ *     positive gradient → turn left, negative → turn right.
+ *
+ * The main loop runs at UPDATE_RATE Hz, driven by a ROS wall timer.
+ * Topics and parameters are described in README.md.
+ */
 #include "rclcpp/node.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_broadcaster.h"
@@ -31,13 +44,17 @@
 #include <diagnostic_updater/diagnostic_updater.hpp>
 
 // Should remove this and put it in a global, "constant.h" file for the whole project
-#define NB_NEURONS 360
+#define NB_NEURONS 360 // one neuron per degree of heading
 
-#define DISABLE_LINEAR_SPEED false
-#define DISABLE_ANGULAR_SPEED false
+#define DISABLE_LINEAR_SPEED false  // set true to freeze forward motion (debug)
+#define DISABLE_ANGULAR_SPEED false // set true to freeze rotation (debug)
 
-#define UPDATE_RATE 10
+#define UPDATE_RATE                                                                                \
+    10 // Hz — main loop frequency. @todo: increase to 20, 50, 100Hz => need to adapt
+       // limitLinearSpeedCmdByGoal
 
+// Eurobot matches last 100s, the last 15s are for the PAMIs. 84 s gives 1 s of safety margin to
+// avoid the robot moving after the match has ended.
 #define ENABLE_TIMEOUT_END_MATCH true
 #define TIMEOUT_END_MATCH 84e3 // in ms
 
@@ -47,13 +64,14 @@ class Core : public rclcpp::Node
 {
 
 public:
-    // States ENUM for the main loop (m_state machine)
+    // States for the main loop state machine.
+    // Normal progression: INIT_ODOM_TODO → WAIT_TIRETTE → NORMAL → EXIT
     enum class State
     {
-        EXIT,
-        INIT_ODOM_TODO,
-        WAIT_TIRETTE,
-        NORMAL
+        EXIT,           // match over (timeout), motors stopped permanently
+        INIT_ODOM_TODO, // briefly resets encoders on startup so ICP/EKF can initialise
+        WAIT_TIRETTE,   // waiting for the start signal (tirette pulled = match begins)
+        NORMAL          // match running, full DNF motion control active
     };
 
     Core();
@@ -64,8 +82,6 @@ public:
     void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
 private:
-    void selectColor();
-
     void updateStratMovement(krabi_msgs::msg::StratMovement move);
 
     // Has the tirette been pulled?
@@ -79,7 +95,8 @@ private:
     void maintainLoopTiming();
 
     // Set target speed and orientation
-    void computeTargetSpeedOrientation();
+    // computeTargetSpeedOrientation() was superseded by limitLinearSpeedCmdByGoal()
+    // and is no longer called — @todo delete both the declaration and the definition in core.cpp
 
     // Enforce limits on angular speed: absolute max and obstacle inhibition
     void limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed);
@@ -132,19 +149,17 @@ private:
     void plotAll();
     std::thread m_running;
 
-    // State of the broker loop
     State m_state = State::INIT_ODOM_TODO;
-    // Line speed to set when no positive valence strategy fires
-    const Vitesse m_default_linear_speed = Vitesse(0.5f);
+    const Vitesse m_default_linear_speed = Vitesse(0.5f); // cap when no obstacle
     Angle m_target_orientation;
     Vitesse m_linear_speed, m_linear_speed_cmd;
     VitesseAngulaire m_angular_speed, m_angular_speed_cmd;
-    // long  m_elapsed;
-    float m_goal_output[NB_NEURONS] = { 0. };
-    float m_obstacles_output[NB_NEURONS] = { 0. };
-    float m_lidar_output[NB_NEURONS] = { 0. };
-    float m_angular_speed_vector[NB_NEURONS] = { 0. };
-    float m_angular_landscape[NB_NEURONS] = { 0. };
+
+    // DNF neuron arrays — one float per degree of heading (index 0 = robot's current heading)
+    float m_goal_output[NB_NEURONS] = { 0. };          // attractive potential toward goal bearing
+    float m_lidar_output[NB_NEURONS] = { 0. };         // repulsive potential from nearest obstacle
+    float m_angular_speed_vector[NB_NEURONS] = { 0. }; // gradient of m_angular_landscape
+    float m_angular_landscape[NB_NEURONS] = { 0. };    // combined potential (goal + lidar)
     rclcpp::Time m_begin_match = rclcpp::Time(0, 0);
     Pose m_goal_pose;
     geometry_msgs::msg::PoseStamped m_goal_pose_stamped;
@@ -155,7 +170,7 @@ private:
     bool m_reverse_gear = false;
     bool m_fine_tuning_linear = false;
 
-    // Position PID state (active during m_fine_tuning_linear)
+    // Position PID state — only active during m_fine_tuning_linear (within 2 cm of goal)
     float m_pid_position_integral = 0.0f;
     float m_pid_position_prev_error = 0.0f;
 
@@ -207,7 +222,7 @@ private:
     std::map<int, rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> m_arucos_sub;
     std::array<geometry_msgs::msg::PoseStamped, 10> m_arucos;
 
-    // Buffer
+    // Kept for the abandoned buffering approach in updateStratMovement() — @todo delete
     krabi_msgs::msg::StratMovement m_buffer_strat_movement_parameters;
     Pose m_buffer_goal_pose;
     geometry_msgs::msg::PoseStamped m_buffer_goal_pose_stamped;

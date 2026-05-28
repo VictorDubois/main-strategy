@@ -83,13 +83,17 @@ void Core::addObstacle(PolarPosition obstacle)
 {
     unsigned int closest_obstacle_id = angle_to_neuron_id(obstacle.getAngle());
 
+    // When reversing, flip the obstacle bearing so inhibition is still applied to the direction of
+    // travel
     Angle normalized_angle = !reverseGear()
                                ? obstacle.getAngle()
                                : AngleTools::wrapAngle(Angle(obstacle.getAngle() + M_PI));
 
+    // speed_inhibition returns a value in [0, 1]: 1 = full speed, 0 = stop
     m_speed_inhibition_from_obstacle
       = LidarStrat::speed_inhibition(obstacle.getDistance(), normalized_angle, 1);
 
+    // Treat very small inhibitions as a full stop to avoid creeping toward obstacles
     if (m_speed_inhibition_from_obstacle < 0.2f)
     {
         m_speed_inhibition_from_obstacle = 0.f;
@@ -110,10 +114,13 @@ void Core::addObstacle(PolarPosition obstacle)
         obstacle_distance_clean = 0.01f;
     }
 
+    // Build a repulsive Gaussian bump in the neural field centred on the obstacle bearing.
+    // Exponential smoothing (factor 0.8) prevents jitter from noisy lidar readings.
+    // The repulsion grows stronger as the obstacle gets closer (strength ∝ 1/distance).
     float averaving_factor = 0.8f;
     for (int j = 0; j < NB_NEURONS; j += 1)
     {
-        float l_sigma = 30; // °
+        float l_sigma = 30; // spread of the repulsive bump in degrees
         float l_strength = 10.0 / obstacle_distance_clean;
 
         m_lidar_output[j]
@@ -132,8 +139,9 @@ void Core::updateStratMovement(krabi_msgs::msg::StratMovement move)
     m_strat_movement_parameters = move;
     m_goal_pose = Pose(move.goal_pose.pose);
     m_goal_pose_stamped = move.goal_pose;
-    return;
+    return; // early return: the stop-on-goal-change + buffering logic below was abandoned
 
+    // DEAD CODE — kept for reference in case the buffering approach is revived
     if ((m_buffer_strat_movement_parameters.max_speed.linear.x == 0
          && m_strat_movement_parameters.max_speed.linear.x != 0)
         || (m_buffer_strat_movement_parameters.max_speed.angular.z == 0
@@ -205,7 +213,6 @@ Core::Core()
     for (int i = 0; i < NB_NEURONS; i++)
     {
         m_goal_output[i] = 0.;
-        m_obstacles_output[i] = 0.;
         m_lidar_output[i] = 0.;
         m_angular_speed_vector[i] = 0.;
         m_angular_landscape[i] = 0.;
@@ -380,7 +387,9 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motors_pwm_cmd.pwm_override_left = 0;
     new_motors_pwm_cmd.pwm_override_right = 0;
 
-    bool asserv_petee = false; // ;_;
+    // "asserv pétée" = broken PID (French slang). Quick manual PWM override used during
+    // competitions when the speed-PID misbehaves. Hardcoded false in normal operation.
+    bool asserv_petee = false;
     if (asserv_petee)
     {
         new_motors_pwm_cmd.override_pwm = true;
@@ -417,6 +426,9 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     if (recalage_bordure())
     {
+        // "Recalage bordure" = border recalibration. The robot presses against a wall at a
+        // fixed low PWM to mechanically reset its position. Current is capped so it does not
+        // stall the motors. The speed PID is bypassed (override_pwm = true).
         new_parameters.max_current = 2.5f;
         new_parameters.max_current_left = 0.4f;
         new_parameters.max_current_right = 0.4f;
@@ -433,6 +445,8 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
 
     if (clamp_mode())
     {
+        // Higher current allowance so the robot stays still when pushing
+        // used in 2020/2021 for pushing the manche à air
         new_parameters.max_current = 2.1f;
         new_parameters.max_current_left = 3;
         new_parameters.max_current_right = 3;
@@ -457,11 +471,11 @@ void Core::chooseReverseGear(Angle orientation_diff)
         return;
     }
 
-    // else, complexe case: FORWARD_OR_REVERSE. We have to choose
+    // FORWARD_OR_REVERSE: pick whichever direction requires less turning.
+    // If the goal is more than 90° behind the robot, it's shorter to back up than to spin around.
     if (AngleTools::wrapAngle(orientation_diff) > M_PI / 2
         || AngleTools::wrapAngle(orientation_diff) < -M_PI / 2)
     {
-        // It is closer to reverse
         m_reverse_gear = krabi_msgs::msg::StratMovement::REVERSE;
     }
     else
@@ -581,7 +595,8 @@ Core::State Core::Loop()
 
     if (m_state == State::INIT_ODOM_TODO)
     {
-        // Init odom once, to allow moving for ICP/EKF init
+        // Pulse a single encoder reset so that the ICP/EKF localisation node can get
+        // a clean initial odometry reading before the match starts (~500 ms window).
         setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, true);
         if (m_end_init_odo < this->now())
         {
@@ -684,38 +699,29 @@ Core::State Core::Loop()
 
         // Inhibit linear speed if there are obstacles
 
-        // Compute attractive vectors from positive valence strategies
-        // TODO: choose the POSITIVE VALENCE STRATEGY!
-
+        // --- DNF pipeline ---
+        // Step 1: build the attractive potential centred on the target heading delta_orientation.
+        // target() returns a log-cosh hill; tuningSpread controls its width (wider = smoother
+        // turns).
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
-
             m_goal_output[i]
               = target(m_tuning_spread, m_tuning_offset, angle_to_neuron_id(delta_orientation), i);
         }
 
-        /*RCLCPP_INFO_STREAM(this->get_logger(), "relative_target_orientation: "
-                        << delta_orientation
-                        << ", peak value: " << get_idx_of_max(m_goal_output, NB_NEURONS)
-                        << ", central value = " <<
-           m_goal_output[angle_to_neuron_id(Angle(0))]);*/
-
-        // Sum positive and negative valence strategies
-
+        // Step 2: sum attractive (goal) and repulsive (lidar) potentials into m_angular_landscape.
+        // Lidar contribution is commented out for now; re-enable by adding m_lidar_output[i].
         for (int i = 0; i < NB_NEURONS; i += 1)
         {
             m_angular_landscape[i] = m_goal_output[i];
             //+m_lidar_output[i];
         }
 
-        // And finally: differentiate the m_angular_landscape vector to get drive
+        // Step 3: differentiate to get the gradient; evaluate at neuron 0 (robot's heading).
+        // Positive gradient → field is higher to the left → angular_speed_cmd > 0 → turn left.
         differentiate(m_angular_landscape, m_angular_speed_vector, NB_NEURONS, 3000.);
-
-        // Set linear speed according to the obstacles strategy & angular speed based on goal +
-        // obstacles Robot's vision is now centered on 180 deg
         m_angular_speed_cmd = VitesseAngulaire(m_angular_speed_vector[angle_to_neuron_id(
-          Angle(0))]); // - as positive is towards the left in ros, while the
-                       // derivation is left to right
+          Angle(0))]); // Angle(0) corresponds to the robot's current heading
         // RCLCPP_DEBUG_STREAM(this->get_logger(), ",m_angular_speed_cmd = " <<
         // m_angular_speed_cmd << std::endl);
 
@@ -913,11 +919,14 @@ void Core::limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed_cmd)
       a_angular_speed_cmd, VitesseAngulaire(m_strat_movement_parameters.max_speed.angular.z));
 }
 
-// Limit linear speed, to match the desired speed when reaching the goal
+// Trapezoidal velocity profile: accelerate toward max speed, then decelerate in time to arrive
+// at m_strat_movement_parameters.max_speed_at_arrival (usually 0 for a precise stop).
+// Warning: does not scale well when changing the update rate, as the robot needs time to reach the
+// desired speed.
 void Core::limitLinearSpeedCmdByGoal()
 {
-    Acceleration max_acceleration = Acceleration(0.35f); // m*s-2
-    Acceleration max_deceleration = Acceleration(0.35f); // m*s-2
+    Acceleration max_acceleration = Acceleration(0.35f); // m/s²
+    Acceleration max_deceleration = Acceleration(0.35f); // m/s²
 
     // Allow faster robot when doing a low-precision movement (where we do not need to stop at the
     // end)
@@ -1028,6 +1037,8 @@ void Core::fineTunePositionPID()
     m_linear_speed_cmd = Vitesse(output);
 }
 
+// Maps an angle in [-π, π] to a neuron index in [0, NB_NEURONS).
+// Example: 0 rad → index NB_NEURONS/2 = 180, π rad → index 0.
 unsigned int angle_to_neuron_id(Angle a)
 {
     return (unsigned int)(((AngleTools::wrapAngle(a) + M_PI) / (2 * M_PI)) * NB_NEURONS);

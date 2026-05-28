@@ -10,12 +10,14 @@ int main(int argc, char* argv[])
     rclcpp::init(argc, argv);
     auto node = std::make_shared<Core>();
 
+    // Register diagnostics so the robot status screen can show MainStrat's health
     diagnostic_updater::Updater updater(node);
     updater.setHardwareID("MainStrat");
     updater.add("MainStrat", node.get(), &Core::produce_diagnostics);
 
-    node->Setup();
+    node->Setup(); // brief sleep + initial encoder reset
 
+    // MultiThreadedExecutor lets callbacks (odom, lidar, tirette…) run concurrently with the timer
     rclcpp::executors::MultiThreadedExecutor executor;
     executor.add_node(node);
     executor.spin();

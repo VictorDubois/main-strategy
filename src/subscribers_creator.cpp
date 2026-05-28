@@ -16,10 +16,13 @@ void Core::create_subscribers()
       "tirette",
       5,
       std::bind(&Core::updateTirette, this, std::placeholders::_1)); //, l_sub_options);
+    // Subscribe to both the namespaced (odom) and global (/odom) topics.
+    // In simulation the topic is published at /odom; on the real robot it is within the namespace.
+    // Both call the same callback — whichever arrives first wins for that loop iteration.
     m_odometry_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-      "odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1)); //, l_sub_options);
+      "odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));
     m_odometry_slash_sub = this->create_subscription<nav_msgs::msg::Odometry>(
-      "/odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1)); //, l_sub_options);
+      "/odom", 5, std::bind(&Core::updateOdom, this, std::placeholders::_1));
     m_strat_movement_sub = this->create_subscription<krabi_msgs::msg::StratMovement>(
       "strat_movement",
       5,
@@ -28,6 +31,8 @@ void Core::create_subscribers()
 
 void Core::create_aruco_subscribers()
 {
+    // ArUco marker subscribers are compiled in only when USE_ARCUO is defined.
+    // The marker IDs differ by team colour (blue team sees markers 1-5, yellow team sees 6-10).
 #ifdef USE_ARCUO
     if (!m_is_blue)
     {

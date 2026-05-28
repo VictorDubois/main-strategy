@@ -85,9 +85,10 @@ float apply_circular(float f(int), const int u, const int x)
 }
 
 /*
- * Applies a gaussian function with given sigma and mu value, in x
- *
- * The gaussian is wrapped between 0 and nb_steps
+ * Circular Gaussian bump centred at mu, evaluated at x.
+ * "Circular" means the 360-degree wrap-around is handled: x=361 is treated as x=1.
+ * scaling_factor controls the peak amplitude; sigma controls the width.
+ * Used in the DNF to build repulsive bumps from obstacle bearings (addObstacle).
  */
 float gaussian(const float sigma, const float scaling_factor, const float mu, const float x)
 {
@@ -108,8 +109,12 @@ float gaussian(const float sigma, const float scaling_factor, const float mu, co
     return scaling_factor / (sigma * sqrt(2. * M_PI)) * exp(-pow((new_x - mu) / sigma, 2) / 2.0);
 }
 
-/**
- * Given a neural field (float vector), return the derivative of this vector
+/*
+ * Circular discrete derivative of a neural-field potential vector.
+ * result[i] = scale_factor * (vector[i+1] - vector[i-1]) / 2  (indices wrap around).
+ * When evaluated at the robot's heading neuron (i = angle_to_neuron_id(0)):
+ *   positive result → field rises to the left  → command turn left
+ *   negative result → field rises to the right → command turn right
  */
 void differentiate(const float* vector, float* result, const size_t len, const float scale_factor)
 {
@@ -123,6 +128,14 @@ void differentiate(const float* vector, float* result, const size_t len, const f
     }
 }
 
+/*
+ * Log-cosh attractive potential centred at x0 (circular, 360-wrapped).
+ * Returns: -log(cosh((x - x0) / spread)) + offset
+ * This creates a smooth hill peaking at x=x0 (value = offset) that falls off gently on both sides.
+ * Used in the DNF (m_goal_output) to attract the robot toward the target heading.
+ * - spread: width of the hill (tuned via ROS param "tuningSpread", default ~207°)
+ * - offset: peak height (tuned via ROS param "tuningOffset", default ~1.1)
+ */
 float target(const float spread, const float offset, const float x0, const float x)
 {
     float new_x = x;
@@ -142,13 +155,11 @@ float target(const float spread, const float offset, const float x0, const float
     return -log(cosh((new_x - x0) / spread)) + offset;
 }
 
+// Legacy function — no longer called in main-strategy. Kept for reference.
 float pseudo_gaussian_derivative(const int x)
 {
-    /*
-     * Constant part: cap at the maximum of the gaussian bell
-     * This is because when an obstacle is far behinf (angularly),
-     * we end up in the tail of the gaussian bell, so we turn slowly.
-     */
+    // Saturate in the tails of the bell so the robot still turns decisively when the goal
+    // is far off to the side (in the Gaussian tail the gradient would be near zero otherwise).
     if (x > 50)
         return -24.2;
     if (x < -50)
@@ -160,10 +171,11 @@ float pseudo_gaussian_derivative(const int x)
     // return -0.2 * x * exp(-pow(x, 2) / 1000.);
 }
 
+// Legacy function — no longer called in main-strategy. Kept for reference.
+// Gaussian-derivative repulsion for fusing nearby ultrasonic sensor readings.
 float obstacle_temporary_derivative(const int x)
 {
     return 4. * x * exp(-pow(x, 2) / 300.);
-
     // So that nearby uS sensors merge to repell obstacle
     // return 1. * x * exp(-pow(x, 2) / 650.);
 }
