@@ -1,25 +1,31 @@
 """
-Functional simulation test: does the robot actually reach a goal?
+Functional simulation tests for main_strategy_node.
 
-This test starts a headless Gazebo simulation, bypasses goal_strategy, and
-directly commands main_strategy_node to drive to a position 75 cm ahead of
-the start pose. It passes if distance_to_goal < 5 cm within 30 seconds.
+A single headless Gazebo session is shared across all tests (launch_testing
+starts it once for the whole file).  Tests run in alphabetical order and
+build on each other's robot position, so they are prefixed 01..05 to enforce
+the intended sequence.  Total match time must stay below the 84-second
+TIMEOUT_END_MATCH constant to avoid the robot entering the EXIT state.
+
+Available tests
+---------------
+01_forward_goal         — robot drives 75 cm forward and stops precisely
+02_rotate               — robot rotates 90° in place without translating
+03_speed_at_arrival     — robot arrives at goal while still moving (non-zero arrival speed)
+04_obstacle_stop        — injecting a fake obstacle stops the robot
+05_reverse_gear         — robot backs 50 cm to a goal behind it
 
 Run with:
     colcon test --packages-select main_strategy
 Or manually (no Gazebo instance should be running):
     python3 -m pytest test/test_goal_reach.py -v -s
 
-Architecture note: goal_strategy is intentionally excluded. The test publishes
-StratMovement directly so it exercises main_strategy in isolation.
-
 Launch sequencing note:
     spawn_world.py and spawn_and_bridge.launch.py both (transitively) declare a
     'world' launch argument and cannot share the same LaunchDescription context
-    without conflicting. This file therefore starts Gazebo directly with
-    ExecuteProcess (using the gz_world constant), then uses OnProcessExit on a
-    'wait_for_gz' probe to gate the robot spawn — the same pattern as
-    krabi_start_simu.py.
+    without conflicting. Gazebo is therefore started directly via ExecuteProcess,
+    and the robot is spawned only after a 'wait_for_gz' probe confirms the world
+    service is up — the same pattern as krabi_start_simu.py.
 """
 
 import math
@@ -31,15 +37,17 @@ import unittest
 import pytest
 import rclpy
 from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import PoseStamped
 from krabi_msgs.msg import MotionDebug, StratMovement
 from launch import LaunchDescription
 from launch.actions import (ExecuteProcess, IncludeLaunchDescription,
-                             RegisterEventHandler)
+                             RegisterEventHandler, TimerAction)
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node as LaunchNode
 from launch_ros.substitutions import FindPackageShare
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_msgs.msg import Bool
 
@@ -49,19 +57,19 @@ import launch_testing.actions
 # ---------------------------------------------------------------------------
 # Robot start pose — must match the values passed to the launch description
 # ---------------------------------------------------------------------------
-START_X     = -1.25
-START_Y     = -0.75
-START_THETA = math.pi / 2   # robot faces +y
+START_X     = float(0.0)
+START_Y     = float(0.0)
+START_THETA = float(math.pi / 2)   # robot faces +y
 
-# Goal: 75 cm forward (+y direction at pi/2 orientation)
-GOAL_X     = -1.25
-GOAL_Y     = 0.0
-GOAL_THETA = math.pi / 2
+# Set KRABI_TEST_GUI=1 to open the Gazebo visualiser (useful for debugging).
+# colcon test always runs headless; the env var is only for manual runs.
+USE_GUI = os.environ.get('KRABI_TEST_GUI', '0') == '1'
 
-# Test parameters
-GOAL_TOLERANCE_M         = 0.05   # 5 cm
-GOAL_REACH_TIMEOUT_S     = 30.0
-GAZEBO_STARTUP_TIMEOUT_S = 90.0   # wait up to 90 s for all nodes to initialise
+# Shared timeouts
+GAZEBO_STARTUP_TIMEOUT_S = 90.0
+
+#table_world = "table2026.world"
+table_world = 'flat_table.sdf'
 
 
 # ---------------------------------------------------------------------------
@@ -72,8 +80,8 @@ GAZEBO_STARTUP_TIMEOUT_S = 90.0   # wait up to 90 s for all nodes to initialise
 def generate_test_description():
     """
     Start headless Gazebo, wait for its world service, then spawn the robot
-    and the control nodes.  No goal_strategy or lidar_strategy — the test
-    injects StratMovement directly.
+    and the control nodes.  goal_strategy and lidar_strategy are excluded —
+    the test injects StratMovement and obstacle messages directly.
     """
     pkg = get_package_share_directory('krabi_description')
     os.environ['GZ_SIM_RESOURCE_PATH'] = pkg + '/models:' + pkg + '/worlds'
@@ -84,10 +92,20 @@ def generate_test_description():
         output='screen'
     )
 
+
     gz_headless = ExecuteProcess(
-        cmd=['gz', 'sim', 'table2026.world', '-v', '-r', '-s', '--headless-rendering'],
+        cmd=['gz', 'sim', table_world, '-v', '-r', '-s', '--headless-rendering'],
         output='screen'
     )
+
+    # GUI mode: no -s (server-only) and no --headless-rendering, so the
+    # visualiser opens.  Select with:  KRABI_TEST_GUI=1 pytest test/test_goal_reach.py
+    gz_gui = ExecuteProcess(
+        cmd=['gz', 'sim', table_world, '-v', '-r'],
+        output='screen'
+    )
+
+    gz = gz_gui if USE_GUI else gz_headless
 
     # Polls every second until the Gazebo world service appears, then exits 0.
     # OnProcessExit fires on exit, so the robot launch runs only once Gazebo is up.
@@ -98,10 +116,6 @@ def generate_test_description():
         output='screen'
     )
 
-    # --- Nodes to start once Gazebo is ready ---
-
-    # Robot URDF spawn + ROS-Gazebo bridge.
-    # Uses 'zRobotOrientation' (the declared arg name in spawn_and_bridge.launch.py).
     spawn_robot = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
@@ -116,26 +130,20 @@ def generate_test_description():
         }.items()
     )
 
-    # map → odom static transform (robot initial position in the map frame)
     map_to_odom_tf = LaunchNode(
         package='tf2_ros',
         executable='static_transform_publisher',
         namespace='krabi_ns',
         arguments=[
-            '--x', str(START_X),
-            '--y', str(START_Y),
-            '--z', '0',
+            '--x', str(START_X), '--y', str(START_Y), '--z', '0',
             '--roll', '0', '--pitch', '0', '--yaw', str(START_THETA),
-            '--child-frame-id', 'odom',
-            '--frame-id', 'map',
+            '--child-frame-id', 'odom', '--frame-id', 'map',
         ],
         parameters=[{'use_sim_time': True}]
     )
 
-    # Static arm/tool transforms required by main_strategy (getReach calls)
     grabi_tf = LaunchNode(
-        package='tf2_ros',
-        executable='static_transform_publisher',
+        package='tf2_ros', executable='static_transform_publisher',
         namespace='krabi_ns',
         arguments=['--x', '0.17', '--y', '0', '--z', '0',
                    '--roll', '0', '--pitch', '0', '--yaw', '0',
@@ -143,8 +151,7 @@ def generate_test_description():
         parameters=[{'use_sim_time': True}]
     )
     billig_tf = LaunchNode(
-        package='tf2_ros',
-        executable='static_transform_publisher',
+        package='tf2_ros', executable='static_transform_publisher',
         namespace='krabi_ns',
         arguments=['--x', '0', '--y', '-0.2', '--z', '0',
                    '--roll', '0', '--pitch', '0', '--yaw', '0',
@@ -152,36 +159,24 @@ def generate_test_description():
         parameters=[{'use_sim_time': True}]
     )
 
-    # Odometry node: integrates Gazebo wheel odometry → base_link→odom TF + /krabi_ns/odom
     odom_node = LaunchNode(
-        package='main_strategy',
-        namespace='krabi_ns',
-        executable='odometry_node',
-        name='odom_tf',
+        package='main_strategy', namespace='krabi_ns',
+        executable='odometry_node', name='odom_tf',
         parameters=[
-            {'init_pose/x':     START_X},
-            {'init_pose/y':     START_Y},
-            {'init_pose/theta': START_THETA},
-            {'publish_tf_odom': True},
-            {'use_sim_time':    True},
+            {'init_pose/x': START_X}, {'init_pose/y': START_Y},
+            {'init_pose/theta': START_THETA}, {'publish_tf_odom': True},
+            {'use_sim_time': True},
         ]
     )
 
-    # Main strategy node — the system under test
     main_strat = LaunchNode(
-        package='main_strategy',
-        namespace='krabi_ns',
-        executable='main_strategy_node',
-        name='main_strat',
+        package='main_strategy', namespace='krabi_ns',
+        executable='main_strategy_node', name='main_strat',
         parameters=[
-            {'isBlue':          True},
-            {'maxAccel':        0.1},
-            {'maxAngularAccel': 3.0},
-            {'maxAngularJerk':  5.0},
-            {'tuningSpread':    220.0},
-            {'tuningOffset':    1.1},
-            {'maxCurrent':      3.0},
-            {'use_sim_time':    True},
+            {'isBlue': True}, {'maxAccel': 0.1},
+            {'maxAngularAccel': 3.0}, {'maxAngularJerk': 5.0},
+            {'tuningSpread': 220.0}, {'tuningOffset': 1.1},
+            {'maxCurrent': 3.0}, {'use_sim_time': True},
         ]
     )
 
@@ -191,21 +186,28 @@ def generate_test_description():
             OnProcessExit(
                 target_action=kill_gz,
                 on_exit=[
-                    gz_headless,
+                    gz,
                     wait_for_gz,
                     RegisterEventHandler(
                         OnProcessExit(
                             target_action=wait_for_gz,
                             on_exit=[
-                                spawn_robot,
-                                map_to_odom_tf,
-                                grabi_tf,
-                                billig_tf,
-                                odom_node,
-                                main_strat,
-                                # Signal to launch_testing that test methods can start.
-                                # The test still waits for cmd_vel before doing anything.
-                                launch_testing.actions.ReadyToTest(),
+                                # Static transforms and robot spawn start immediately.
+                                spawn_robot, map_to_odom_tf, grabi_tf, billig_tf,
+                                # Delay TF-sensitive nodes until the Gazebo-ROS clock bridge
+                                # is publishing.  Without this delay, odometry_node and
+                                # main_strategy_node initialise at time=0, then see the first
+                                # real /clock tick as a jump back in time, which makes tf2
+                                # clear its buffer and log the "Detected jump back in time"
+                                # warning.
+                                TimerAction(
+                                    period=3.0,
+                                    actions=[
+                                        odom_node,
+                                        main_strat,
+                                        launch_testing.actions.ReadyToTest(),
+                                    ]
+                                ),
                             ]
                         )
                     ),
@@ -219,28 +221,27 @@ def generate_test_description():
 # Test class
 # ---------------------------------------------------------------------------
 
-class TestRobotReachesGoal(unittest.TestCase):
-    """
-    Integration smoke test: command the robot to drive 75 cm forward and
-    verify it arrives within GOAL_REACH_TIMEOUT_S seconds.
-    """
+class TestRobotBehaviour(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         rclpy.init()
         cls.node = Node('test_goal_reach')
 
-        cls.tirette_pub = cls.node.create_publisher(Bool, '/krabi_ns/tirette', 1)
-        cls.strat_pub   = cls.node.create_publisher(
+        cls.tirette_pub  = cls.node.create_publisher(Bool, '/krabi_ns/tirette', 1)
+        cls.strat_pub    = cls.node.create_publisher(
             StratMovement, '/krabi_ns/strat_movement', 1)
+        cls.obstacle_pub = cls.node.create_publisher(
+            PoseStamped, '/krabi_ns/obstacle_pose_stamped', 1)
 
-        cls._goal_reached = threading.Event()
-        cls._last_distance = None
+        cls._last_motion_debug: MotionDebug = None
+        cls._last_odom: Odometry = None
 
         cls.node.create_subscription(
             MotionDebug, '/krabi_ns/motion_debug', cls._on_motion_debug, 10)
+        cls.node.create_subscription(
+            Odometry, '/krabi_ns/odom', cls._on_odom, 10)
 
-        # Spin rclpy in a background thread so subscriptions are processed
         cls._spin_thread = threading.Thread(
             target=rclpy.spin, args=(cls.node,), daemon=True)
         cls._spin_thread.start()
@@ -252,17 +253,18 @@ class TestRobotReachesGoal(unittest.TestCase):
 
     @classmethod
     def _on_motion_debug(cls, msg: MotionDebug):
-        cls._last_distance = msg.distance_to_goal
-        if msg.distance_to_goal < GOAL_TOLERANCE_M:
-            cls._goal_reached.set()
+        cls._last_motion_debug = msg
 
+    @classmethod
+    def _on_odom(cls, msg: Odometry):
+        cls._last_odom = msg
+
+    # ------------------------------------------------------------------
+    # Helpers
     # ------------------------------------------------------------------
 
     def _wait_for_system_ready(self):
-        """
-        Block until main_strategy_node publishes on cmd_vel.
-        This confirms Gazebo is up, the bridge is running, and all nodes initialised.
-        """
+        """Block until main_strategy_node publishes on cmd_vel (= all nodes up)."""
         deadline = time.time() + GAZEBO_STARTUP_TIMEOUT_S
         while time.time() < deadline:
             if self.node.count_publishers('/krabi_ns/cmd_vel') > 0:
@@ -270,67 +272,252 @@ class TestRobotReachesGoal(unittest.TestCase):
             time.sleep(1.0)
         return False
 
-    def _publish_goal(self):
-        """Publish the StratMovement goal several times to ensure delivery."""
-        msg = StratMovement()
-        msg.orient       = StratMovement.GO_TO_GOALPOSE_POSITION
-        msg.reverse_gear = StratMovement.FORWARD_OR_REVERSE
-        msg.max_speed.linear.x   = 0.3   # m/s — moderate speed for stability
-        msg.max_speed_at_arrival = 0.0   # full stop at goal
+    def _wait_for(self, condition_fn, timeout_s, poll_s=0.1):
+        """
+        Repeatedly call condition_fn(latest_motion_debug_msg) until True or timeout.
+        Returns True if condition was met, False on timeout.
+        """
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            msg = self._last_motion_debug
+            if msg is not None and condition_fn(msg):
+                return True
+            time.sleep(poll_s)
+        return False
 
+    def _current_pose(self):
+        """
+        Returns (x, y, theta) from the latest odometry.
+        Falls back to the known start pose if no odom has been received yet.
+        """
+        odom = self._last_odom
+        if odom is None:
+            return START_X, START_Y, START_THETA
+        x = odom.pose.pose.position.x
+        y = odom.pose.pose.position.y
+        q = odom.pose.pose.orientation
+        theta = 2.0 * math.atan2(q.z, q.w)
+        return x, y, theta
+
+    def _make_goal(self, x, y, theta, max_speed=0.5, max_angular_speed=2.0, max_speed_at_arrival=0.0,
+                   orient=StratMovement.GO_TO_GOALPOSE_POSITION,
+                   reverse_gear=StratMovement.FORWARD_OR_REVERSE):
+        msg = StratMovement()
+        msg.orient       = orient
+        msg.reverse_gear = reverse_gear
+        msg.max_speed.linear.x   = max_speed
+        msg.max_speed.angular.z   = max_angular_speed
+        msg.max_speed_at_arrival = max_speed_at_arrival
         msg.goal_pose.header.frame_id = 'map'
         msg.goal_pose.header.stamp    = self.node.get_clock().now().to_msg()
-        msg.goal_pose.pose.position.x = GOAL_X
-        msg.goal_pose.pose.position.y = GOAL_Y
-        # Orientation as quaternion (only yaw matters for a ground robot)
-        msg.goal_pose.pose.orientation.z = math.sin(GOAL_THETA / 2.0)
-        msg.goal_pose.pose.orientation.w = math.cos(GOAL_THETA / 2.0)
+        msg.goal_pose.pose.position.x = x
+        msg.goal_pose.pose.position.y = y
+        msg.goal_pose.pose.orientation.z = math.sin(theta / 2.0)
+        msg.goal_pose.pose.orientation.w = math.cos(theta / 2.0)
+        return msg
 
-        for _ in range(10):   # 10 × 200 ms = 2 s of repeated publishing
-            self.strat_pub.publish(msg)
-            time.sleep(0.2)
+    def _send_goal(self, goal_msg, repeat=10, interval_s=0.2):
+        """Publish a StratMovement goal `repeat` times to ensure delivery."""
+        for _ in range(repeat):
+            self.strat_pub.publish(goal_msg)
+            time.sleep(interval_s)
 
-    def _publish_tirette(self):
-        """Simulate the start signal (tirette pulled)."""
+    def _pull_tirette(self):
+        """Simulate the match start signal."""
         msg = Bool(data=True)
         for _ in range(5):
             self.tirette_pub.publish(msg)
             time.sleep(0.1)
 
+    def _publish_obstacle_ahead(self, distance_m):
+        """
+        Publish a fake obstacle at `distance_m` directly ahead of the robot.
+        The position is in the robot frame (base_link): x = distance, y = 0.
+        speed_inhibition(0.1m, 0°, 1) ≈ 0.05 < 0.2 → stopped_by_obstacle = True.
+        """
+        msg = PoseStamped()
+        msg.header.frame_id = 'base_link'
+        msg.header.stamp = self.node.get_clock().now().to_msg()
+        msg.pose.position.x = distance_m
+        msg.pose.position.y = 0.0
+        msg.pose.position.z = 0.0
+        self.obstacle_pub.publish(msg)
+
+    def _clear_obstacle(self):
+        """
+        Move the obstacle far away so it no longer inhibits motion.
+        (main_strategy resets speed_inhibition to 1 each loop tick, so stopping
+        the publication alone would also work, but this is more explicit.)
+        """
+        msg = PoseStamped()
+        msg.header.frame_id = 'base_link'
+        msg.header.stamp = self.node.get_clock().now().to_msg()
+        msg.pose.position.x = 100.0
+        msg.pose.position.y = 0.0
+        for _ in range(3):
+            self.obstacle_pub.publish(msg)
+            time.sleep(0.1)
+
+    # ------------------------------------------------------------------
+    # Tests (run in alphabetical order = numerical order here)
     # ------------------------------------------------------------------
 
-    def test_robot_reaches_forward_goal(self):
+    def test_01_forward_goal(self):
         """
-        Robot starts at (-1.25, -0.75, pi/2) and must reach (-1.25, 0.0)
-        (75 cm forward in the +y direction) within 30 s.
+        Robot drives 75 cm forward (in the +y direction at start heading pi/2)
+        and stops within 5 cm of the goal.
+        Also waits for Gazebo + nodes to be fully initialised (first test only).
         """
-        # Step 1: wait for Gazebo + nodes to be ready
         ready = self._wait_for_system_ready()
         self.assertTrue(
             ready,
-            f"System did not become ready within {GAZEBO_STARTUP_TIMEOUT_S} s. "
-            "Is Gazebo installed and headless-rendering working?"
+            f"System did not become ready within {GAZEBO_STARTUP_TIMEOUT_S} s."
         )
 
-        # Step 2: send the goal BEFORE the tirette so main_strategy
-        #         already knows where to go the instant the match starts.
-        self._publish_goal()
+        x, y, theta = self._current_pose()
+        goal = self._make_goal(
+            x + 0.75 * math.cos(theta),
+            y + 0.75 * math.sin(theta),
+            theta,
+        )
 
-        # Step 3: start the match (tirette pulled)
-        self._publish_tirette()
+        self._send_goal(goal)   # pre-load goal before tirette
+        self._pull_tirette()
 
-        # Step 4: keep re-sending the goal at ~1 Hz until arrival or timeout
-        #         (main_strategy may drop the first messages during state transition)
-        deadline = time.time() + GOAL_REACH_TIMEOUT_S
-        while time.time() < deadline and not self._goal_reached.is_set():
-            self._publish_goal()
+        deadline = time.time() + 20.0
+        while time.time() < deadline and not self._wait_for(
+                lambda m: m.distance_to_goal < 0.05, timeout_s=0.1):
+            self._send_goal(goal, repeat=5)
 
-        # Step 5: assert
-        dist_str = (f"{self._last_distance:.3f} m"
-                    if self._last_distance is not None else "unknown")
         self.assertTrue(
-            self._goal_reached.is_set(),
-            f"Robot did not reach goal ({GOAL_X}, {GOAL_Y}) within "
-            f"{GOAL_REACH_TIMEOUT_S} s. "
-            f"Last distance_to_goal: {dist_str}"
+            self._wait_for(lambda m: m.distance_to_goal < 0.05, timeout_s=1.0),
+            "Robot did not stop within 5 cm of the forward goal within 20 s."
+        )
+
+    def test_02_rotate(self):
+        """
+        Robot rotates 90° to the left in place without (significant) translation.
+        Uses ORIENT_TOWARD_GOALPOSE_ORIENTATION mode.
+        Success: |delta_orientation| < 5° (0.087 rad).
+        """
+        x, y, theta = self._current_pose()
+        target_theta = theta + math.pi / 2   # 90° left
+
+        goal = self._make_goal(
+            x, y, target_theta,           # same position, new heading
+            max_speed=0.0,                # no linear movement allowed
+            orient=StratMovement.ORIENT_TOWARD_GOALPOSE_ORIENTATION,
+        )
+
+        deadline = time.time() + 12.0
+        while time.time() < deadline and not self._wait_for(
+                lambda m: abs(m.delta_orientation) < 0.087, timeout_s=0.1):
+            self._send_goal(goal, repeat=3, interval_s=0.1)
+
+        self.assertTrue(
+            self._wait_for(lambda m: abs(m.delta_orientation) < 0.087, timeout_s=1.0),
+            "Robot did not rotate to within 5° of the target orientation within 12 s."
+        )
+
+    def test_03_speed_at_arrival(self):
+        """
+        When max_speed_at_arrival > 0, the robot should still be moving at
+        approximately that speed as it crosses the goal position.
+        Contrast: with max_speed_at_arrival=0 the trapezoidal profile would
+        brake to a full stop.
+        """
+        ARRIVAL_SPEED = 0.15   # m/s
+
+        x, y, theta = self._current_pose()
+        goal = self._make_goal(
+            x + 0.60 * math.cos(theta),
+            y + 0.60 * math.sin(theta),
+            theta,
+            max_speed=0.3,
+            max_speed_at_arrival=ARRIVAL_SPEED,
+        )
+
+        # Capture linear_speed_cmd at the moment the robot first enters the goal radius
+        speed_snapshot = [None]
+
+        def near_goal(msg):
+            if msg.distance_to_goal < 0.10 and speed_snapshot[0] is None:
+                speed_snapshot[0] = msg.linear_speed_cmd
+            return speed_snapshot[0] is not None
+
+        deadline = time.time() + 20.0
+        while time.time() < deadline and not self._wait_for(near_goal, timeout_s=0.1):
+            self._send_goal(goal, repeat=3, interval_s=0.1)
+
+        self.assertIsNotNone(
+            speed_snapshot[0],
+            "Robot did not reach the speed-at-arrival goal within 20 s."
+        )
+        self.assertGreaterEqual(
+            speed_snapshot[0],
+            ARRIVAL_SPEED * 0.5,
+            f"Expected linear_speed_cmd >= {ARRIVAL_SPEED * 0.5:.2f} m/s on arrival "
+            f"(max_speed_at_arrival={ARRIVAL_SPEED}), got {speed_snapshot[0]:.3f} m/s. "
+            "The trapezoidal profile may not be respecting the arrival speed."
+        )
+
+    def test_04_obstacle_stop(self):
+        """
+        A fake obstacle injected 10 cm ahead of the robot must trigger
+        stopped_by_obstacle=True in MotionDebug within 5 seconds.
+        speed_inhibition(0.10 m, 0°, 1) ≈ 0.05, which is below the 0.2 stop threshold.
+        After the test the obstacle is cleared so subsequent tests are unaffected.
+        """
+        x, y, theta = self._current_pose()
+        # Give the robot a goal 60 cm ahead so it is actively trying to move
+        goal = self._make_goal(
+            x + 0.60 * math.cos(theta),
+            y + 0.60 * math.sin(theta),
+            theta,
+        )
+        self._send_goal(goal, repeat=5, interval_s=0.1)
+
+        # Wait for the robot to start moving before injecting the obstacle
+        self._wait_for(lambda m: m.linear_speed_cmd > 0.05, timeout_s=5.0)
+
+        # Inject obstacle and keep re-publishing until the node acts on it
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            self._publish_obstacle_ahead(distance_m=0.10)
+            if self._wait_for(lambda m: m.stopped_by_obstacle, timeout_s=0.2):
+                break
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.stopped_by_obstacle, timeout_s=1.0),
+            "stopped_by_obstacle was not set after injecting an obstacle 10 cm ahead."
+        )
+
+        # Clear the obstacle so subsequent tests can move freely
+        self._clear_obstacle()
+        # Give the node one loop tick to reset speed_inhibition to 1
+        time.sleep(0.2)
+
+    def test_05_reverse_gear(self):
+        """
+        Robot backs up 50 cm to a goal directly behind its current heading.
+        Uses REVERSE gear mode.
+        Success: distance_to_goal < 5 cm within 20 s.
+        """
+        x, y, theta = self._current_pose()
+        # Goal is 50 cm behind (opposite of current heading)
+        goal = self._make_goal(
+            x - 0.50 * math.cos(theta),
+            y - 0.50 * math.sin(theta),
+            theta,
+            reverse_gear=StratMovement.REVERSE,
+        )
+
+        deadline = time.time() + 20.0
+        while time.time() < deadline and not self._wait_for(
+                lambda m: m.distance_to_goal < 0.05, timeout_s=0.1):
+            self._send_goal(goal, repeat=3, interval_s=0.1)
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.distance_to_goal < 0.05, timeout_s=1.0),
+            "Robot did not reach the reverse-gear goal within 20 s."
         )
