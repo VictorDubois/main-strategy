@@ -86,4 +86,22 @@ install(TARGETS
   odometry_node
   DESTINATION lib/${PROJECT_NAME}/
 )
+
+if(BUILD_TESTING)
+  # --- Tier 1: unit tests for helpers_broker.c (pure C math, no ROS) ---
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_helpers
+    test/test_helpers.cpp
+    src/helpers_broker.c
+  )
+  target_include_directories(test_helpers PRIVATE include)
+  target_link_libraries(test_helpers m)
+
+  # --- Tier 2: functional simulation test (headless Gazebo + main_strategy) ---
+  find_package(launch_testing_ament_cmake REQUIRED)
+  add_launch_test(test/test_goal_reach.py
+    TIMEOUT 120
+  )
+endif()
+
 ament_package()
