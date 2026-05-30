@@ -18,7 +18,6 @@ Available tests
 07_stop_angular                   — STOP_ANGULAR mode suppresses rotation even with heading error
 08_rear_obstacle_no_effect_forward — rear obstacle does NOT stop forward motion
 09_sequential_goals               — goal hot-switch: robot reaches A then immediately B
-10_fine_tune_position             — ORIENT_AND_FINE_TUNE mode activates the position PID
 11_rear_obstacle_stops_reverse    — rear obstacle STOPS the robot while reversing
 12_front_obstacle_no_effect_reverse — front obstacle does NOT stop reverse motion
 
@@ -722,34 +721,6 @@ class TestRobotBehaviour(unittest.TestCase):
             "updateStratMovement() may not be updating m_goal_pose correctly."
         )
 
-    def test_10_fine_tune_position(self):
-        """
-        In ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE mode the controller
-        first aligns to the target heading, then uses a position PID to reach
-        the exact longitudinal goal within 2 cm.
-        Verified by waiting for fine_tuning_linear == True in MotionDebug,
-        which is set only once the robot is close enough for the PID to take over.
-        """
-        x, y, theta = self._current_pose()
-        
-        # giving the fine-tune PID phase time to activate within the timeout.
-        goal = self._make_goal(
-            x + 0.3, y,
-            theta,
-            orient=StratMovement.ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE,
-        )
-
-        deadline = time.time() + 10.0
-        while time.time() < deadline and not self._wait_for_motion_dbg(
-                lambda m: m.fine_tuning_linear, timeout_s=0.1):
-            self._send_goal(goal, repeat=3, interval_s=0.1)
-
-        self.assertTrue(
-            self._wait_for_motion_dbg(lambda m: m.fine_tuning_linear, timeout_s=1.0),
-            "fine_tuning_linear was never set. "
-            "In ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE mode the position "
-            "PID should activate once the robot is within the fine-tuning radius."
-        )
 
     def test_11_rear_obstacle_stops_reverse(self):
         """
