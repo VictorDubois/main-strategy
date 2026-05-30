@@ -529,9 +529,14 @@ int Core::Setup()
 
 Core::~Core()
 {
-    // We broke out of the loop, stop everything
-    stopMotors();
+    // Signal plotAll() to exit its loop, then wait for it to finish.
+    // plotAll() sleeps 100 ms per iteration, so this join takes at most ~100 ms.
+    // Without this join, destroying a joinable std::thread calls std::terminate().
+    m_state = State::EXIT;
+    if (m_running.joinable())
+        m_running.join();
 
+    stopMotors();
     RCLCPP_INFO_STREAM(this->get_logger(), "Got out of the main loop, stopped everything.\n");
 }
 

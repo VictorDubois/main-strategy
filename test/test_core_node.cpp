@@ -31,14 +31,16 @@ class CoreNodeTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        rclcpp::init(0, nullptr);
+        // rclcpp is initialised once for the whole process in main().
+        // Each test gets a fresh Core node.
         node_ = std::make_shared<Core>();
     }
 
     void TearDown() override
     {
+        // Destroying the node will signal plotAll() to stop and join its thread
+        // (see Core::~Core()).  The join takes at most ~100 ms (plotAll sleep interval).
         node_.reset();
-        rclcpp::shutdown();
     }
 
     // Spin the node for up to `timeout_ms` milliseconds, stopping early if
@@ -176,6 +178,12 @@ TEST_F(CoreNodeTest, TiretteStartsMatch)
 
 int main(int argc, char** argv)
 {
+    // Initialise rclcpp once for the whole process.
+    // The fixture does NOT call init/shutdown per-test; doing so between tests
+    // causes undefined behaviour in some rclcpp versions.
+    rclcpp::init(argc, argv);
     testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    int result = RUN_ALL_TESTS();
+    rclcpp::shutdown();
+    return result;
 }
