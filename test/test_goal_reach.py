@@ -9,11 +9,15 @@ TIMEOUT_END_MATCH constant to avoid the robot entering the EXIT state.
 
 Available tests
 ---------------
-01_forward_goal         — robot drives 75 cm forward and stops precisely
-02_rotate               — robot rotates 90° in place without translating
-03_speed_at_arrival     — robot arrives at goal while still moving (non-zero arrival speed)
-04_obstacle_stop        — injecting a fake obstacle stops the robot
-05_reverse_gear         — robot backs 50 cm to a goal behind it
+01_forward_goal           — robot drives 75 cm forward and stops precisely
+02_rotate                 — robot rotates 90° in place without translating
+03_speed_at_arrival       — robot arrives at goal while still moving (non-zero arrival speed)
+04_obstacle_stop          — injecting a fake obstacle stops the robot
+05_reverse_gear           — robot backs 50 cm to a goal behind it
+06_max_speed_cap          — linear_speed_cmd stays ≤ max_speed throughout movement
+07_stop_angular           — STOP_ANGULAR mode suppresses rotation even with heading error
+09_sequential_goals       — goal hot-switch: robot reaches A then immediately B
+10_fine_tune_position     — ORIENT_AND_FINE_TUNE mode activates the position PID
 
 Run with:
     colcon test --packages-select main_strategy
@@ -520,4 +524,151 @@ class TestRobotBehaviour(unittest.TestCase):
         self.assertTrue(
             self._wait_for(lambda m: m.distance_to_goal < 0.05, timeout_s=1.0),
             "Robot did not reach the reverse-gear goal within 20 s."
+        )
+
+    def test_06_max_speed_cap(self):
+        """
+        When max_speed is set to a low value, linear_speed_cmd must never
+        exceed it (with a small tolerance for acceleration transients).
+        The robot must still reach the goal, confirming the cap does not
+        prevent movement — it only limits top speed.
+        """
+        MAX_SPEED = 0.10   # m/s  — deliberately slow
+        TOLERANCE = 0.03   # m/s  — allowance for ramp overshoot
+
+        x, y, theta = self._current_pose()
+        goal = self._make_goal(
+            x + 0.40 * math.cos(theta),
+            y + 0.40 * math.sin(theta),
+            theta,
+            max_speed=MAX_SPEED,
+        )
+
+        observed_speeds = []
+
+        def collect_speed(msg):
+            # Record speed while the robot is still en-route (not yet arrived)
+            if msg.distance_to_goal > 0.05:
+                observed_speeds.append(msg.linear_speed_cmd)
+            return msg.distance_to_goal < 0.05
+
+        deadline = time.time() + 12.0
+        while time.time() < deadline and not self._wait_for(collect_speed, timeout_s=0.1):
+            self._send_goal(goal, repeat=3, interval_s=0.1)
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.distance_to_goal < 0.05, timeout_s=1.0),
+            f"Robot did not reach the goal within 12 s at max_speed={MAX_SPEED} m/s."
+        )
+        if observed_speeds:
+            peak = max(observed_speeds)
+            self.assertLessEqual(
+                peak, MAX_SPEED + TOLERANCE,
+                f"linear_speed_cmd peaked at {peak:.3f} m/s, which exceeds "
+                f"max_speed={MAX_SPEED} + tolerance={TOLERANCE}."
+            )
+
+    def test_07_stop_angular(self):
+        """
+        In STOP_ANGULAR mode, the controller must not issue rotation commands
+        even when the goal has a different orientation.
+        Verified via motion_debug.angular_speed_disabled, which is True whenever
+        the stop_angular() predicate is active.
+        """
+        x, y, theta = self._current_pose()
+        goal = self._make_goal(
+            x + 0.30 * math.cos(theta),
+            y + 0.30 * math.sin(theta),
+            theta + math.pi / 4,   # 45° heading offset — would cause rotation normally
+            orient=StratMovement.STOP_ANGULAR,
+        )
+
+        deadline = time.time() + 5.0
+        while time.time() < deadline and not self._wait_for(
+                lambda m: m.angular_speed_disabled, timeout_s=0.1):
+            self._send_goal(goal, repeat=3, interval_s=0.1)
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.angular_speed_disabled, timeout_s=1.0),
+            "angular_speed_disabled was not set in STOP_ANGULAR mode. "
+            "The stop_angular() predicate should suppress all angular commands."
+        )
+
+
+    def test_09_sequential_goals(self):
+        """
+        The robot must update its goal immediately when a new StratMovement arrives.
+        Sends goal A, waits for arrival, then sends goal B 30 cm further ahead.
+        Both arrivals must complete, confirming goal hot-switching works.
+        """
+        x, y, theta = self._current_pose()
+        goal_a = self._make_goal(
+            x + 0.30 * math.cos(theta),
+            y + 0.30 * math.sin(theta),
+            theta,
+        )
+
+        # --- Goal A ---
+        deadline = time.time() + 10.0
+        while time.time() < deadline and not self._wait_for(
+                lambda m: m.distance_to_goal < 0.05, timeout_s=0.1):
+            self._send_goal(goal_a, repeat=3, interval_s=0.1)
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.distance_to_goal < 0.05, timeout_s=1.0),
+            "Robot did not reach goal A within 10 s."
+        )
+
+        # --- Goal B (30 cm ahead from wherever the robot now is) ---
+        x2, y2, theta2 = self._current_pose()
+        goal_b = self._make_goal(
+            x2 + 0.30 * math.cos(theta2),
+            y2 + 0.30 * math.sin(theta2),
+            theta2,
+        )
+
+        deadline = time.time() + 10.0
+        while time.time() < deadline and not self._wait_for(
+                lambda m: m.distance_to_goal < 0.05, timeout_s=0.1):
+            self._send_goal(goal_b, repeat=3, interval_s=0.1)
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.distance_to_goal < 0.05, timeout_s=1.0),
+            "Robot did not reach goal B within 10 s after switching from goal A. "
+            "updateStratMovement() may not be updating m_goal_pose correctly."
+        )
+
+    def test_10_fine_tune_position(self):
+        """
+        In ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE mode the controller
+        first aligns to the target heading, then uses a position PID to reach
+        the exact longitudinal goal within 2 cm.
+        Verified by waiting for fine_tuning_linear == True in MotionDebug,
+        which is set only once the robot is close enough for the PID to take over.
+        """
+        x, y, theta = self._current_pose()
+        
+        # giving the fine-tune PID phase time to activate within the timeout.
+        goal = self._make_goal(
+            x + 0.3, y,
+            theta,
+            orient=StratMovement.ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE,
+        )
+
+        deadline = time.time() + 10.0
+        while time.time() < deadline and not self._wait_for(
+                lambda m: m.fine_tuning_linear, timeout_s=0.1):
+            self._send_goal(goal, repeat=3, interval_s=0.1)
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.fine_tuning_linear, timeout_s=1.0),
+            "fine_tuning_linear was never set. "
+            "In ORIENT_TOWARD_GOALPOSE_ORIENTATION_AND_FINE_TUNE mode the position "
+            "PID should activate once the robot is within the fine-tuning radius."
+        )
+
+        self.assertTrue(
+            self._wait_for(lambda m: m.distance_to_goal < 0.002, timeout_s=2.0),
+            "Robot did not reach within 2 mm of the goal within 2 s after fine-tuning activated. "
+            "The position PID may not be controlling the robot as expected."
         )
