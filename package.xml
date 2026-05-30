@@ -71,6 +71,7 @@
 
   <!-- Tier 1: C++ unit tests -->
   <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>lidar_strategy</test_depend>
 
   <!-- Tier 2: functional simulation test -->
   <test_depend>launch_testing_ament_cmake</test_depend>

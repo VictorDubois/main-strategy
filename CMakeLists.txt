@@ -88,14 +88,40 @@ install(TARGETS
 )
 
 if(BUILD_TESTING)
-  # --- Tier 1: unit tests for helpers_broker.c (pure C math, no ROS) ---
   find_package(ament_cmake_gtest REQUIRED)
+
+  # --- Tier 1a: pure-C math (no ROS) ---
   ament_add_gtest(test_helpers
     test/test_helpers.cpp
     src/helpers_broker.c
   )
   target_include_directories(test_helpers PRIVATE include)
   target_link_libraries(test_helpers m)
+
+  # --- Tier 1b: obstacle logic + angle mapping (links lidar_strategy for speed_inhibition) ---
+  ament_add_gtest(test_obstacle_logic
+    test/test_obstacle_logic.cpp
+  )
+  ament_target_dependencies(test_obstacle_logic
+    lidar_strategy
+  )
+  target_link_libraries(test_obstacle_logic m)
+
+  # --- Tier 1c: Core ROS node (full dependencies, no Gazebo) ---
+  ament_add_gtest(test_core_node
+    test/test_core_node.cpp
+    src/core.cpp
+    src/helpers_broker.c
+    src/publishers_creator.cpp
+    src/subscribers_creator.cpp
+  )
+  ament_target_dependencies(test_core_node
+    std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
+    tf2_eigen tf2_ros tf2_geometry_msgs rclcpp diagnostic_updater
+    visualization_msgs lidar_strategy
+  )
+  target_include_directories(test_core_node PRIVATE include)
+  target_link_libraries(test_core_node m)
 
   # --- Tier 2: functional simulation test (headless Gazebo + main_strategy) ---
   find_package(launch_testing_ament_cmake REQUIRED)
