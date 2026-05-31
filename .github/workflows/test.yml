@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, "feature/ROS2" ]
+  pull_request:
+    branches: [ main, master, "feature/ROS2" ]
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-24.04
+    container:
+      image: ros:jazzy-ros-base
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            git python3-colcon-common-extensions python3-vcstool
+
+      - name: Build sibling repositories (krabi_msgs, goal_strategy, lidar_strategy)
+        uses: ros-tooling/action-ros-ci@v0.3
+        with:
+          package-name: main_strategy
+          target-ros2-distro: jazzy
+          # Skip the Gazebo functional test (test_goal_reach) — too slow for CI.
+          # Keep the three fast gtests: test_helpers, test_obstacle_logic, test_core_node.
+          colcon-defaults: |
+            {
+              "test": {
+                "ctest-args": ["-E", "test_goal_reach"]
+              }
+            }
+          vcs-repo-file-url: |
+            https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/.github/dependencies.repos

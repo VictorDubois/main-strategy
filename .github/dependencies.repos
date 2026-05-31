@@ -1,0 +1,14 @@
+# Sibling ROS 2 packages that main_strategy depends on.
+# action-ros-ci will checkout these alongside main_strategy and colcon-build
+# the workspace.  Omitting `version` uses each repo's default branch.
+
+repositories:
+  krabi-msgs:
+    type: git
+    url: https://github.com/VictorDubois/krabi-msgs.git
+  goal_strategy:
+    type: git
+    url: https://github.com/VictorDubois/goal_strategy.git
+  lidar_strategy:
+    type: git
+    url: https://github.com/VictorDubois/lidar_strategy.git
