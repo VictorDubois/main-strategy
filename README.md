@@ -77,8 +77,5 @@ Used for displaying in the 3d view
 ### remaining_time
 The number of seconds remaining until the end of the match (type: [Duration](https://docs.ros2.org/foxy/api/builtin_interfaces/msg/Duration.html))
 
-### motors_distance_asserv
-Obsolete message, never fully implemented. I think that the idea was to have the motor board do the final position tuning, not just the speed tuning. @todo: To be deleted
-
 # What to do for a new year?
 Not much, this repo is completely generic year-wise

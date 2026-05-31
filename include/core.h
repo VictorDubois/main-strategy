@@ -31,7 +31,6 @@
 #include <krabi_msgs/msg/motion_debug.hpp>
 #include <krabi_msgs/msg/motors.hpp>
 #include <krabi_msgs/msg/motors_cmd.hpp>
-#include <krabi_msgs/msg/motors_distance_asserv.hpp>
 #include <krabi_msgs/msg/motors_parameters.hpp>
 #include <krabi_msgs/msg/odom_light.hpp>
 #include <krabi_msgs/msg/strat_movement.hpp>
@@ -93,10 +92,6 @@ private:
 
     // Maintain loop frequency @BROKER_FREQ Hz
     void maintainLoopTiming();
-
-    // Set target speed and orientation
-    void computeTargetSpeedOrientation(); // was superseded by limitLinearSpeedCmdByGoal()
-    // and is no longer called — @todo delete both the declaration and the definition in core.cpp
 
     // Enforce limits on angular speed: absolute max and obstacle inhibition
     void limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed);
@@ -195,7 +190,6 @@ private:
     rclcpp::Publisher<krabi_msgs::msg::MotorsCmd>::SharedPtr m_motors_pwm_pub;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr m_target_orientation_pub;
     rclcpp::Publisher<builtin_interfaces::msg::Duration>::SharedPtr m_chrono_pub;
-    rclcpp::Publisher<krabi_msgs::msg::MotorsDistanceAsserv>::SharedPtr m_distance_asserv_pub;
 
     // Subscribers
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_sub;
@@ -221,13 +215,6 @@ private:
                    const std::string& child_frame_id);
     std::map<int, rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> m_arucos_sub;
     std::array<geometry_msgs::msg::PoseStamped, 10> m_arucos;
-
-    // Kept for the abandoned buffering approach in updateStratMovement() — @todo delete
-    krabi_msgs::msg::StratMovement m_buffer_strat_movement_parameters;
-    Pose m_buffer_goal_pose;
-    geometry_msgs::msg::PoseStamped m_buffer_goal_pose_stamped;
-    Angle m_previous_angle_to_goal;
-    Pose m_previous_goal_pose;
 
     rclcpp::Time m_end_init_odo;
     rclcpp::TimerBase::SharedPtr timer_;

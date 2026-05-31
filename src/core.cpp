@@ -139,28 +139,6 @@ void Core::updateStratMovement(krabi_msgs::msg::StratMovement move)
     m_strat_movement_parameters = move;
     m_goal_pose = Pose(move.goal_pose.pose);
     m_goal_pose_stamped = move.goal_pose;
-    return; // early return: the stop-on-goal-change + buffering logic below was abandoned
-
-    // DEAD CODE — kept for reference in case the buffering approach is revived
-    if ((m_buffer_strat_movement_parameters.max_speed.linear.x == 0
-         && m_strat_movement_parameters.max_speed.linear.x != 0)
-        || (m_buffer_strat_movement_parameters.max_speed.angular.z == 0
-            && m_strat_movement_parameters.max_speed.angular.z != 0)
-        || m_buffer_strat_movement_parameters.goal_pose.pose
-             != m_strat_movement_parameters.goal_pose.pose
-        || m_buffer_strat_movement_parameters.orient != m_strat_movement_parameters.orient
-        || m_buffer_strat_movement_parameters.reverse_gear
-             != m_strat_movement_parameters.reverse_gear)
-    {
-        stopMotors();
-        m_strat_movement_parameters.max_speed.angular.z = 0;
-        m_strat_movement_parameters.max_speed.linear.x = 0;
-    }
-    //    RCLCPP_DEBUG_STREAM(this->get_logger(), "New goal: " << m_goal_pose);
-
-    m_buffer_strat_movement_parameters = m_strat_movement_parameters;
-    m_buffer_goal_pose = m_goal_pose;
-    m_buffer_goal_pose_stamped = m_goal_pose_stamped;
 }
 
 Core::Core()
@@ -169,9 +147,6 @@ Core::Core()
     m_tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     m_tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*m_tf_buffer_);
     m_tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
-
-    m_previous_angle_to_goal = Angle(0);
-    m_previous_goal_pose = Pose();
 
     m_goal_pose = Pose();
     m_distance_to_goal = 0;
@@ -310,52 +285,6 @@ void Core::setMotorsSpeed(Vitesse linearSpeed,
     new_motor_cmd.linear.x = reverseGear() ? -linearSpeed : linearSpeed;
     new_motor_cmd.angular.z = angularSpeed;
 
-    krabi_msgs::msg::MotorsDistanceAsserv l_distance_asserv_msg;
-    l_distance_asserv_msg.use_distance_asserv = true;
-    l_distance_asserv_msg.goal_pose = geometry_msgs::msg::PoseStamped();
-
-    const auto l_odom_id = "odom"; // tf::resolve(ros::this_node::getNamespace(), "odom");
-    const auto l_map_id = "map";
-
-    std::string l_error_message = "no error";
-    try
-    {
-        if (m_tf_buffer_->canTransform(l_map_id, l_odom_id, tf2::TimePointZero, &l_error_message))
-        {
-
-            geometry_msgs::msg::TransformStamped l_map_to_odom
-              = m_tf_buffer_->lookupTransform(l_map_id, l_odom_id, tf2::TimePointZero);
-            geometry_msgs::msg::PoseStamped l_goal_pose_in_odom;
-            tf2::doTransform(m_goal_pose_stamped, l_goal_pose_in_odom, l_map_to_odom);
-            l_distance_asserv_msg.goal_pose = l_goal_pose_in_odom;
-
-            // RCLCPP_WARN_STREAM(this->get_logger(), "goal in map : " <<
-            // m_goal_pose_stamped.pose.position.x << ", " << m_goal_pose_stamped.pose.position.y);
-            // RCLCPP_WARN_STREAM(this->get_logger(), "goal in odom : " <<
-            // l_goal_pose_in_odom.pose.position.x << ", " << l_goal_pose_in_odom.pose.position.y);
-        }
-        else
-        {
-            RCLCPP_WARN_STREAM(this->get_logger(),
-                               "CanTransform said: Unable to find a transform from "
-                                 << l_map_id << " to " << l_odom_id
-                                 << " (=map to odom), disabling distance asserv: "
-                                 << l_error_message);
-            l_distance_asserv_msg.use_distance_asserv = false;
-        }
-    }
-    catch (tf2::LookupException const&)
-    {
-        RCLCPP_WARN(this->get_logger(),
-                    "Unable to find a transform from map to odom, disabling distance asserv");
-        l_distance_asserv_msg.use_distance_asserv = false;
-    }
-
-    l_distance_asserv_msg.max_speed_at_arrival = m_strat_movement_parameters.max_speed_at_arrival;
-
-    l_distance_asserv_msg.reach = getReach(m_strat_movement_parameters.endpoint_frame_id);
-
-    m_distance_asserv_pub->publish(l_distance_asserv_msg);
     m_motors_cmd_pub->publish(new_motor_cmd);
     m_motors_cmd_slash_pub->publish(new_motor_cmd);
     std_msgs::msg::Bool new_enable_cmd;
@@ -643,13 +572,6 @@ Core::State Core::Loop()
                 m_target_orientation = AngleTools::wrapAngle(Angle(m_target_orientation + M_PI));
             }*/
 
-            [[maybe_unused]] auto l_delta_orientation
-              = AngleTools::diffAngle(m_target_orientation, m_previous_angle_to_goal);
-            [[maybe_unused]] auto l_delta_position
-              = (m_goal_pose.getPosition() - m_previous_goal_pose.getPosition()).getNorme();
-
-            // if (m_distance_to_goal < l_too_close_threshold && l_delta_position < Distance(0.01)
-            // && (abs(l_delta_orientation) > M_PI/2.f))
             if (m_distance_to_goal < l_reach_goal_dist)
             {
                 m_target_orientation = m_current_pose.getAngle();
@@ -667,8 +589,6 @@ Core::State Core::Loop()
                 m_fine_tuning_linear = false;
             }
 
-            m_previous_angle_to_goal = getAngleToGoal();
-            m_previous_goal_pose = m_goal_pose;
         }
         else
         {
@@ -876,31 +796,6 @@ bool Core::isTimeToStop()
         return true;
     }
     return false;
-}
-
-void Core::computeTargetSpeedOrientation()
-{
-    /*if (s_joystick.output->strength == 1) {
-            m_target_orientation = get_idx_of_max(s_joystick.output->neural_field, NB_NEURONS);
-            m_linear_speed_cmd = s_joystick.output->speed_inhibition;
-            //RCLCPP_INFO_STREAM(this->get_logger(), "Target orientation from joystick:
-    %d\n", m_target_orientation); } else if (s_goal.output->strength == 1) { m_target_orientation =
-    get_idx_of_max(s_goal.output->neural_field, NB_NEURONS);
-            //m_linear_speed_cmd = m_default_linear_speed;
-            m_linear_speed_cmd = s_goal.output->speed_inhibition;
-            //RCLCPP_INFO_STREAM(this->get_logger(), "Linear speed command from goal:
-    %d\n", m_linear_speed_cmd);
-            //RCLCPP_INFO_STREAM(this->get_logger(), "Target orientation from goal: %d\n",
-    m_target_orientation); } else {
-            / *
-             * If no positive valence strategy fires, set the target orientation to the robot's
-    orientation
-             * which means the robot will go straight on
-             * /
-    */
-    // m_target_orientation = orientation;
-    m_linear_speed_cmd = m_default_linear_speed;
-    //}
 }
 
 void Core::limitAngularSpeedCmd(VitesseAngulaire& a_angular_speed_cmd)
