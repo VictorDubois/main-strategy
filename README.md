@@ -77,5 +77,42 @@ Used for displaying in the 3d view
 ### remaining_time
 The number of seconds remaining until the end of the match (type: [Duration](https://docs.ros2.org/foxy/api/builtin_interfaces/msg/Duration.html))
 
+# How to add a new orient mode
+
+Orient modes are how `goal_strategy` tells the robot *how* to behave during a move (just rotate, drive to a point, push against a wall, etc.). They are carried in the `orient` field of [StratMovement](https://github.com/VictorDubois/krabi-msgs/blob/feature/ROS2/msg/StratMovement.msg) and consumed by `main_strategy`. Adding a new one usually takes ~5 small edits:
+
+### 1. Declare the new constant
+Edit `krabi-msgs/msg/StratMovement.msg`, give it the next free value:
+```
+uint32 MY_NEW_MODE=6 # Brief description
+```
+
+### 2. Add a predicate in `core.h`
+Open [include/core.h](include/core.h) and add a small `bool`-returning method next to the existing ones (`orienting()`, `recalage_bordure()`, `clamp_mode()`, `stop_angular()`):
+```cpp
+bool my_new_mode();
+```
+
+### 3. Implement it in `core.cpp`
+The implementation is one line:
+```cpp
+bool Core::my_new_mode()
+{
+    return m_strat_movement_parameters.orient == krabi_msgs::msg::StratMovement::MY_NEW_MODE;
+}
+```
+
+### 4. Use the predicate where the new behaviour belongs
+Most modes hook into one of three places in `core.cpp`:
+- **`Loop()`'s NORMAL branch** — to alter target orientation or distance computation
+- **`setMotorsSpeed()`** — to override PWM/current limits (see how `recalage_bordure()` does it)
+- **`stop_angular()`/`orienting()`** — to compose with existing predicates if the new mode mostly resembles an existing one
+
+### 5. Publish from `goal_strategy`
+Update the `goal_strategy` step that should trigger the new mode to set `move.orient = krabi_msgs::msg::StratMovement::MY_NEW_MODE`.
+
+### 6. Add a functional test
+Drop a new `test_NN_my_new_mode` method in [test/test_goal_reach.py](test/test_goal_reach.py). Use the existing tests as a template; the helper `_make_goal(..., orient=StratMovement.MY_NEW_MODE)` already accepts any mode constant.
+
 # What to do for a new year?
 Not much, this repo is completely generic year-wise
