@@ -1,5 +1,5 @@
-#ifndef _HELPERS_BROKER_H
-#define _HELPERS_BROKER_H
+#ifndef _DNF_MATH_H
+#define _DNF_MATH_H
 #ifdef __cplusplus
 extern "C"
 {

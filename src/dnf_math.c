@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "helpers_broker.h"
+#include "dnf_math.h"
 
 #define FALSE 0
 #define TRUE 1

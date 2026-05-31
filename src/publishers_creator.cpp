@@ -14,4 +14,12 @@ void Core::create_publishers()
     m_motion_debug_pub
       = this->create_publisher<krabi_msgs::msg::MotionDebug>("motion_debug", 5);
     m_chrono_pub = this->create_publisher<builtin_interfaces::msg::Duration>("/remaining_time", 5);
+
+    // DNF debug arrays for Foxglove visualisation (Plot panel on each topic)
+    m_dnf_goal_pub
+      = this->create_publisher<std_msgs::msg::Float32MultiArray>("dnf_goal_output", 1);
+    m_dnf_lidar_pub
+      = this->create_publisher<std_msgs::msg::Float32MultiArray>("dnf_lidar_output", 1);
+    m_dnf_landscape_pub
+      = this->create_publisher<std_msgs::msg::Float32MultiArray>("dnf_angular_landscape", 1);
 }

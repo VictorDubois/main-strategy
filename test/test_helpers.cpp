@@ -1,5 +1,5 @@
 /**
- * Unit tests for helpers_broker.c — the pure-C math layer of the DNF motion controller.
+ * Unit tests for dnf_math.c — the pure-C math layer of the DNF motion controller.
  *
  * No ROS, no krabilib: just <math.h> and gtest.
  * Run with:  colcon test --packages-select main_strategy
@@ -16,7 +16,7 @@
 #include <cmath>
 #include <gtest/gtest.h>
 
-#include "helpers_broker.h"
+#include "dnf_math.h"
 
 static const int NB_NEURONS = 360;
 

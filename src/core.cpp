@@ -712,6 +712,7 @@ Core::State Core::Loop()
         m_motion_debug_msg.pid_position_error = m_pid_position_prev_error;
         m_motion_debug_msg.pid_position_integral = m_pid_position_integral;
         m_motion_debug_pub->publish(m_motion_debug_msg);
+        publishDnfDebug();
 
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
@@ -783,6 +784,37 @@ void Core::publishRemainingTime()
     }
 
     m_chrono_pub->publish(remaining_time_msg);
+}
+
+// Lazily publish the three DNF neuron arrays so a tool like Foxglove can plot them
+// in real-time on the "Plot" panel.  Skipped when no subscriber is connected, so
+// there is zero overhead during competition runs.
+void Core::publishDnfDebug()
+{
+    const bool any_subscribed = (m_dnf_goal_pub->get_subscription_count() > 0)
+                                || (m_dnf_lidar_pub->get_subscription_count() > 0)
+                                || (m_dnf_landscape_pub->get_subscription_count() > 0);
+    if (!any_subscribed)
+        return;
+
+    std_msgs::msg::Float32MultiArray msg;
+    msg.data.resize(NB_NEURONS);
+
+    if (m_dnf_goal_pub->get_subscription_count() > 0)
+    {
+        std::copy(m_goal_output, m_goal_output + NB_NEURONS, msg.data.begin());
+        m_dnf_goal_pub->publish(msg);
+    }
+    if (m_dnf_lidar_pub->get_subscription_count() > 0)
+    {
+        std::copy(m_lidar_output, m_lidar_output + NB_NEURONS, msg.data.begin());
+        m_dnf_lidar_pub->publish(msg);
+    }
+    if (m_dnf_landscape_pub->get_subscription_count() > 0)
+    {
+        std::copy(m_angular_landscape, m_angular_landscape + NB_NEURONS, msg.data.begin());
+        m_dnf_landscape_pub->publish(msg);
+    }
 }
 
 bool Core::isTimeToStop()

@@ -5,9 +5,9 @@
  * Motion control uses a Dynamic Neural Field (DNF) approach (see https://theses.fr/2017CERG0898)
  *   - The full 360° heading space is discretised into NB_NEURONS bins (1°/bin).
  *   - An attractive potential (m_goal_output) is built around the desired heading using a
- *     log-cosh "hill" function (see target() in helpers_broker.c).
+ *     log-cosh "hill" function (see target() in dnf_math.c).
  *   - A repulsive potential (m_lidar_output) is built around the bearing of the nearest
- *     obstacle using a Gaussian bump (see gaussian() in helpers_broker.c). Currently deactivated
+ *     obstacle using a Gaussian bump (see gaussian() in dnf_math.c). Currently deactivated
  *   - Both are summed into m_angular_landscape and differentiated (see differentiate()).
  *   - The derivative at the robot's own heading (neuron 0) gives the angular speed command:
  *     positive gradient → turn left, negative → turn right.
@@ -36,8 +36,9 @@
 #include <krabi_msgs/msg/strat_movement.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/float32_multi_array.hpp>
 
-#include "helpers_broker.h"
+#include "dnf_math.h"
 #include "krabilib/pose.h"
 
 #include <diagnostic_updater/diagnostic_updater.hpp>
@@ -190,6 +191,13 @@ private:
     rclcpp::Publisher<krabi_msgs::msg::MotorsCmd>::SharedPtr m_motors_pwm_pub;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr m_target_orientation_pub;
     rclcpp::Publisher<builtin_interfaces::msg::Duration>::SharedPtr m_chrono_pub;
+
+    // DNF debug arrays — for Foxglove Plot panel.  Published only when a subscriber
+    // is connected to avoid sending 360 floats every tick during competition.
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr m_dnf_goal_pub;
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr m_dnf_lidar_pub;
+    rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr m_dnf_landscape_pub;
+    void publishDnfDebug();
 
     // Subscribers
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_sub;

@@ -47,7 +47,7 @@ add_executable(${PROJECT_NAME}_node
   src/main_strategy_node.cpp 
   src/publishers_creator.cpp
   src/subscribers_creator.cpp
-  src/helpers_broker.c 
+  src/dnf_math.c 
   src/core.cpp)
 
 add_executable(odometry_node 
@@ -93,7 +93,7 @@ if(BUILD_TESTING)
   # --- Tier 1a: pure-C math (no ROS) ---
   ament_add_gtest(test_helpers
     test/test_helpers.cpp
-    src/helpers_broker.c
+    src/dnf_math.c
   )
   target_include_directories(test_helpers PRIVATE include)
   target_link_libraries(test_helpers m)
@@ -111,7 +111,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_core_node
     test/test_core_node.cpp
     src/core.cpp
-    src/helpers_broker.c
+    src/dnf_math.c
     src/publishers_creator.cpp
     src/subscribers_creator.cpp
   )
