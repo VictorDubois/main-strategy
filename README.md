@@ -5,32 +5,6 @@ Takes the inputs of the other nodes (Goal and Lidar), and send a speed command t
 From most important (top) to least important (bottom)
 <img width="1346" height="723" alt="rosgraph_krabi (1)" src="https://github.com/user-attachments/assets/628c8b35-7644-413c-bbe8-3c72bf5db8b6" />
 
-# Visualising the DNF neural field
-
-`main_strategy` publishes three 360-element `std_msgs/msg/Float32MultiArray` topics:
-- `dnf_goal_output`       — attractive potential toward the goal bearing
-- `dnf_lidar_output`      — repulsive potential from obstacles (currently 0)
-- `dnf_angular_landscape` — sum of the two; differentiated to get angular speed
-
-Open them in Foxglove's **Plot** panel to see the DNF working in real-time. Each topic shows a 360-point curve indexed by heading neuron (0..359). The arrays are only published when at least one subscriber is connected, so there is no overhead during competition.
-
-# Quick start — running the simulation
-
-Single command, single terminal:
-```bash
-ros2 launch krabi_bringup krabi_start_simu.py
-```
-
-This launches Gazebo (headless by default), spawns the robot, and starts the full main + goal + lidar strategy stack. Optional arguments:
-```bash
-ros2 launch krabi_bringup krabi_start_simu.py \
-    gui:=True \
-    xRobotPos:=-1.25 yRobotPos:=-0.75 zRobotOrientation:=1.570796327 \
-    isBlue:=True use_aruco:=False
-```
-
-The two-terminal flow (`spawn_world.py` + `krabi_launch.py`) still works and is what `krabi_start_simu.py` runs under the hood — but new contributors should prefer the single-command form above.
-
 # Inputs
 
 ## strat_movement <= most important message
@@ -139,6 +113,16 @@ Update the `goal_strategy` step that should trigger the new mode to set `move.or
 
 ### 6. Add a functional test
 Drop a new `test_NN_my_new_mode` method in [test/test_goal_reach.py](test/test_goal_reach.py). Use the existing tests as a template; the helper `_make_goal(..., orient=StratMovement.MY_NEW_MODE)` already accepts any mode constant.
+
+# Visualising the DNF neural field
+DNF = Dynamic Neural Field. Inspired by Pierre Delarboulas' PHD
+
+`main_strategy` publishes three 360-element `std_msgs/msg/Float32MultiArray` topics:
+- `dnf_goal_output`       — attractive potential toward the goal bearing
+- `dnf_lidar_output`      — repulsive potential from obstacles (currently 0)
+- `dnf_angular_landscape` — sum of the two; differentiated to get angular speed
+
+Open them in Foxglove's **Plot** panel to see the DNF working in real-time. Each topic shows a 360-point curve indexed by heading neuron (0..359). The arrays are only published when at least one subscriber is connected, so there is no overhead during competition.
 
 # What to do for a new year?
 Not much, this repo is completely generic year-wise
