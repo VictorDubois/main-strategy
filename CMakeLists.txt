@@ -44,10 +44,11 @@ add_definitions(-DPLOT_NEURONS)
 endif()
 
 add_executable(${PROJECT_NAME}_node
-  src/main_strategy_node.cpp 
+  src/main_strategy_node.cpp
   src/publishers_creator.cpp
   src/subscribers_creator.cpp
-  src/dnf_math.c 
+  src/speed_controller.cpp
+  src/dnf_math.c
   src/core.cpp)
 
 add_executable(odometry_node 
@@ -114,6 +115,7 @@ if(BUILD_TESTING)
     src/dnf_math.c
     src/publishers_creator.cpp
     src/subscribers_creator.cpp
+    src/speed_controller.cpp
   )
   ament_target_dependencies(test_core_node
     std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
