@@ -1,5 +1,7 @@
 # Main node of the robot [Krabi](https://github.com/VictorDubois/krabi)
 
+![CI](https://github.com/VictorDubois/main-strategy/actions/workflows/test.yml/badge.svg)
+
 Takes the inputs of the other nodes (Goal and Lidar), and send a speed command to the motors
 
 From most important (top) to least important (bottom)
