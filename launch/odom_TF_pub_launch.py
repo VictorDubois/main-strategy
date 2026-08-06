@@ -9,7 +9,8 @@ def generate_launch_description():
     yRobotPos_value = LaunchConfiguration('yRobotPos')
     zRobotOrientation_value = LaunchConfiguration('zRobotOrientation')
     use_sim_time_value = LaunchConfiguration('use_sim_time')
-    
+    publish_tf_odom_value = LaunchConfiguration('publish_tf_odom')
+
     isBlue_launch_arg = DeclareLaunchArgument(
         'isBlue',
         default_value='False'
@@ -30,8 +31,12 @@ def generate_launch_description():
         'use_sim_time',
         default_value='True'
     )
+    publish_tf_odom_launch_arg = DeclareLaunchArgument(
+        'publish_tf_odom',
+        default_value='True'
+    )
     return LaunchDescription([
-        isBlue_launch_arg, xRobotPos_launch_arg, yRobotPos_launch_arg, zRobotOrientation_launch_arg,
+        isBlue_launch_arg, xRobotPos_launch_arg, yRobotPos_launch_arg, zRobotOrientation_launch_arg, publish_tf_odom_launch_arg,
         Node(
             package='main_strategy',
             namespace='krabi_ns',
@@ -45,7 +50,7 @@ def generate_launch_description():
             {"init_pose/x": xRobotPos_value},
             {"init_pose/y": yRobotPos_value},
             {"init_pose/theta": zRobotOrientation_value},
-            {"publish_tf_odom": True},
+            {"publish_tf_odom": publish_tf_odom_value},
             {"use_sim_time": use_sim_time_value}
 
         ]
