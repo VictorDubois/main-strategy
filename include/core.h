@@ -232,7 +232,8 @@ private:
 
     // Diagnostic
     bool m_transform_found = false;
-    bool m_reach_transform_found = false;
+    bool m_reach_transform_found
+      = true; // Otherwise it displays an error until we try to find the transform
     bool m_stopped_by_obstacle = false;
     bool m_stopped_by_goalstrat = false;
     bool m_match_ended = false;
