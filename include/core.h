@@ -36,10 +36,13 @@
 #include <krabi_msgs/msg/strat_movement.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/bool.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+#include <atomic>
 #include <std_msgs/msg/float32_multi_array.hpp>
 
 #include "dnf_math.h"
 #include "krabilib/pose.h"
+#include "krabilib/tirette_filter.h"
 
 #include <diagnostic_updater/diagnostic_updater.hpp>
 
@@ -78,6 +81,12 @@ public:
     ~Core();
     int Setup();
     State Loop();
+
+    // Read-only accessor for tests
+    State getState() const
+    {
+        return m_state;
+    }
     bool isOver();
     void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& stat);
 
@@ -203,6 +212,21 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lidar_behind_sub;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr m_tirette_sub;
+
+    // Pre-match motion (wall recalage, go to start pose) requested by goal_strategy while
+    // waiting for the tirette. The match chrono is NOT started.
+    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr m_pre_match_motion_srv;
+    std::atomic<bool> m_pre_match_motion{ false };
+    // steady clock (s) of the last strat_movement: pre-match motion is cut if it gets too old
+    double m_last_strat_movement = 0.;
+    void neutralizeStratMovement();
+
+    // The match only starts once the tirette has been seen inserted, then removed
+    TiretteFilter m_tirette_filter;
+
+    // cmd_vel while pushing against a wall. 0 = do not touch cmd_vel (real robot: the STM32
+    // uses the PWM override). Only set in simulation, where Gazebo only listens to cmd_vel.
+    double m_recalage_cmd_vel = 0.;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odometry_sub;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odometry_slash_sub;
     rclcpp::Subscription<krabi_msgs::msg::StratMovement>::SharedPtr m_strat_movement_sub;

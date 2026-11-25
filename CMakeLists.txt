@@ -26,6 +26,7 @@ find_package(tf2_eigen REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(diagnostic_updater REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # For including LidarStrat:
 find_package(lidar_strategy REQUIRED)
@@ -61,6 +62,7 @@ tf2_ros
 tf2_geometry_msgs
   rclcpp
   diagnostic_updater
+  std_srvs
 
   # For including LidarStrat:
   visualization_msgs
@@ -70,6 +72,11 @@ tf2_geometry_msgs
 ament_target_dependencies(odometry_node std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
 # lidar_strategy
  rclcpp diagnostic_updater)
+
+# Publie map -> odom (TF dynamique) + service correct_pose pour le recalage bordure
+add_executable(map_odom_publisher src/map_odom_publisher.cpp)
+ament_target_dependencies(map_odom_publisher
+  rclcpp tf2 tf2_ros tf2_geometry_msgs geometry_msgs krabi_msgs)
 
 if(PLOT_NEURONS)
 ament_target_dependencies(${PROJECT_NAME}_node -lpython3.8)
@@ -85,6 +92,10 @@ install(TARGETS
 )
 install(TARGETS
   odometry_node
+  DESTINATION lib/${PROJECT_NAME}/
+)
+install(TARGETS
+  map_odom_publisher
   DESTINATION lib/${PROJECT_NAME}/
 )
 
@@ -120,7 +131,7 @@ if(BUILD_TESTING)
   ament_target_dependencies(test_core_node
     std_msgs geometry_msgs tf2 sensor_msgs krabi_msgs nav_msgs goal_strategy
     tf2_eigen tf2_ros tf2_geometry_msgs rclcpp diagnostic_updater
-    visualization_msgs lidar_strategy
+    visualization_msgs lidar_strategy std_srvs
   )
   target_include_directories(test_core_node PRIVATE include)
   target_link_libraries(test_core_node m)

@@ -146,9 +146,81 @@ TEST_F(CoreNodeTest, TransitionsFromInitOdomToWaitTirette)
       << "Node must not enter EXIT state within 3 s of startup (match timer not started)";
 }
 
+// Publish `value` on the tirette topic for `duration_ms`, spinning the node meanwhile
+static void publish_tirette(const std::shared_ptr<Core>& node, bool value, int duration_ms)
+{
+    auto pub = node->create_publisher<std_msgs::msg::Bool>("tirette", 5);
+    rclcpp::executors::SingleThreadedExecutor exec;
+    exec.add_node(node);
+    std_msgs::msg::Bool msg;
+    msg.data = value;
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(duration_ms);
+    while (std::chrono::steady_clock::now() < end)
+    {
+        pub->publish(msg);
+        exec.spin_some(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+}
+
+TEST_F(CoreNodeTest, BootWithoutTiretteDoesNotStartMatch)
+{
+    node_->Setup();
+    publish_tirette(node_, /*removed=*/true, 3000);
+    EXPECT_EQ(node_->getState(), Core::State::WAIT_TIRETTE)
+      << "tirette=True alone (never inserted) must not start the match";
+}
+
+TEST_F(CoreNodeTest, ShortInsertionDoesNotArmTheMatch)
+{
+    node_->Setup();
+    publish_tirette(node_, /*removed=*/false, 300); // contact bounce
+    publish_tirette(node_, /*removed=*/true, 1000);
+    EXPECT_EQ(node_->getState(), Core::State::WAIT_TIRETTE);
+}
+
+// Pre-match motion (recalage): motors enabled on request, cut if goal_strat goes silent
+TEST_F(CoreNodeTest, PreMatchMotionIsCutWhenStratMovementStops)
+{
+    node_->Setup();
+    bool motors_enabled = false;
+    auto sub = node_->create_subscription<std_msgs::msg::Bool>(
+      "enable_motor", 5, [&](std_msgs::msg::Bool::SharedPtr m) { motors_enabled = m->data; });
+    auto strat_pub = node_->create_publisher<krabi_msgs::msg::StratMovement>("strat_movement", 5);
+    auto client = node_->create_client<std_srvs::srv::SetBool>("enable_pre_match_motion");
+
+    ASSERT_TRUE(spin_until([this]() { return node_->getState() == Core::State::WAIT_TIRETTE; }));
+    EXPECT_FALSE(motors_enabled) << "motors must be off before the match";
+
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = true;
+    auto future = client->async_send_request(request);
+
+    // goal_strat alive: it keeps publishing, so the motors stay enabled well past the timeout
+    krabi_msgs::msg::StratMovement move;
+    move.orient = krabi_msgs::msg::StratMovement::RECALAGE_BORDURE;
+    spin_until(
+      [&]()
+      {
+          strat_pub->publish(move);
+          return false;
+      },
+      2500);
+    EXPECT_TRUE(motors_enabled);
+
+    // goal_strat dies: motors cut within the timeout (1 s)
+    EXPECT_TRUE(spin_until([&]() { return !motors_enabled; }, 2000))
+      << "motors must be cut when strat_movement stops during pre-match motion";
+    EXPECT_EQ(node_->getState(), Core::State::WAIT_TIRETTE);
+}
+
 TEST_F(CoreNodeTest, TiretteStartsMatch)
 {
     node_->Setup();
+
+    // The tirette must have been seen inserted first
+    publish_tirette(node_, /*removed=*/false, 1500);
+    EXPECT_EQ(node_->getState(), Core::State::WAIT_TIRETTE);
 
     // Create a publisher on the tirette topic using the node's own graph so
     // it is in the same ROS context.
@@ -172,6 +244,7 @@ TEST_F(CoreNodeTest, TiretteStartsMatch)
     // isOver() only returns true in EXIT state — it should remain false.
     EXPECT_FALSE(node_->isOver())
       << "After tirette=True the node must be in NORMAL state, not EXIT";
+    EXPECT_EQ(node_->getState(), Core::State::NORMAL);
 }
 
 // ---------------------------------------------------------------------------

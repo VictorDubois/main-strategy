@@ -337,7 +337,11 @@ class TestRobotBehaviour(unittest.TestCase):
             time.sleep(interval_s)
 
     def _pull_tirette(self):
-        """Simulate the match start signal."""
+        """Simulate the match start signal: tirette inserted (stable for > 1 s), then removed."""
+        msg = Bool(data=False)
+        for _ in range(15):
+            self.tirette_pub.publish(msg)
+            time.sleep(0.1)
         msg = Bool(data=True)
         for _ in range(5):
             self.tirette_pub.publish(msg)

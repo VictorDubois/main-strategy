@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #define MAX_ALLOWED_ANGULAR_SPEED 5.f // rad/s
+#define PRE_MATCH_MOTION_TIMEOUT 1.0 // s without strat_movement before cutting pre-match motion
 
 #include "lidarStrat.h"
 #define UPDATE_RATE 10
@@ -59,8 +60,11 @@ void Core::updateGoal(geometry_msgs::msg::PoseStamped /*goal_pose*/)
 
 void Core::updateTirette(std_msgs::msg::Bool starting)
 {
-    if (starting.data && (m_state == State::WAIT_TIRETTE || m_state == State::INIT_ODOM_TODO))
+    // The robot may boot without the tirette: "not inserted" alone must never start the match
+    const bool l_go = m_tirette_filter.update(starting.data);
+    if (l_go && (m_state == State::WAIT_TIRETTE || m_state == State::INIT_ODOM_TODO))
     {
+        m_pre_match_motion = false;
         RCLCPP_INFO_STREAM(this->get_logger(), "Go for launch!");
 
         // Start counting the time
@@ -139,6 +143,19 @@ void Core::updateStratMovement(krabi_msgs::msg::StratMovement move)
     m_strat_movement_parameters = move;
     m_goal_pose = Pose(move.goal_pose.pose);
     m_goal_pose_stamped = move.goal_pose;
+    m_last_strat_movement = TiretteFilter::steadyNow();
+}
+
+/**
+ * @brief Forget the last movement order (ex: RECALAGE_BORDURE, which forces a PWM), so that
+ * it is not applied again when the motors are re-enabled.
+ */
+void Core::neutralizeStratMovement()
+{
+    m_strat_movement_parameters.orient = krabi_msgs::msg::StratMovement::GO_TO_GOALPOSE_POSITION;
+    m_goal_pose = m_current_pose;
+    m_linear_speed_cmd = 0;
+    m_angular_speed_cmd = 0;
 }
 
 Core::Core()
@@ -174,6 +191,8 @@ Core::Core()
     this->declare_parameter("maxCurrent", 1.7f);
     m_max_current = this->get_parameter("maxCurrent").as_double();
 
+    m_recalage_cmd_vel = this->declare_parameter("recalageCmdVel", 0.0);
+
     RCLCPP_INFO(this->get_logger(), m_is_blue ? "Is Blue !" : "Not Blue :'(");
 
     create_publishers();
@@ -204,6 +223,23 @@ Core::Core()
     m_angular_speed_cmd = 0;
 
     m_end_init_odo = this->now() + rclcpp::Duration(0, 500 * 1e6);
+
+    // Allows goal_strategy to move the robot before the match (recalage, go to start pose)
+    m_pre_match_motion_srv = this->create_service<std_srvs::srv::SetBool>(
+      "enable_pre_match_motion",
+      [this](const std::shared_ptr<std_srvs::srv::SetBool::Request> req,
+             std::shared_ptr<std_srvs::srv::SetBool::Response> res)
+      {
+          m_last_strat_movement = TiretteFilter::steadyNow(); // (re)start the watchdog
+          if (!req->data && m_state == State::WAIT_TIRETTE)
+          {
+              neutralizeStratMovement();
+          }
+          m_pre_match_motion = req->data;
+          res->success = true;
+          res->message = req->data ? "pre-match motion enabled" : "pre-match motion disabled";
+          RCLCPP_INFO(this->get_logger(), "%s", res->message.c_str());
+      });
 
     timer_
       = this->create_wall_timer(std::chrono::milliseconds{ 100 }, std::bind(&Core::Loop, this));
@@ -513,6 +549,18 @@ Core::State Core::Loop()
         return m_state;
     }
 
+    // goal_strat crashed or froze while moving the robot before the match: stop everything
+    if (m_pre_match_motion
+        && TiretteFilter::steadyNow() - m_last_strat_movement > PRE_MATCH_MOTION_TIMEOUT)
+    {
+        RCLCPP_ERROR(this->get_logger(), "Pre-match motion: no strat_movement, stopping motors");
+        m_pre_match_motion = false;
+        if (m_state == State::WAIT_TIRETTE)
+        {
+            neutralizeStratMovement();
+        }
+    }
+
     if (m_state == State::INIT_ODOM_TODO)
     {
         // Pulse a single encoder reset so that the ICP/EKF localisation node can get
@@ -523,11 +571,14 @@ Core::State Core::Loop()
             m_state = State::WAIT_TIRETTE;
         }
     }
-    else if (m_state == State::WAIT_TIRETTE)
+    else if (m_state == State::WAIT_TIRETTE && !m_pre_match_motion)
     {
         setMotorsSpeed(Vitesse(0), VitesseAngulaire(0), false, false);
     }
-    else if (m_state == State::NORMAL)
+    // Before the match, with pre-match motion enabled, run the same motion control as during
+    // the match. The chrono only starts with the tirette (updateTirette), and isTimeToStop()
+    // is not checked in WAIT_TIRETTE.
+    else if (m_state == State::NORMAL || m_state == State::WAIT_TIRETTE)
     {
         m_distance_to_goal = (m_goal_pose.getPosition() - m_current_pose.getPosition()).getNorme();
 
@@ -700,10 +751,18 @@ Core::State Core::Loop()
         m_motion_debug_pub->publish(m_motion_debug_msg);
         publishDnfDebug();
 
+        // Simulation only (recalageCmdVel > 0): Gazebo ignores the PWM override of
+        // setMotorsSpeed, so push with a small constant cmd_vel (sign handled by reverseGear()).
+        if (recalage_bordure() && m_recalage_cmd_vel > 0.)
+        {
+            m_linear_speed_cmd = Vitesse(m_recalage_cmd_vel);
+            m_angular_speed_cmd = VitesseAngulaire(0);
+        }
+
         // Set motors speed according to values computed before
         setMotorsSpeed(m_linear_speed_cmd, m_angular_speed_cmd, true, false);
 
-    } // End of m_state == State::NORMAL
+    } // End of m_state == State::NORMAL (or pre-match motion)
     if (m_state == State::EXIT)
     {
         stopMotors();
