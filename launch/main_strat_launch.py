@@ -1,6 +1,7 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 import launch_ros.actions
+from launch_ros.parameter_descriptions import ParameterValue
 from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 
@@ -51,7 +52,11 @@ def generate_launch_description():
             namespace='krabi_ns',
             executable='main_strategy_node',
             name='main_strat',
-            parameters=[{"use_sim_time": use_sim_time_value}],
+            parameters=[{"use_sim_time": use_sim_time_value},
+                        # Simu uniquement : Gazebo n'écoute que cmd_vel. 0 sur le robot (override PWM).
+                        {"recalageCmdVel": ParameterValue(PythonExpression(
+                            ["0.1 if '", use_sim_time_value, "'.lower() == 'true' else 0.0"]),
+                            value_type=float)}],
             respawn=True,
             respawn_delay=5.0
             #arguments=["--ros-args", "--log-level", "debug"]
