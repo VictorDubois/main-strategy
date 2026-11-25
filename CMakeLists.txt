@@ -71,6 +71,11 @@ ament_target_dependencies(odometry_node std_msgs geometry_msgs tf2 sensor_msgs k
 # lidar_strategy
  rclcpp diagnostic_updater)
 
+# Publie map -> odom (TF dynamique) + service correct_pose pour le recalage bordure
+add_executable(map_odom_publisher src/map_odom_publisher.cpp)
+ament_target_dependencies(map_odom_publisher
+  rclcpp tf2 tf2_ros tf2_geometry_msgs geometry_msgs krabi_msgs)
+
 if(PLOT_NEURONS)
 ament_target_dependencies(${PROJECT_NAME}_node -lpython3.8)
 ament_target_dependencies(${PROJECT_NAME}_node -lpython3.6)
@@ -85,6 +90,10 @@ install(TARGETS
 )
 install(TARGETS
   odometry_node
+  DESTINATION lib/${PROJECT_NAME}/
+)
+install(TARGETS
+  map_odom_publisher
   DESTINATION lib/${PROJECT_NAME}/
 )
 
